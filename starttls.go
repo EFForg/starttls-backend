@@ -1,30 +1,10 @@
 package main
 
 import (
-    "flag"
-    "os"
     "fmt"
-    "net"
     "net/smtp"
     "crypto/tls"
 )
-
-type Report struct {
-    Message string
-}
-
-type CheckResult struct {
-    title string
-    reports []Report
-}
-
-// Interface for particular Checks to run.
-type Check interface {
-    // Run this check. This function will be run in individual goroutines
-    run(chan CheckResult)
-    // A human-readable name for this check.
-    title() string
-}
 
 // Checks port 25 on a particular domain for proper STARTTLS support.
 // Checks for:
@@ -37,12 +17,6 @@ type StartTLSCheck struct {
     Address string
     Reports []Report
 }
-
-// type MTASTSCheck struct {
-//     Address string
-//     Reports []Report
-// }
-
 
 // Transforms SSL/TLS constant into human-readable string
 func versionToString(version uint16) string {
@@ -99,25 +73,25 @@ func cipherToString(cipher uint16) string {
 
 // Helpers to report results of test.
 
-func (c *StartTLSCheck) report_error(message string) {
+func (c *StartTLSCheck) reportError(message string) {
     c.Reports = append(c.Reports, Report { Message: fmt.Sprintf("  ERROR:   %s", message) })
 }
 
-func (c *StartTLSCheck) report_failure(message string) {
+func (c *StartTLSCheck) reportFailure(message string) {
     c.Reports = append(c.Reports, Report { Message: fmt.Sprintf("  FAILURE: %s", message) })
 }
 
-func (c *StartTLSCheck) report_success(message string) {
+func (c *StartTLSCheck) reportSuccess(message string) {
     c.Reports = append(c.Reports, Report { Message: fmt.Sprintf("  SUCCESS: %s", message) })
 }
 
 // Perform all checks for STARTTLS.
-// TODO: explicitly NAME each of these checks, and enable/disable them through CLI flags.
+// TODO: explicitly NAME each of these checks
 func (c *StartTLSCheck) perform_checks() {
     // CHECK: Server connectivity
     client, err := smtp.Dial(fmt.Sprintf("%s:25", c.Address))
     if err != nil {
-        c.report_error(fmt.Sprintf("Couldn't connect to address '%s'", c.Address))
+        c.reportError(fmt.Sprintf("Couldn't connect to address '%s'", c.Address))
         return
     }
     defer client.Close()
@@ -125,7 +99,7 @@ func (c *StartTLSCheck) perform_checks() {
     // CHECK: STARTTLS Support
     ok, _ := client.Extension("StartTLS")
     if !ok {
-        c.report_failure("Server does not advertise support for STARTTLS")
+        c.reportFailure("Server does not advertise support for STARTTLS")
     }
 
     // Can we actually negotiate a TLS connection?
@@ -134,95 +108,48 @@ func (c *StartTLSCheck) perform_checks() {
     err = client.StartTLS(config)
     if err != nil {
         // TODO: type-check on |err| to be more specific about failure
-        c.report_failure(fmt.Sprintf("Server presented invalid certificate: %q", err))
+        c.reportFailure(fmt.Sprintf("Server presented invalid certificate: %q", err))
         config = &tls.Config{ InsecureSkipVerify: true }
         // Reset connection and try again
         client.Close()
         client, _ = smtp.Dial(fmt.Sprintf("%s:25", c.Address))
         err = client.StartTLS(config)
         if err != nil {
-            c.report_error("Could not establish TLS session at all.")
+            c.reportError("Could not establish TLS session at all.")
             return
         }
     } else {
-        c.report_success("Valid certificate!")
+        c.reportSuccess("Valid certificate!")
     }
 
     state, ok := client.TLSConnectionState()
     if !ok {
-        c.report_error("Could not retrieve TLS connection state" )
+        c.reportError("Could not retrieve TLS connection state" )
     }
     // CHECK: TLS version
     if versionUpToDate(state.Version) {
-        c.report_success(fmt.Sprintf("TLS version up-to-date: %s", versionToString(state.Version)))
+        c.reportSuccess(fmt.Sprintf("TLS version up-to-date: %s",
+                                    versionToString(state.Version)))
     } else {
-        c.report_failure(fmt.Sprintf("TLS version outdated: %s", versionToString(state.Version)))
+        c.reportFailure(fmt.Sprintf("TLS version outdated: %s",
+                                    versionToString(state.Version)))
     }
     // CHECK: forward secrecy
     if providesForwardSecrecy(state.CipherSuite ) {
-        c.report_success(fmt.Sprintf("Provides forward secrecy! (%s)", cipherToString(state.CipherSuite)))
+        c.reportSuccess(fmt.Sprintf("Provides forward secrecy! (%s)",
+                                    cipherToString(state.CipherSuite)))
     } else {
-        c.report_failure(fmt.Sprintf("Cipher suite does not provide forward secrecy (%s)", cipherToString(state.CipherSuite)))
+        c.reportFailure(fmt.Sprintf("Cipher suite does not provide forward secrecy (%s)",
+                                    cipherToString(state.CipherSuite)))
     }
-}
-
-func (c StartTLSCheck) title() string {
-    return fmt.Sprintf("=> STARTTLS Check for %s", c.Address)
 }
 
 func (c StartTLSCheck) run(done chan CheckResult) {
     c.perform_checks()
     done <- CheckResult{
-        title: c.title(),
+        title: fmt.Sprintf("=> STARTTLS Check for %s", c.Address),
         reports: c.Reports,
     }
 }
 
-// Transforms MX record's hostname into a regular domain address.
-// In particular, absolute domains end with ".", so we can remove the dot.
-func mxToAddr(mx string) string {
-    if mx[len(mx)-1] == '.' {
-        return mx[0:len(mx)-1]
-    } else {
-        return mx
-    }
-}
 
-func main() {
-    // Argument parsing.
-    domainStr := flag.String("domain", "", "Domain to check TLS for.")
-    flag.Parse()
-    if *domainStr == "" {
-        flag.PrintDefaults()
-        os.Exit(1)
-    }
-    checks := []Check{}
-
-    // MX record lookup.
-    mxs, err := net.LookupMX(*domainStr)
-    if err != nil {
-        os.Exit(1)
-    }
-    for _, mx := range mxs {
-        fmt.Println("MX:", mx.Host)
-        checks = append(checks, StartTLSCheck{ Address: mxToAddr(mx.Host), Reports: []Report{} })
-    }
-
-    // Run checks for every domain from MX lookup!
-    // Create callback channels
-    var done = make(chan CheckResult)
-    // Start running all the checks (async)
-    for _, check := range checks {
-        go check.run(done)
-    }
-
-    i := 0
-    for i < len(checks) {
-        results := <-done
-        fmt.Println(results.title)
-        for _, result := range results.reports {
-            fmt.Println(result.Message)
-        }
-        i += 1
-    }
-}
