@@ -10,6 +10,7 @@ For each hostname found via MX lookup, we check:
  - Presents valid certificate
  - TLS version up-to-date
  - Perfect forward secrecy
+
 And we also check if your domain supports MTA-STS+TLSRPT by
  - Looking for and validating TXT records for `_mta-sts` and `_smtp-tlsrpt`
  - Looking for and validating a policy file hosted at
