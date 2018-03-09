@@ -20,6 +20,10 @@ type MTASTSCheck struct {
     Reports []Report
 }
 
+func (c MTASTSCheck) getSubchecks() []string {
+    return []string{"mtasts_dns", "tlsrpt_dns", "mtasts_exists", "tlsrpt_exists", "mtasts_valid", "tlsrpt_valid"}
+}
+
 // Helpers to report test results.
 
 func (c *MTASTSCheck) reportError(message string) {
@@ -199,8 +203,18 @@ func (c *MTASTSCheck) perform_checks() {
 
 func (c MTASTSCheck) run(done chan CheckResult) {
     c.perform_checks()
+    results := make(map[string]Report)
+    for _, report := range c.Reports {
+        results[report.Name] = report
+    }
+    for _, check := range c.getSubchecks() {
+        if _, ok := results[check]; !ok {
+            results[check] = Report { Name: check, Message: "Not performed.", Status: NotAvailable }
+        }
+    }
     done <- CheckResult{
-        title: fmt.Sprintf("=> MTA-STS Check for %s", c.Address),
-        reports: c.Reports,
+        Title: "mtasts",
+        Address: c.Address,
+        Reports: results,
     }
 }

@@ -42,6 +42,7 @@ func providesForwardSecrecy(cipher uint16) bool {
     return cipher > 0xc000
 }
 
+// TODO: classify RC4 and SHA1 as BAD!!!
 // Transforms cipher suite constant into human-readable string
 func cipherToString(cipher uint16) string {
     switch cipher {
@@ -73,17 +74,22 @@ func cipherToString(cipher uint16) string {
 
 // Helpers to report results of test.
 
-func (c *StartTLSCheck) reportError(message string) {
-    c.Reports = append(c.Reports, Report { Message: fmt.Sprintf("  ERROR:   %s", message) })
+func (c *StartTLSCheck) reportError(name string, message string) {
+    c.Reports = append(c.Reports, Report { Message: message, Status: Error, Name: name })
 }
 
-func (c *StartTLSCheck) reportFailure(message string) {
-    c.Reports = append(c.Reports, Report { Message: fmt.Sprintf("  FAILURE: %s", message) })
+func (c *StartTLSCheck) reportFailure(name string, message string) {
+    c.Reports = append(c.Reports, Report { Message: message, Name: name, Status: Failure})
 }
 
-func (c *StartTLSCheck) reportSuccess(message string) {
-    c.Reports = append(c.Reports, Report { Message: fmt.Sprintf("  SUCCESS: %s", message) })
+func (c *StartTLSCheck) reportSuccess(name string, message string) {
+    c.Reports = append(c.Reports, Report { Message: message, Name: name, Status: Success })
 }
+
+func (c StartTLSCheck) getSubchecks() []string {
+    return []string{"server_connectivity", "starttls", "certificate", "tls_version", "forward_secrecy"}
+}
+
 
 // Perform all checks for STARTTLS.
 // TODO: explicitly NAME each of these checks
@@ -91,15 +97,18 @@ func (c *StartTLSCheck) perform_checks() {
     // CHECK: Server connectivity
     client, err := smtp.Dial(fmt.Sprintf("%s:25", c.Address))
     if err != nil {
-        c.reportError(fmt.Sprintf("Couldn't connect to address '%s'", c.Address))
+        c.reportError("server_connectivity", fmt.Sprintf("Couldn't connect to address '%s'", c.Address))
         return
     }
+    c.reportSuccess("server_connectivity", "")
     defer client.Close()
 
     // CHECK: STARTTLS Support
     ok, _ := client.Extension("StartTLS")
     if !ok {
-        c.reportFailure("Server does not advertise support for STARTTLS")
+        c.reportFailure("starttls", "Server does not advertise support for STARTTLS")
+    } else {
+        c.reportSuccess("starttls", "")
     }
 
     // Can we actually negotiate a TLS connection?
@@ -108,47 +117,59 @@ func (c *StartTLSCheck) perform_checks() {
     err = client.StartTLS(config)
     if err != nil {
         // TODO: type-check on |err| to be more specific about failure
-        c.reportFailure(fmt.Sprintf("Server presented invalid certificate: %q", err))
-        config = &tls.Config{ InsecureSkipVerify: true }
+        c.reportFailure("certificate", fmt.Sprintf("Server presented invalid certificate: %q", err))
         // Reset connection and try again
         client.Close()
+        config = &tls.Config{ InsecureSkipVerify: true }
         client, _ = smtp.Dial(fmt.Sprintf("%s:25", c.Address))
         err = client.StartTLS(config)
         if err != nil {
-            c.reportError("Could not establish TLS session at all.")
+            c.reportError("starttls", "Could not establish TLS session at all.")
             return
         }
     } else {
-        c.reportSuccess("Valid certificate!")
+        c.reportSuccess("certificate", "")
     }
 
     state, ok := client.TLSConnectionState()
     if !ok {
-        c.reportError("Could not retrieve TLS connection state" )
+        // This really shouldn't happen since we've already started TLS.
+        c.reportError("starttls", "Could not retrieve TLS connection state" )
+        return
     }
     // CHECK: TLS version
     if versionUpToDate(state.Version) {
-        c.reportSuccess(fmt.Sprintf("TLS version up-to-date: %s",
+        c.reportSuccess("tls_version", fmt.Sprintf("%s",
                                     versionToString(state.Version)))
     } else {
-        c.reportFailure(fmt.Sprintf("TLS version outdated: %s",
+        c.reportFailure("tls_version", fmt.Sprintf("Outdated: %s",
                                     versionToString(state.Version)))
     }
     // CHECK: forward secrecy
     if providesForwardSecrecy(state.CipherSuite ) {
-        c.reportSuccess(fmt.Sprintf("Provides forward secrecy! (%s)",
+        c.reportSuccess("forward_secrecy", fmt.Sprintf("%s",
                                     cipherToString(state.CipherSuite)))
     } else {
-        c.reportFailure(fmt.Sprintf("Cipher suite does not provide forward secrecy (%s)",
+        c.reportFailure("forward_secrecy", fmt.Sprintf("Cipher suite does not provide forward secrecy (%s)",
                                     cipherToString(state.CipherSuite)))
     }
 }
 
 func (c StartTLSCheck) run(done chan CheckResult) {
     c.perform_checks()
+    results := make(map[string]Report)
+    for _, report := range c.Reports {
+        results[report.Name] = report
+    }
+    for _, check := range c.getSubchecks() {
+        if _, ok := results[check]; !ok {
+            results[check] = Report { Name: check, Message: "Not performed.", Status: NotAvailable }
+        }
+    }
     done <- CheckResult{
-        title: fmt.Sprintf("=> STARTTLS Check for %s", c.Address),
-        reports: c.Reports,
+        Title: "starttls",
+        Address: c.Address,
+        Reports: results,
     }
 }
 
