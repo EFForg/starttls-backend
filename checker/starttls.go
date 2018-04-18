@@ -1,4 +1,4 @@
-package main
+package checker
 
 import (
     "fmt"
@@ -128,7 +128,7 @@ func (c *StartTLSCheck) perform_checks() {
             return
         }
     } else {
-        c.reportSuccess("certificate", "")
+        c.reportSuccess("certificate", c.Address)
     }
 
     state, ok := client.TLSConnectionState()
@@ -155,7 +155,7 @@ func (c *StartTLSCheck) perform_checks() {
     }
 }
 
-func (c StartTLSCheck) run(done chan CheckResult) {
+func (c StartTLSCheck) Run(done chan CheckResult) {
     c.perform_checks()
     results := make(map[string]Report)
     for _, report := range c.Reports {

@@ -1,4 +1,4 @@
-package main
+package checker
 
 import (
     "io/ioutil"
@@ -201,7 +201,7 @@ func (c *MTASTSCheck) perform_checks() {
     }
 }
 
-func (c MTASTSCheck) run(done chan CheckResult) {
+func (c MTASTSCheck) Run(done chan CheckResult) {
     c.perform_checks()
     results := make(map[string]Report)
     for _, report := range c.Reports {
