@@ -7,7 +7,7 @@ import (
     "strings"
     "time"
     "golang.org/x/net/idna"
-    "../starttls-check"
+    "github.com/sydneyli/starttls-check/checker"
 )
 
 type API struct {
@@ -21,9 +21,15 @@ func (api API) Scan (w http.ResponseWriter, r *http.Request) {
         return
     }
     if r.Method == http.MethodPost {
-        err := api.database.PutScan(ScanData {
+        scandata, err := checker.PerformChecksJSON(domain, false, true)
+        if err != nil {
+            http.Error(w, "Could not conduct scan!",
+                       http.StatusInternalServerError)
+            return
+        }
+        err = api.database.PutScan(ScanData {
             Domain: domain,
-            Data: "todo",
+            Data: scandata,
             Timestamp: time.Now(),
         })
         if err != nil {
