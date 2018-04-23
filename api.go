@@ -135,14 +135,14 @@ func (api API) Validate (w http.ResponseWriter, r *http.Request) {
         return
     }
     // 1. Use the token
-    tokenData, err := api.database.UseToken(token)
+    domain, err := api.database.UseToken(token)
     if err != nil {
         http.Error(w, fmt.Sprintf("Could not use token %s (%s)", token, err),
                    http.StatusBadRequest)
         return
     }
     // 2. Update domain status from "UNVALIDATED" to "QUEUED"
-    domainData, err := api.database.GetDomain(tokenData.Domain)
+    domainData, err := api.database.GetDomain(domain)
     if err != nil {
         http.Error(w, "Could not find associated domain!", http.StatusInternalServerError)
         return
@@ -156,7 +156,7 @@ func (api API) Validate (w http.ResponseWriter, r *http.Request) {
         http.Error(w, "Could not update domain status!", http.StatusInternalServerError)
         return
     }
-    writeJSON(w, tokenData)
+    writeJSON(w, domain)
 }
 
 // Retrieve "domain" parameter from request as ASCII

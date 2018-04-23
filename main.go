@@ -11,15 +11,16 @@ import (
 
 import _ "github.com/go-sql-driver/mysql"
 
-// Default configuration values
-const (
-    PUBLIC_PORT = ":8080"
-    DB_NAME     = "starttls"
-    DB_USERNAME = "root"
-    DB_PASSWORD = "starttls"
-    DB_QUEUE_TABLE = "queue"
-    DB_SCAN_TABLE = "scans"
-)
+// Default configuration values. Can be overwritten by env vars of the same name.
+var configDefaults = map[string]string {
+    "PORT"            : ":8080",
+    "DB_NAME"         : "starttls",
+    "DB_USERNAME"     : "postgres",
+    "DB_PASSWORD"     : "postgres",
+    "DB_TOKEN_TABLE"  : "tokens",
+    "DB_DOMAIN_TABLE" : "domains",
+    "DB_SCAN_TABLE"   : "scans",
+}
 
 type Config struct {
     Port             string
@@ -28,50 +29,49 @@ type Config struct {
     Db_name          string
     Db_username      string
     Db_pass          string
-    Db_queue_table   string
+    Db_token_table   string
     Db_scan_table    string
     Db_domain_table  string
 }
 
-func getEnvOrDefault(env_name string, default_ string) string {
-    env_var := os.Getenv(env_name)
+func getEnvOrDefault(var_name string) string {
+    env_var := os.Getenv(var_name)
     if len(env_var) == 0 {
-        env_var = default_
+        env_var = configDefaults[var_name]
     }
     return env_var
 }
 
-func loadEnvironmentVariables() (Config, error) {
+func LoadEnvironmentVariables() (Config, error) {
+    // Required env vars
     privkey_env := os.Getenv("PRIV_KEY")
     pubkey_env := os.Getenv("PUBLIC_KEY")
     if len(privkey_env) == 0 || len(pubkey_env) == 0 {
         return Config{}, errors.New("Environment variables PRIV_KEY and PUBLIC_KEY must be set!")
     }
     return Config {
-        Port:           getEnvOrDefault("PORT", PUBLIC_PORT),
-        Privkey:        privkey_env,
-        Pubkey:         pubkey_env,
-        Db_name:        getEnvOrDefault("DB_NAME", DB_NAME),
-        Db_username:    getEnvOrDefault("DB_USERNAME", DB_USERNAME),
-        Db_pass:        getEnvOrDefault("DB_PASSWORD", DB_PASSWORD),
-        Db_queue_table: getEnvOrDefault("DB_QUEUE_TABLE", DB_QUEUE_TABLE),
-        Db_scan_table:  getEnvOrDefault("DB_SCAN_TABLE", DB_SCAN_TABLE),
+        Port:            getEnvOrDefault("PORT"),
+        Privkey:         privkey_env,
+        Pubkey:          pubkey_env,
+        Db_name:         getEnvOrDefault("DB_NAME"),
+        Db_username:     getEnvOrDefault("DB_USERNAME"),
+        Db_pass:         getEnvOrDefault("DB_PASSWORD"),
+        Db_token_table:  getEnvOrDefault("DB_TOKEN_TABLE"),
+        Db_domain_table: getEnvOrDefault("DB_DOMAIN_TABLE"),
+        Db_scan_table:   getEnvOrDefault("DB_SCAN_TABLE"),
     }, nil
 }
 
 // Serves all public HTTPS endpoints.
 func servePublicEndpoints() {
-    cfg, err := loadEnvironmentVariables()
+    cfg, err := LoadEnvironmentVariables()
     if err != nil {
         fmt.Println(err)
         return
     }
     api := API {
-        database: &MemDatabase {
-            domains: make(map[string]DomainData),
-            scans: make(map[string][]ScanData),
-            tokens: make(map[string]TokenData),
-        },
+        // database: InitSqlDatabase(cfg),
+        database: InitMemDatabase(cfg),
     }
     http.HandleFunc("/api/scan", api.Scan)
     http.HandleFunc("/api/queue", api.Queue)
