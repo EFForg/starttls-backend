@@ -6,36 +6,50 @@ import (
     "math/rand"
 )
 
-// DomainStatus enum
+///////////////////////////////////////
+//  *****   DATABASE SCHEMA   *****  //
+///////////////////////////////////////
+
+// Each of these mirrors a table row.
+
+// ScanData each represent the result of a single scan, conducted using
+// starttls-checker.
+type ScanData struct {
+    Domain     string           // Input domain
+    Data       string           // JSON blob: scan results from starttls-checker
+    Timestamp  time.Time        // Time at which this scan was conducted
+}
+
+// DomainStatus: represents the state of a single domain.
 type DomainState string;
 
 const (
-    StateUnknown       = "unknown"
-    StateUnvalidated   = "unvalidated"
-    StateQueued        = "queued"
-    StateFailed        = "failed"
-    StateAdded         = "added"
+    StateUnknown       = "unknown"      // Domain was never submitted, so we don't know.
+    StateUnvalidated   = "unvalidated"  // E-mail token for this domain is unverified
+    StateQueued        = "queued"       // Queued for addition at next addition date.
+    StateFailed        = "failed"       // Requested to be queued, but failed verification.
+    StateAdded         = "added"        // On the list.
 )
 
-type ScanData struct {
-    Domain     string
-    Data       string
-    Timestamp  time.Time
-}
-
+// DomainData stores the preload state of a single domain.
 type DomainData struct {
-    Name       string
-    Email      string
+    Name       string           // Domain that is preloaded
+    Email      string           // Contact e-mail for Domain
+    MXs        []string         // MXs that are valid for this domain
     State      DomainState
 }
 
+// TokenData stores the state of an e-mail verification token.
 type TokenData struct {
-    Domain       string
-    Token        string
-    Expires      time.Time
-    Used         bool
+    Domain       string         // Domain for which we're verifying the e-mail.
+    Token        string         // Token that we're expecting.
+    Expires      time.Time      // When this token expires.
+    Used         bool           // Whether this token was used.
 }
 
+
+// These are the things that the Database should be able to do.
+// Slightly more limited than CRUD for all the schemas.
 type Database interface {
     // Puts new scandata for domain 
     PutScan(ScanData) error
@@ -55,7 +69,7 @@ type Database interface {
     UseToken(string) (TokenData, error)
 }
 
-// Straw-man in-memory database
+// Straw-man in-memory database (for testing!)
 type MemDatabase struct {
     domains map[string]DomainData
     scans map[string][]ScanData
