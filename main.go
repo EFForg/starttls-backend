@@ -2,11 +2,9 @@ package main
 
 import (
     "errors"
-    "fmt"
     "log"
     "net/http"
     "os"
-    // "database/sql"
 )
 
 import _ "github.com/go-sql-driver/mysql"
@@ -63,15 +61,17 @@ func LoadEnvironmentVariables() (Config, error) {
 }
 
 // Serves all public HTTPS endpoints.
-func servePublicEndpoints() {
+func ServePublicEndpoints() {
     cfg, err := LoadEnvironmentVariables()
     if err != nil {
-        fmt.Println(err)
-        return
+        log.Fatal(err)
+    }
+    db, err := InitSqlDatabase(cfg)
+    if err != nil {
+        log.Fatal(err)
     }
     api := API {
-        // database: InitSqlDatabase(cfg),
-        database: InitMemDatabase(cfg),
+        Database: db,
     }
     http.HandleFunc("/api/scan", api.Scan)
     http.HandleFunc("/api/queue", api.Queue)
@@ -80,5 +80,5 @@ func servePublicEndpoints() {
 }
 
 func main() {
-    servePublicEndpoints()
+    ServePublicEndpoints()
 }

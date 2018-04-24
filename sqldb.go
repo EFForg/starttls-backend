@@ -2,45 +2,37 @@ package main
 
 import (
     "database/sql"
-    "errors"
     "fmt"
     "time"
 
     _ "github.com/lib/pq"
 )
 
+// Format string for Sql timestamps.
+const SqlTimeFormat = "2006-01-02 15:04:05"
 
 type SqlDatabase struct {
     Cfg Config
     Conn *sql.DB
-    domains map[string]DomainData
-    scans map[string][]ScanData
-    tokens map[string]TokenData
 }
 
 func InitSqlDatabase(cfg Config) (*SqlDatabase, error) {
     connectionString := fmt.Sprintf("user=%s password=%s dbname=%s",
                                     cfg.Db_username, cfg.Db_pass, cfg.Db_name)
-    db := &SqlDatabase {
-            Cfg: cfg,
-            domains: make(map[string]DomainData),
-            scans: make(map[string][]ScanData),
-            tokens: make(map[string]TokenData),
-    }
     conn, err := sql.Open("postgres", connectionString)
     if err != nil {
         return nil, err
     }
-    db.Conn = conn
-    return db, nil
+    return &SqlDatabase { Cfg: cfg, Conn: conn }, nil
 }
 
 // TOKEN DB FUNCTIONS
 
-func (db *SqlDatabase) UseToken(token_str string) error {
-    _, err := db.Conn.Exec("UPDATE $1 SET used=TRUE WHERE token=$2",
-                           db.Cfg.Db_token_table, token_str)
-    return err
+func (db *SqlDatabase) UseToken(token_str string) (string, error) {
+    var domain string
+    err := db.Conn.QueryRow("UPDATE tokens SET used=TRUE WHERE token=$1 RETURNING domain",
+                           token_str).Scan(&domain)
+    return domain, err
 }
 
 func (db *SqlDatabase) PutToken(domain string) (TokenData, error) {
@@ -50,9 +42,8 @@ func (db *SqlDatabase) PutToken(domain string) (TokenData, error) {
         Expires: time.Now().Add(time.Duration(time.Hour * 72)),
         Used: false,
     }
-    _, err := db.Conn.Exec("INSERT INTO $1(domain, token, expires) VALUES($2, $3, $4)",
-                           db.Cfg.Db_token_table,
-                           domain, tokenData.Token, tokenData.Expires.Unix())
+    _, err := db.Conn.Exec("INSERT INTO tokens(domain, token, expires) VALUES($1, $2, $3)",
+                           domain, tokenData.Token, tokenData.Expires.UTC().Format(SqlTimeFormat))
     if err != nil {
         return TokenData{}, err
     }
@@ -62,46 +53,71 @@ func (db *SqlDatabase) PutToken(domain string) (TokenData, error) {
 // SCAN DB FUNCTIONS
 
 func (db *SqlDatabase) PutScan(scanData ScanData) error {
-    _, err := db.Conn.Exec("INSERT INTO $1(domain, data) VALUES($2, $3)",
-                           db.Cfg.Db_scan_table,
-                           scanData.Domain, scanData.Data)
+    _, err := db.Conn.Exec("INSERT INTO scans(domain, scandata, timestamp) VALUES($1, $2, $3)",
+                           scanData.Domain, scanData.Data, scanData.Timestamp.UTC().Format(SqlTimeFormat))
     return err
 }
 
 const mostRecentQuery = `
-SELECT domain, data, timestamp FROM $1
-    WHERE timestamp = (SELECT MAX(timestamp) FROM $1 WHERE domain=$2)
+SELECT domain, scandata, timestamp FROM scans
+    WHERE timestamp = (SELECT MAX(timestamp) FROM scans WHERE domain=$1)
 `
 
 func (db SqlDatabase) GetLatestScan(domain string) (ScanData, error) {
     scanData := ScanData {}
-    err := db.Conn.QueryRow(mostRecentQuery, db.Cfg.Db_scan_table).Scan(
+    err := db.Conn.QueryRow(mostRecentQuery, domain).Scan(
                 &scanData.Domain, &scanData.Data, &scanData.Timestamp)
     return scanData, err
 }
+
 func (db SqlDatabase) GetAllScans(domain string) ([]ScanData, error) {
-    return nil, errors.New("Not implemented")
+    rows, err := db.Conn.Query(
+        "SELECT domain, scandata, timestamp FROM scans WHERE domain=$1", domain)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    scans := []ScanData{}
+    for rows.Next() {
+        var scan ScanData
+        if err := rows.Scan(&scan.Domain, &scan.Data, &scan.Timestamp); err != nil {
+            return nil, err
+        }
+        scans = append(scans, scan)
+    }
+    return scans, nil
 }
 
 // DOMAIN DB FUNCTIONS
 
-// Does this upsert correctly?
 func (db *SqlDatabase) PutDomain(domainData DomainData) error {
-    _, err := db.Conn.Exec("INSERT INTO $1(domain, email, state) VALUES($2, $3, $4)",
-                           db.Cfg.Db_domain_table,
-                           domainData.Name, domainData.Email, StateUnvalidated)
+    _, err := db.Conn.Exec("INSERT INTO domains(domain, email, data, status) VALUES($1, $2, $3, $4) ON CONFLICT (domain) DO UPDATE SET status=$5",
+                           domainData.Name, domainData.Email, "", StateUnvalidated, domainData.State)
     return err
 }
 
 func (db SqlDatabase) GetDomain(domain string) (DomainData, error) {
     data := DomainData{}
-    err := db.Conn.QueryRow("SELECT domain, email, state FROM $1 WHERE domain=domain",
-                            db.Cfg.Db_domain_table).Scan(
+    err := db.Conn.QueryRow("SELECT domain, email, status FROM domains WHERE domain=$1",
+                            domain).Scan(
                             &data.Name, &data.Email, &data.State)
     return data, err
 }
 
 func (db SqlDatabase) GetDomains(state DomainState) ([]DomainData, error) {
-    return nil, errors.New("Not implemented")
+    rows, err := db.Conn.Query(
+        "SELECT domain, email, status FROM domains WHERE status=$1", state)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    domains := []DomainData{}
+    for rows.Next() {
+        var domain DomainData
+        if err := rows.Scan(&domain.Name, &domain.Email, &domain.State); err != nil {
+            return nil, err
+        }
+        domains = append(domains, domain)
+    }
+    return domains, nil
 }
-

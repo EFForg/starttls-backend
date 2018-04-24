@@ -28,7 +28,7 @@ import (
 //        returns OK
 
 type API struct {
-    database Database
+    Database Database
 }
 
 // GET or POST /api/scan?domain=abc.com
@@ -43,27 +43,28 @@ func (api API) Scan (w http.ResponseWriter, r *http.Request) {
         // 1. Conduct scan via starttls-checker
         scandata, err := checker.PerformChecksJSON(domain, false, true)
         if err != nil {
-            http.Error(w, "Could not conduct scan!",
-                       http.StatusInternalServerError)
+            fmt.Println(err)
+            http.Error(w, "", http.StatusInternalServerError)
             return
         }
         // 2. Put scan into DB
-        err = api.database.PutScan(ScanData {
+        err = api.Database.PutScan(ScanData {
             Domain: domain,
             Data: scandata,
             Timestamp: time.Now(),
         })
         if err != nil {
-            http.Error(w, "Could not conduct scan!",
-                       http.StatusInternalServerError)
+            fmt.Println(err)
+            http.Error(w, "", http.StatusInternalServerError)
             return
         }
         // 3. TODO: Return scandata as JSON (also set response type)
         w.WriteHeader(200)
     // GET: Just fetch the most recent scan
     } else if r.Method == http.MethodGet {
-        scan, err := api.database.GetLatestScan(domain)
+        scan, err := api.Database.GetLatestScan(domain)
         if err != nil {
+            fmt.Println(err)
             http.Error(w, "No scans found!", http.StatusNotFound)
             return
         }
@@ -90,19 +91,21 @@ func (api API) Queue (w http.ResponseWriter, r *http.Request) {
         }
         // 0. TODO: ensure domain doesn't already exist
         // 1. Insert domain into DB
-        err := api.database.PutDomain(DomainData {
+        err := api.Database.PutDomain(DomainData {
             Name: domain,
             Email: email,
             State: StateUnvalidated,
         })
         if err != nil {
-            http.Error(w, "Could not conduct scan!",
+            fmt.Println(err)
+            http.Error(w, "Internal server error",
                        http.StatusInternalServerError)
             return
         }
         // 2. Create token for domain
-        token, err := api.database.PutToken(domain)
+        token, err := api.Database.PutToken(domain)
         if err != nil {
+            fmt.Println(err)
             http.Error(w, fmt.Sprintf("Something happened %s", err), // TODO
                        http.StatusInternalServerError)
             return
@@ -111,8 +114,9 @@ func (api API) Queue (w http.ResponseWriter, r *http.Request) {
 
     // GET: Retrieve domain status from queue
     } else if r.Method == http.MethodGet {
-        status, err := api.database.GetDomain(domain)
+        status, err := api.Database.GetDomain(domain)
         if err != nil {
+            fmt.Println(err)
             http.Error(w, "No domains found!", http.StatusNotFound)
             return
         }
@@ -135,24 +139,27 @@ func (api API) Validate (w http.ResponseWriter, r *http.Request) {
         return
     }
     // 1. Use the token
-    domain, err := api.database.UseToken(token)
+    domain, err := api.Database.UseToken(token)
     if err != nil {
+        fmt.Println(err)
         http.Error(w, fmt.Sprintf("Could not use token %s (%s)", token, err),
                    http.StatusBadRequest)
         return
     }
     // 2. Update domain status from "UNVALIDATED" to "QUEUED"
-    domainData, err := api.database.GetDomain(domain)
+    domainData, err := api.Database.GetDomain(domain)
     if err != nil {
+        fmt.Println(err)
         http.Error(w, "Could not find associated domain!", http.StatusInternalServerError)
         return
     }
-    err = api.database.PutDomain(DomainData {
+    err = api.Database.PutDomain(DomainData {
         Name: domainData.Name,
         Email: domainData.Email,
         State: StateQueued,
     })
     if err != nil {
+        fmt.Println(err)
         http.Error(w, "Could not update domain status!", http.StatusInternalServerError)
         return
     }
@@ -168,6 +175,8 @@ func getASCIIDomain(w http.ResponseWriter, r *http.Request) (string, bool) {
     }
     ascii, err := idna.ToASCII(domain)
     if err != nil {
+        fmt.Println(err)
+
         http.Error(w, fmt.Sprintf("Could not convert domain %s to ASCII (%s)", domain, err),
                    http.StatusInternalServerError)
         return "", false
