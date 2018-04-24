@@ -1,4 +1,4 @@
-package main_test
+package db_test
 
 import (
     "fmt"
@@ -7,7 +7,7 @@ import (
     "testing"
     "time"
 
-    "."
+    "github.com/sydneyli/starttls-scanner/db"
 )
 
 const sqlCreateTokenTable = `CREATE TABLE IF NOT EXISTS %s
@@ -37,9 +37,9 @@ const sqlCreateDomainTable = `CREATE TABLE IF NOT EXISTS %s
 )
 `
 
-func tryExec(db *main.SqlDatabase, commands []string) error {
+func tryExec(database *db.SqlDatabase, commands []string) error {
     for _, command := range commands {
-        if _, err := db.Conn.Exec(command); err != nil {
+        if _, err := database.Conn.Exec(command); err != nil {
             return fmt.Errorf("The following command failed:\n%s\nWith error:\n%v",
                               command, err.Error())
         }
@@ -48,56 +48,51 @@ func tryExec(db *main.SqlDatabase, commands []string) error {
 }
 
 // Creates tables if they don't already exist.
-func ensureTables(db *main.SqlDatabase) error {
-    return tryExec(db, []string{
-        fmt.Sprintf(sqlCreateDomainTable, db.Cfg.Db_domain_table),
-        fmt.Sprintf(sqlCreateScansTable, db.Cfg.Db_scan_table),
-        fmt.Sprintf(sqlCreateTokenTable, db.Cfg.Db_token_table),
+func ensureTables(database *db.SqlDatabase) error {
+    return tryExec(database, []string{
+        fmt.Sprintf(sqlCreateDomainTable, database.Cfg.Db_domain_table),
+        fmt.Sprintf(sqlCreateScansTable, database.Cfg.Db_scan_table),
+        fmt.Sprintf(sqlCreateTokenTable, database.Cfg.Db_token_table),
     })
 }
 
 // Nukes all the tables.
-func clearTables(db *main.SqlDatabase) error {
-    return tryExec(db, []string{
-        fmt.Sprintf("DELETE FROM %s", db.Cfg.Db_domain_table),
-        fmt.Sprintf("DELETE FROM %s", db.Cfg.Db_scan_table),
-        fmt.Sprintf("DELETE FROM %s", db.Cfg.Db_token_table),
-        fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1", db.Cfg.Db_scan_table),
+func clearTables(database *db.SqlDatabase) error {
+    return tryExec(database, []string{
+        fmt.Sprintf("DELETE FROM %s", database.Cfg.Db_domain_table),
+        fmt.Sprintf("DELETE FROM %s", database.Cfg.Db_scan_table),
+        fmt.Sprintf("DELETE FROM %s", database.Cfg.Db_token_table),
+        fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1", database.Cfg.Db_scan_table),
     })
 }
 
 // Global database object for tests.
-var db *main.SqlDatabase
-
-// Global api object for tests (that wraps db)
-var api *main.API
+var database *db.SqlDatabase
 
 // Connects to local test db.
-func initTestDb() *main.SqlDatabase {
+func initTestDb() *db.SqlDatabase {
     os.Setenv("PRIV_KEY", "./certs/key.pem")
     os.Setenv("PUBLIC_KEY", "./certs/cert.pem")
-    cfg, err := main.LoadEnvironmentVariables()
+    cfg, err := db.LoadEnvironmentVariables()
     cfg.Db_name = fmt.Sprintf("%s_dev", cfg.Db_name)
     if err != nil {
         log.Fatal(err)
     }
-    db, err := main.InitSqlDatabase(cfg)
+    database, err := db.InitSqlDatabase(cfg)
     if err != nil {
         log.Fatal(err)
     }
-    return db
+    return database
 }
 
 func TestMain(m *testing.M) {
-    db = initTestDb()
-    api = &main.API { Database: db }
-    err := ensureTables(db)
+    database = initTestDb()
+    err := ensureTables(database)
     if err != nil {
         log.Fatal(err)
     }
-    go main.ServePublicEndpoints()
     code := m.Run()
-    err = clearTables(db)
+    err = clearTables(database)
     if err != nil {
         log.Fatal(err)
     }
@@ -115,40 +110,40 @@ func TestMain(m *testing.M) {
 ////////////////////////////////
 
 func TestPutScan(t *testing.T) {
-    clearTables(db)
-    dummyScan := main.ScanData{
+    clearTables(database)
+    dummyScan := db.ScanData{
         Domain: "dummy.com",
         Data: "{}",
         Timestamp: time.Now(),
     }
-    err := db.PutScan(dummyScan)
+    err := database.PutScan(dummyScan)
     if err != nil {
         t.Errorf("PutScan failed: %v\n", err)
     }
 }
 
 func TestGetLatestScan(t *testing.T) {
-    clearTables(db)
+    clearTables(database)
     // Add two dummy objects
-    earlyScan := main.ScanData{
+    earlyScan := db.ScanData{
         Domain: "dummy.com",
         Data: "test_before",
         Timestamp: time.Now(),
     }
-    laterScan := main.ScanData{
+    laterScan := db.ScanData{
         Domain: "dummy.com",
         Data: "test_after",
         Timestamp: time.Now().Add(time.Duration(time.Hour)),
     }
-    err := db.PutScan(laterScan)
+    err := database.PutScan(laterScan)
     if err != nil {
         t.Errorf("PutScan failed: %v\n", err)
     }
-    err = db.PutScan(earlyScan)
+    err = database.PutScan(earlyScan)
     if err != nil {
         t.Errorf("PutScan failed: %v\n", err)
     }
-    scan, err := db.GetLatestScan("dummy.com")
+    scan, err := database.GetLatestScan("dummy.com")
     if err != nil {
         t.Errorf("GetLatestScan failed: %v\n", err)
     }
@@ -158,8 +153,8 @@ func TestGetLatestScan(t *testing.T) {
 }
 
 func TestGetAllScans(t *testing.T) {
-    clearTables(db)
-    data, err := db.GetAllScans("dummy.com")
+    clearTables(database)
+    data, err := database.GetAllScans("dummy.com")
     if err != nil {
         t.Errorf("GetAllScans failed: %v\n", err)
     }
@@ -168,21 +163,21 @@ func TestGetAllScans(t *testing.T) {
         t.Errorf("Expected GetAllScans to return []")
     }
     // Add two dummy objects
-    dummyScan := main.ScanData{
+    dummyScan := db.ScanData{
         Domain: "dummy.com",
         Data: "test1",
         Timestamp: time.Now(),
     }
-    err = db.PutScan(dummyScan)
+    err = database.PutScan(dummyScan)
     if err != nil {
         t.Errorf("PutScan failed: %v\n", err)
     }
     dummyScan.Data = "test2"
-    err = db.PutScan(dummyScan)
+    err = database.PutScan(dummyScan)
     if err != nil {
         t.Errorf("PutScan failed: %v\n", err)
     }
-    data, err = db.GetAllScans("dummy.com")
+    data, err = database.GetAllScans("dummy.com")
     // Retrieving scans for domain that's been scanned once
     if err != nil {
         t.Errorf("GetAllScans failed: %v\n", err)
@@ -196,51 +191,51 @@ func TestGetAllScans(t *testing.T) {
 }
 
 func TestPutGetDomain(t *testing.T) {
-    clearTables(db)
-    data := main.DomainData {
+    clearTables(database)
+    data := db.DomainData {
         Name: "testing.com",
         Email: "admin@testing.com",
     }
-    err := db.PutDomain(data)
+    err := database.PutDomain(data)
     if err != nil {
         t.Errorf("PutDomain failed: %v\n", err)
     }
-    retrieved_data, err := db.GetDomain(data.Name)
+    retrieved_data, err := database.GetDomain(data.Name)
     if err != nil {
         t.Errorf("GetDomain(%s) failed: %v\n", data.Name, err)
     }
     if retrieved_data.Name != data.Name {
         t.Errorf("Somehow, GetDomain retrieved the wrong object?")
     }
-    if retrieved_data.State != main.StateUnvalidated {
+    if retrieved_data.State != db.StateUnvalidated {
         t.Errorf("Default state should be 'Unvalidated'")
     }
 }
 
 func TestUpsertDomain(t *testing.T) {
-    clearTables(db)
-    data := main.DomainData {
+    clearTables(database)
+    data := db.DomainData {
         Name: "testing.com",
         Email: "admin@testing.com",
     }
-    db.PutDomain(data)
-    err := db.PutDomain(main.DomainData { Name: "testing.com", State: main.StateQueued })
+    database.PutDomain(data)
+    err := database.PutDomain(db.DomainData { Name: "testing.com", State: db.StateQueued })
     if err != nil {
         t.Errorf("PutDomain(%s) failed: %v\n", data.Name, err)
     }
-    retrieved_data, err := db.GetDomain(data.Name)
-    if retrieved_data.State != main.StateQueued {
+    retrieved_data, err := database.GetDomain(data.Name)
+    if retrieved_data.State != db.StateQueued {
         t.Errorf("Expected state to be 'Queued', was %v\n", retrieved_data)
     }
 }
 
 func TestPutUseToken(t *testing.T) {
-    clearTables(db)
-    data, err := db.PutToken("testing.com")
+    clearTables(database)
+    data, err := database.PutToken("testing.com")
     if err != nil {
         t.Errorf("PutToken failed: %v\n", err)
     }
-    domain, err := db.UseToken(data.Token)
+    domain, err := database.UseToken(data.Token)
     if err != nil {
         t.Errorf("UseToken failed: %v\n", err)
     }

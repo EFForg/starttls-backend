@@ -7,7 +7,9 @@ import (
     "strings"
     "time"
     "golang.org/x/net/idna"
+
     "github.com/sydneyli/starttls-check/checker"
+    "github.com/sydneyli/starttls-scanner/db"
 )
 
 
@@ -28,7 +30,7 @@ import (
 //        returns OK
 
 type API struct {
-    Database Database
+    Database db.Database
 }
 
 // GET or POST /api/scan?domain=abc.com
@@ -48,7 +50,7 @@ func (api API) Scan (w http.ResponseWriter, r *http.Request) {
             return
         }
         // 2. Put scan into DB
-        err = api.Database.PutScan(ScanData {
+        err = api.Database.PutScan(db.ScanData {
             Domain: domain,
             Data: scandata,
             Timestamp: time.Now(),
@@ -91,10 +93,10 @@ func (api API) Queue (w http.ResponseWriter, r *http.Request) {
         }
         // 0. TODO: ensure domain doesn't already exist
         // 1. Insert domain into DB
-        err := api.Database.PutDomain(DomainData {
+        err := api.Database.PutDomain(db.DomainData {
             Name: domain,
             Email: email,
-            State: StateUnvalidated,
+            State: db.StateUnvalidated,
         })
         if err != nil {
             fmt.Println(err)
@@ -153,10 +155,10 @@ func (api API) Validate (w http.ResponseWriter, r *http.Request) {
         http.Error(w, "Could not find associated domain!", http.StatusInternalServerError)
         return
     }
-    err = api.Database.PutDomain(DomainData {
+    err = api.Database.PutDomain(db.DomainData {
         Name: domainData.Name,
         Email: domainData.Email,
-        State: StateQueued,
+        State: db.StateQueued,
     })
     if err != nil {
         fmt.Println(err)
