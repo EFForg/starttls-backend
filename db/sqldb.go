@@ -17,8 +17,9 @@ type SqlDatabase struct {
 }
 
 func InitSqlDatabase(cfg Config) (*SqlDatabase, error) {
-    connectionString := fmt.Sprintf("user=%s password=%s dbname=%s",
-                                    cfg.Db_username, cfg.Db_pass, cfg.Db_name)
+    connectionString := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable",
+                                    cfg.Db_username, cfg.Db_pass, cfg.Db_host, cfg.Db_name)
+    fmt.Printf("Connecting to %s ... \n", connectionString)
     conn, err := sql.Open("postgres", connectionString)
     if err != nil {
         return nil, err
@@ -121,3 +122,24 @@ func (db SqlDatabase) GetDomains(state DomainState) ([]DomainData, error) {
     }
     return domains, nil
 }
+
+func tryExec(database SqlDatabase, commands []string) error {
+    for _, command := range commands {
+        if _, err := database.Conn.Exec(command); err != nil {
+            return fmt.Errorf("The following command failed:\n%s\nWith error:\n%v",
+                              command, err.Error())
+        }
+    }
+    return nil
+}
+
+// Nukes all the tables. ** Should only be used during testing **
+func (db SqlDatabase) ClearTables() error {
+    return tryExec(db, []string{
+        fmt.Sprintf("DELETE FROM %s", db.Cfg.Db_domain_table),
+        fmt.Sprintf("DELETE FROM %s", db.Cfg.Db_scan_table),
+        fmt.Sprintf("DELETE FROM %s", db.Cfg.Db_token_table),
+        fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1", db.Cfg.Db_scan_table),
+    })
+}
+

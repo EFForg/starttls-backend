@@ -104,3 +104,10 @@ func (db MemDatabase) GetDomains(state DomainState) ([]DomainData, error) {
     return data, nil
 }
 
+func (db *MemDatabase) ClearTables() error {
+    db.domains = make(map[string]DomainData)
+    db.scans = make(map[string][]ScanData)
+    db.tokens = make(map[string]TokenData)
+    return nil
+}
+

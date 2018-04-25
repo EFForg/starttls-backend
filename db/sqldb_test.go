@@ -10,62 +10,6 @@ import (
     "github.com/sydneyli/starttls-scanner/db"
 )
 
-const sqlCreateTokenTable = `CREATE TABLE IF NOT EXISTS %s
-(
-    domain      TEXT NOT NULL PRIMARY KEY,
-    token       VARCHAR(255) NOT NULL,
-    expires     TIMESTAMP NOT NULL,
-    used        BOOLEAN DEFAULT FALSE
-)
-`
-
-const sqlCreateScansTable = `CREATE TABLE IF NOT EXISTS %s
-(
-    id          SERIAL PRIMARY KEY,
-    domain      TEXT NOT NULL,
-    scandata    TEXT NOT NULL,
-    timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
-`
-
-const sqlCreateDomainTable = `CREATE TABLE IF NOT EXISTS %s
-(
-    domain      TEXT NOT NULL UNIQUE PRIMARY KEY,
-    email       TEXT NOT NULL,
-    data        TEXT NOT NULL,
-    status      VARCHAR(255) NOT NULL
-)
-`
-
-func tryExec(database *db.SqlDatabase, commands []string) error {
-    for _, command := range commands {
-        if _, err := database.Conn.Exec(command); err != nil {
-            return fmt.Errorf("The following command failed:\n%s\nWith error:\n%v",
-                              command, err.Error())
-        }
-    }
-    return nil
-}
-
-// Creates tables if they don't already exist.
-func ensureTables(database *db.SqlDatabase) error {
-    return tryExec(database, []string{
-        fmt.Sprintf(sqlCreateDomainTable, database.Cfg.Db_domain_table),
-        fmt.Sprintf(sqlCreateScansTable, database.Cfg.Db_scan_table),
-        fmt.Sprintf(sqlCreateTokenTable, database.Cfg.Db_token_table),
-    })
-}
-
-// Nukes all the tables.
-func clearTables(database *db.SqlDatabase) error {
-    return tryExec(database, []string{
-        fmt.Sprintf("DELETE FROM %s", database.Cfg.Db_domain_table),
-        fmt.Sprintf("DELETE FROM %s", database.Cfg.Db_scan_table),
-        fmt.Sprintf("DELETE FROM %s", database.Cfg.Db_token_table),
-        fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1", database.Cfg.Db_scan_table),
-    })
-}
-
 // Global database object for tests.
 var database *db.SqlDatabase
 
@@ -87,12 +31,8 @@ func initTestDb() *db.SqlDatabase {
 
 func TestMain(m *testing.M) {
     database = initTestDb()
-    err := ensureTables(database)
-    if err != nil {
-        log.Fatal(err)
-    }
     code := m.Run()
-    err = clearTables(database)
+    err := database.ClearTables()
     if err != nil {
         log.Fatal(err)
     }
@@ -110,7 +50,7 @@ func TestMain(m *testing.M) {
 ////////////////////////////////
 
 func TestPutScan(t *testing.T) {
-    clearTables(database)
+    database.ClearTables()
     dummyScan := db.ScanData{
         Domain: "dummy.com",
         Data: "{}",
@@ -123,7 +63,7 @@ func TestPutScan(t *testing.T) {
 }
 
 func TestGetLatestScan(t *testing.T) {
-    clearTables(database)
+    database.ClearTables()
     // Add two dummy objects
     earlyScan := db.ScanData{
         Domain: "dummy.com",
@@ -153,7 +93,7 @@ func TestGetLatestScan(t *testing.T) {
 }
 
 func TestGetAllScans(t *testing.T) {
-    clearTables(database)
+    database.ClearTables()
     data, err := database.GetAllScans("dummy.com")
     if err != nil {
         t.Errorf("GetAllScans failed: %v\n", err)
@@ -191,7 +131,7 @@ func TestGetAllScans(t *testing.T) {
 }
 
 func TestPutGetDomain(t *testing.T) {
-    clearTables(database)
+    database.ClearTables()
     data := db.DomainData {
         Name: "testing.com",
         Email: "admin@testing.com",
@@ -213,7 +153,7 @@ func TestPutGetDomain(t *testing.T) {
 }
 
 func TestUpsertDomain(t *testing.T) {
-    clearTables(database)
+    database.ClearTables()
     data := db.DomainData {
         Name: "testing.com",
         Email: "admin@testing.com",
@@ -230,7 +170,7 @@ func TestUpsertDomain(t *testing.T) {
 }
 
 func TestPutUseToken(t *testing.T) {
-    clearTables(database)
+    database.ClearTables()
     data, err := database.PutToken("testing.com")
     if err != nil {
         t.Errorf("PutToken failed: %v\n", err)

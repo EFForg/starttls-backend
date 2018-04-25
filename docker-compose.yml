@@ -1,0 +1,25 @@
+version: '2'
+services:
+    postgres:
+        build: db/
+        environment:
+            POSTGRES_DB: starttls_dev
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+        ports:
+          - "5432:5432"
+    app:
+        build: .
+        volumes:
+          - .:/go/src/starttls-scanner
+        ports:
+          - 8080:8080
+        depends_on:
+          - postgres
+        links:
+          - postgres
+        environment:
+            DB_NAME: starttls_dev
+            DB_USERNAME: postgres
+            DB_PASSWORD: postgres
+            DB_HOST: postgres

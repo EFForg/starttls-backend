@@ -1,7 +1,6 @@
 package db
 
 import (
-    "errors"
     "os"
     "time"
 )
@@ -67,12 +66,12 @@ type Database interface {
     PutToken(string) (TokenData, error)
     // Uses a token in the db
     UseToken(string) (string, error)
+    ClearTables() error
 }
 
 type Config struct {
     Port             string
-    Privkey          string
-    Pubkey           string
+    Db_host          string
     Db_name          string
     Db_username      string
     Db_pass          string
@@ -84,6 +83,7 @@ type Config struct {
 // Default configuration values. Can be overwritten by env vars of the same name.
 var configDefaults = map[string]string {
     "PORT"            : ":8080",
+    "DB_HOST"         : "localhost",
     "DB_NAME"         : "starttls",
     "DB_USERNAME"     : "postgres",
     "DB_PASSWORD"     : "postgres",
@@ -101,16 +101,9 @@ func getEnvOrDefault(var_name string) string {
 }
 
 func LoadEnvironmentVariables() (Config, error) {
-    // Required env vars
-    privkey_env := os.Getenv("PRIV_KEY")
-    pubkey_env := os.Getenv("PUBLIC_KEY")
-    if len(privkey_env) == 0 || len(pubkey_env) == 0 {
-        return Config{}, errors.New("Environment variables PRIV_KEY and PUBLIC_KEY must be set!")
-    }
     return Config {
         Port:            getEnvOrDefault("PORT"),
-        Privkey:         privkey_env,
-        Pubkey:          pubkey_env,
+        Db_host:         getEnvOrDefault("DB_HOST"),
         Db_name:         getEnvOrDefault("DB_NAME"),
         Db_username:     getEnvOrDefault("DB_USERNAME"),
         Db_pass:         getEnvOrDefault("DB_PASSWORD"),
