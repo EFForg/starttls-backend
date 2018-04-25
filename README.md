@@ -7,10 +7,10 @@ Requires `go` and `postgres` installations. You can specify the following enviro
  - `DB_NAME`, e.g. `starttls` or `starttls_dev`, to specify the name of the database. (this should be created in advance!)
  - `DB_USERNAME` / `DB_PASSWORD` - username and password for database access.
 
-`
+```
 go get github.com/sydneyli/starttls-scanner
 cd $GOPATH/github.com/sydneyli/starttls-scanner
-`
+```
 
 You'll also want to ensure `postgres` is running, then run `db/scripts/init_db.sql` in the appropriate postgres DB in order to initialize your database.
 Then, you can run:
