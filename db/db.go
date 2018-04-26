@@ -14,9 +14,9 @@ import (
 // ScanData each represent the result of a single scan, conducted using
 // starttls-checker.
 type ScanData struct {
-    Domain     string           // Input domain
-    Data       string           // JSON blob: scan results from starttls-checker
-    Timestamp  time.Time        // Time at which this scan was conducted
+    Domain     string       `json:"domain"`    // Input domain
+    Data       string       `json:"scandata"`  // JSON blob: scan results from starttls-checker
+    Timestamp  time.Time    `json:"timestamp"` // Time at which this scan was conducted
 }
 
 // DomainStatus: represents the state of a single domain.
@@ -32,18 +32,18 @@ const (
 
 // DomainData stores the preload state of a single domain.
 type DomainData struct {
-    Name       string           // Domain that is preloaded
-    Email      string           // Contact e-mail for Domain
-    MXs        []string         // MXs that are valid for this domain
-    State      DomainState
+    Name       string       `json:"domain"`    // Domain that is preloaded
+    Email      string       `json:"-"`         // Contact e-mail for Domain
+    MXs        []string     `json:"mxs"`       // MXs that are valid for this domain
+    State      DomainState  `json:"state"`
 }
 
 // TokenData stores the state of an e-mail verification token.
 type TokenData struct {
-    Domain       string         // Domain for which we're verifying the e-mail.
-    Token        string         // Token that we're expecting.
-    Expires      time.Time      // When this token expires.
-    Used         bool           // Whether this token was used.
+    Domain       string     `json:"domain"`    // Domain for which we're verifying the e-mail.
+    Token        string     `json:"token"`     // Token that we're expecting.
+    Expires      time.Time  `json:"expires"`   // When this token expires.
+    Used         bool       `json:"used"`      // Whether this token was used.
 }
 
 

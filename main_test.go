@@ -48,6 +48,21 @@ func testRequest(method string, url string, handler func (http.ResponseWriter, *
     return w.Result()
 }
 
+func TestGetDomainHidesEmail(t *testing.T) {
+    testRequest("POST", "/api/queue?domain=eff.org&email=testing@fake-email.org", api.Queue)
+    resp := testRequest("GET", "/api/queue?domain=eff.org", api.Queue)
+    // Check to see domain JSON hides email
+    domainBody, _ := ioutil.ReadAll(resp.Body)
+    var domainObj map[string]interface{}
+    json.Unmarshal(domainBody, &domainObj)
+    if _, ok := domainObj["email"]; ok {
+        t.Errorf("Domain object includes e-mail address!")
+    }
+    if _, ok := domainObj["Email"]; ok {
+        t.Errorf("Domain object includes e-mail address!")
+    }
+}
+
 // Tests basic queuing workflow.
 // Requests domain to be queued, and validates corresponding e-mail token.
 // Domain status should then be updated to "queued".
@@ -70,13 +85,13 @@ func TestBasicQueueWorkflow(t *testing.T) {
         t.Errorf("Returned invalid JSON object:%v\n", string(tokenBody))
         return
     }
-    token, ok := tokenObj["Token"]
+    token, ok := tokenObj["token"]
     if !ok {
         t.Errorf("Expected Token to be returned in JSON")
         return
     }
-    if tokenObj["Domain"] != "eff.org" {
-        t.Errorf("Token JSON expected to have Domain: eff.org, not %s\n", tokenObj["Domain"])
+    if tokenObj["domain"] != "eff.org" {
+        t.Errorf("Token JSON expected to have Domain: eff.org, not %s\n", tokenObj["domain"])
     }
 
     // 2. Request queue status
@@ -89,7 +104,7 @@ func TestBasicQueueWorkflow(t *testing.T) {
         t.Errorf("Returned invalid JSON object:%v\n", string(domainBody))
         return
     }
-    if domainObj["State"] != "unvalidated" {
+    if domainObj["state"] != "unvalidated" {
         t.Errorf("Initial state for domains should be 'unvalidated'")
         return
     }
@@ -124,7 +139,7 @@ func TestBasicQueueWorkflow(t *testing.T) {
         t.Errorf("Returned invalid JSON object:%v\n", string(domainBody))
         return
     }
-    if domainObj["State"] != "queued" {
+    if domainObj["state"] != "queued" {
         t.Errorf("Token validation should have automatically queued eff.org")
         return
     }
@@ -145,7 +160,7 @@ func TestBasicScan(t *testing.T) {
         t.Errorf("Expecting JSON content-type!")
     }
 
-    // Checking response JSON returns successful scan
+    // Checking response JSON returns successful scan from starttls-check
     scanBody, _ := ioutil.ReadAll(resp.Body)
     var jsonObj map[string]interface{}
     err := json.Unmarshal(scanBody, &jsonObj)
@@ -153,7 +168,7 @@ func TestBasicScan(t *testing.T) {
         t.Errorf("Returned invalid JSON object:%v\n", string(scanBody))
     }
     if domain, ok := jsonObj["Domain"]; !ok {
-        t.Errorf("Scan JSON should contain Domain field")
+        t.Errorf("Scan JSON should contain Domain field: %v")
     } else {
         if domain != "eff.org" {
             t.Errorf("Scan JSON expected to have Domain: eff.org, not %s\n", domain)
@@ -177,14 +192,14 @@ func TestBasicScan(t *testing.T) {
     if err != nil {
         t.Errorf("Returned invalid JSON object:%v\n", string(body))
     }
-    if domain, ok := jsonObj2["Domain"]; !ok {
+    if domain, ok := jsonObj2["domain"]; !ok {
         t.Errorf("Scan JSON should contain Domain field")
     } else {
         if domain != "eff.org" {
             t.Errorf("Scan JSON expected to have Domain: eff.org, not %s\n", domain)
         }
     }
-    if scandata, ok := jsonObj2["Data"]; !ok {
+    if scandata, ok := jsonObj2["scandata"]; !ok {
         t.Errorf("Scan JSON should contain Domain field")
     } else {
         if strings.Compare(scandata, strings.TrimSpace(string(scanBody))) != 0 {
