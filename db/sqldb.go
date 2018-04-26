@@ -3,6 +3,8 @@ package db
 import (
     "database/sql"
     "fmt"
+    "log"
+    "net/url"
     "time"
 
     _ "github.com/lib/pq"
@@ -16,10 +18,19 @@ type SqlDatabase struct {
     Conn *sql.DB
 }
 
-func InitSqlDatabase(cfg Config) (*SqlDatabase, error) {
+func getConnectionString(cfg Config) string {
     connectionString := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable",
                                     cfg.Db_username, cfg.Db_pass, cfg.Db_host, cfg.Db_name)
-    fmt.Printf("Connecting to %s ... \n", connectionString)
+    u, err := url.Parse(connectionString)
+    if err != nil {
+        log.Fatal(err)
+    }
+    return u.EscapedPath()
+}
+
+func InitSqlDatabase(cfg Config) (*SqlDatabase, error) {
+    connectionString := getConnectionString(cfg)
+    log.Printf("Connecting to %s ... \n", connectionString)
     conn, err := sql.Open("postgres", connectionString)
     if err != nil {
         return nil, err
