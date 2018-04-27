@@ -81,7 +81,7 @@ type Config struct {
 
 // Default configuration values. Can be overwritten by env vars of the same name.
 var configDefaults = map[string]string{
-	"PORT":            ":8080",
+	"PORT":            "8080",
 	"DB_HOST":         "localhost",
 	"DB_NAME":         "starttls",
 	"DB_USERNAME":     "postgres",

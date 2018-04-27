@@ -2,7 +2,7 @@
 
 ## Setup
 Requires `go` and `postgres` installations. You can specify the following environment variables:
- - `PORT`, e.g. `:8080`, to specify which port to listen for requests on
+ - `PORT`, e.g. `8080`, to specify which port to listen for requests on
  - `DB_HOST`, e.g. `localhost`, to specify the hostname for postgres.
  - `DB_NAME`, e.g. `starttls` or `starttls_dev`, to specify the name of the database. (this should be created in advance!)
  - `DB_USERNAME` / `DB_PASSWORD` - username and password for database access.
