@@ -1,4 +1,4 @@
-package main_test
+package main
 
 import (
 	"encoding/json"
@@ -11,14 +11,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sydneyli/starttls-scanner"
 	"github.com/sydneyli/starttls-scanner/db"
 )
 
 // Workflow tests against REST API.
 // TODO: Mock starttls-scanner/check so we don't actually make check requests
 
-var api *main.API
+var api *API
 
 // Load env. vars, initialize DB hook, and tests API
 func TestMain(m *testing.M) {
@@ -31,12 +30,29 @@ func TestMain(m *testing.M) {
 	// if err != nil {
 	//     log.Fatal(err)
 	// }
-	api = &main.API{
+	api = &API{
 		Database: db.InitMemDatabase(cfg),
 	}
 	code := m.Run()
 	api.Database.ClearTables()
 	os.Exit(code)
+}
+
+func TestInvalidPort(t *testing.T) {
+	portString, err := validPort("8000")
+	if err != nil {
+		t.Errorf("Should not have errored on valid string: %v", err)
+		return
+	}
+	if portString != ":8000" {
+		t.Errorf("Expected portstring be :8000 instead of %s", portString)
+		return
+	}
+	portString, err = validPort("80a")
+	if err == nil {
+		t.Errorf("Expected error on invalid port")
+		return
+	}
 }
 
 // Helper function to mock a request to the server via https.
