@@ -16,6 +16,7 @@ import (
 //  *****   REST API   *****  //
 ////////////////////////////////
 
+// API is the HTTP API that this service provides. In particular:
 // Scan:
 //   POST /api/scan?domain=<domain>
 //        returns scanData (JSON blob from starttls-check)
@@ -27,12 +28,11 @@ import (
 // Validate:
 //   POST /api/validate?token=<token>
 //        returns OK
-
 type API struct {
 	Database db.Database
 }
 
-// GET or POST /api/scan?domain=abc.com
+// Scan allows GET or POST /api/scan?domain=abc.com
 func (api API) Scan(w http.ResponseWriter, r *http.Request) {
 	domain, ok := getASCIIDomain(w, r)
 	if !ok {
@@ -75,7 +75,7 @@ func (api API) Scan(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GET or POST /api/queue?domain=abc.com
+// Queue allows GET or POST /api/queue?domain=abc.com
 func (api API) Queue(w http.ResponseWriter, r *http.Request) {
 	// Retrieve domain param
 	domain, ok := getASCIIDomain(w, r)
@@ -124,7 +124,7 @@ func (api API) Queue(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// POST /api/validate?token=xyz
+// Validate allows POST /api/validate?token=xyz
 func (api API) Validate(w http.ResponseWriter, r *http.Request) {
 	token, ok := getParam("token", w, r)
 	if !ok {

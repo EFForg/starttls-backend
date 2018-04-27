@@ -7,7 +7,7 @@ import (
 	"github.com/sydneyli/starttls-scanner/db"
 )
 
-// Serves all public HTTP endpoints.
+// ServePublicEndpoints serves all public HTTP endpoints.
 func ServePublicEndpoints(api *API, cfg *db.Config) {
 	http.HandleFunc("/api/scan", api.Scan)
 	http.HandleFunc("/api/queue", api.Queue)
