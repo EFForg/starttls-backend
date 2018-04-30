@@ -5,7 +5,7 @@ services:
         environment:
             POSTGRES_DB: starttls_dev
             POSTGRES_USER: postgres
-            POSTGRES_PASSWORD: postgres
+            POSTGRES_PASSWORD: "postgres password"
         ports:
           - "5432:5432"
     app:
@@ -21,5 +21,5 @@ services:
         environment:
             DB_NAME: starttls_dev
             DB_USERNAME: postgres
-            DB_PASSWORD: postgres
+            DB_PASSWORD: "postgres password"
             DB_HOST: postgres
