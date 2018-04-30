@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -53,12 +54,7 @@ func TestGetDomainHidesEmail(t *testing.T) {
 	resp := testRequest("GET", "/api/queue?domain=eff.org", api.Queue)
 	// Check to see domain JSON hides email
 	domainBody, _ := ioutil.ReadAll(resp.Body)
-	var domainObj map[string]interface{}
-	json.Unmarshal(domainBody, &domainObj)
-	if _, ok := domainObj["email"]; ok {
-		t.Errorf("Domain object includes e-mail address!")
-	}
-	if _, ok := domainObj["Email"]; ok {
+	if bytes.Contains(domainBody, []byte("testing@fake-email.org")) {
 		t.Errorf("Domain object includes e-mail address!")
 	}
 }
