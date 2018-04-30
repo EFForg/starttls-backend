@@ -1,18 +1,31 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/sydneyli/starttls-scanner/db"
 )
+
+func validPort(port string) (string, error) {
+	if _, err := strconv.Atoi(port); err != nil {
+		return "", fmt.Errorf("Given portstring %s is invalid.", port)
+	}
+	return fmt.Sprintf(":%s", port), nil
+}
 
 // ServePublicEndpoints serves all public HTTP endpoints.
 func ServePublicEndpoints(api *API, cfg *db.Config) {
 	http.HandleFunc("/api/scan", api.Scan)
 	http.HandleFunc("/api/queue", api.Queue)
 	http.HandleFunc("/api/validate", api.Validate)
-	log.Fatal(http.ListenAndServe(cfg.Port, nil))
+	portString, err := validPort(cfg.Port)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Fatal(http.ListenAndServe(portString, nil))
 }
 
 func main() {
