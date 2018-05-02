@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sydneyli/starttls-scanner/db"
+	"github.com/EFForg/starttls-scanner/db"
 )
 
 // Global database object for tests.

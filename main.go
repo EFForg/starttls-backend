@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/sydneyli/starttls-scanner/db"
+	"github.com/EFForg/starttls-scanner/db"
 )
 
 func validPort(port string) (string, error) {
