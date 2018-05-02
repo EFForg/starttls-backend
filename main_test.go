@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sydneyli/starttls-scanner/db"
+	"github.com/EFForg/starttls-scanner/db"
 )
 
 // Workflow tests against REST API.

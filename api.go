@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/EFForg/starttls-scanner/db"
 	"github.com/sydneyli/starttls-check/checker"
-	"github.com/sydneyli/starttls-scanner/db"
 )
 
 ////////////////////////////////

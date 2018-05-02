@@ -8,8 +8,8 @@ Requires `go` and `postgres` installations. You can specify the following enviro
  - `DB_USERNAME` / `DB_PASSWORD` - username and password for database access.
 
 ```
-go get github.com/sydneyli/starttls-scanner
-cd $GOPATH/github.com/sydneyli/starttls-scanner
+go get github.com/EFForg/starttls-scanner
+cd $GOPATH/github.com/EFForg/starttls-scanner
 ```
 
 You'll also want to ensure `postgres` is running, then run `db/scripts/init_db.sql` in the appropriate postgres DB in order to initialize your database.
