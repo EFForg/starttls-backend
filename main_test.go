@@ -56,6 +56,34 @@ func TestInvalidPort(t *testing.T) {
 	}
 }
 
+func TestPanicRecovery(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("Expected server to handle panic")
+		}
+	}()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/panic", panickingHandler)
+	server := httptest.NewServer(registerHandlers(api, mux))
+	defer server.Close()
+
+	log.SetOutput(ioutil.Discard)
+	resp, err := http.Get(fmt.Sprintf("%s/panic", server.URL))
+	log.SetOutput(os.Stderr)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 500 {
+		t.Errorf("Expected server to respond with 500")
+	}
+}
+
+func panickingHandler(w http.ResponseWriter, r *http.Request) {
+	panic("Something went wrong")
+}
+
 // Helper function to mock a request to the server via https.
 // Returns http.Response resulting from specified handler.
 func testRequest(method string, url string, handler func(http.ResponseWriter, *http.Request)) *http.Response {
