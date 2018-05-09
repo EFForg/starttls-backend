@@ -89,7 +89,6 @@ func (api API) Queue(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return
 		}
-		// 0. TODO: ensure domain doesn't already exist
 		// 1. Insert domain into DB
 		err := api.Database.PutDomain(db.DomainData{
 			Name:  domain,
