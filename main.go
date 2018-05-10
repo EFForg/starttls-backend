@@ -13,7 +13,7 @@ import (
 
 func validPort(port string) (string, error) {
 	if _, err := strconv.Atoi(port); err != nil {
-		return "", fmt.Errorf("Given portstring %s is invalid.", port)
+		return "", fmt.Errorf("Given portstring %s is invalid", port)
 	}
 	return fmt.Sprintf(":%s", port), nil
 }
@@ -44,7 +44,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	db, err := db.InitSqlDatabase(cfg)
+	db, err := db.InitSQLDatabase(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
