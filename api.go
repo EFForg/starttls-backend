@@ -16,6 +16,10 @@ import (
 //  *****   REST API   *****  //
 ////////////////////////////////
 
+// Type for performing checks against an input domain. Returns
+// a JSON-formatted string.
+type checkPerformer func(string) (string, error)
+
 // API is the HTTP API that this service provides. In particular:
 // Scan:
 //   POST /api/scan?domain=<domain>
@@ -30,6 +34,13 @@ import (
 //        returns OK
 type API struct {
 	Database db.Database
+	Checker  checkPerformer
+}
+
+func defaultCheck(domain string) (string, error) {
+	// false and true specify which of the checks we'd like to perform--
+	// Only STARTTLS but not MTASTS.
+	return checker.PerformChecksJSON(domain, false, true)
 }
 
 // Scan allows GET or POST /api/scan?domain=abc.com
@@ -42,7 +53,7 @@ func (api API) Scan(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		// 0. TODO: check that last scan was over an hour ago
 		// 1. Conduct scan via starttls-checker
-		scandata, err := checker.PerformChecksJSON(domain, false, true)
+		scandata, err := api.Checker(domain)
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
 			return

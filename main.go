@@ -50,6 +50,7 @@ func main() {
 	}
 	api := API{
 		Database: db,
+		Checker:  defaultCheck,
 	}
 	ServePublicEndpoints(&api, &cfg)
 }
