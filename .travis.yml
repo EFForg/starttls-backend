@@ -8,6 +8,5 @@ install:
   - go get ./...
 
 script:
-  - golint .
-  - golint ./db
+  - golint -set_exit_status ./...
   - go test -v .
