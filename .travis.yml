@@ -1,0 +1,9 @@
+language: go
+
+go:
+  - "1.8"
+
+script:
+  - golint .
+  - golint ./db
+  - go test -v ./...
