@@ -62,9 +62,9 @@ func (db *SQLDatabase) PutToken(domain string) (TokenData, error) {
 		Expires: time.Now().Add(time.Duration(time.Hour * 72)),
 		Used:    false,
 	}
-	_, err := db.Conn.Exec("INSERT INTO tokens(domain, token, expires) VALUES($1, $2, $3) "+
+	_, err := db.conn.Exec("INSERT INTO tokens(domain, token, expires) VALUES($1, $2, $3) "+
 		"ON CONFLICT (domain) DO UPDATE SET token=$2, expires=$3",
-		domain, tokenData.Token, tokenData.Expires.UTC().Format(SqlTimeFormat))
+		domain, tokenData.Token, tokenData.Expires.UTC().Format(sqlTimeFormat))
 	if err != nil {
 		return TokenData{}, err
 	}
