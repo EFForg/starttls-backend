@@ -19,9 +19,10 @@ type ScanData struct {
 	Timestamp time.Time `json:"timestamp"` // Time at which this scan was conducted
 }
 
-// DomainStatus: represents the state of a single domain.
+// DomainState represents the state of a single domain.
 type DomainState string
 
+// Possible values for DomainState
 const (
 	StateUnknown     = "unknown"     // Domain was never submitted, so we don't know.
 	StateUnvalidated = "unvalidated" // E-mail token for this domain is unverified
@@ -46,7 +47,7 @@ type TokenData struct {
 	Used    bool      `json:"used"`    // Whether this token was used.
 }
 
-// These are the things that the Database should be able to do.
+// Database interface: These are the things that the Database should be able to do.
 // Slightly more limited than CRUD for all the schemas.
 type Database interface {
 	// Puts new scandata for domain
@@ -68,15 +69,16 @@ type Database interface {
 	ClearTables() error
 }
 
+// Config is a configuration struct for a Database.
 type Config struct {
-	Port            string
-	Db_host         string
-	Db_name         string
-	Db_username     string
-	Db_pass         string
-	Db_token_table  string
-	Db_scan_table   string
-	Db_domain_table string
+	Port          string
+	DbHost        string
+	DbName        string
+	DbUsername    string
+	DbPass        string
+	DbTokenTable  string
+	DbScanTable   string
+	DbDomainTable string
 }
 
 // Default configuration values. Can be overwritten by env vars of the same name.
@@ -91,23 +93,25 @@ var configDefaults = map[string]string{
 	"DB_SCAN_TABLE":   "scans",
 }
 
-func getEnvOrDefault(var_name string) string {
-	env_var := os.Getenv(var_name)
-	if len(env_var) == 0 {
-		env_var = configDefaults[var_name]
+func getEnvOrDefault(varName string) string {
+	envVar := os.Getenv(varName)
+	if len(envVar) == 0 {
+		envVar = configDefaults[varName]
 	}
-	return env_var
+	return envVar
 }
 
+// LoadEnvironmentVariables loads relevant environment variables into a
+// Config object.
 func LoadEnvironmentVariables() (Config, error) {
 	return Config{
-		Port:            getEnvOrDefault("PORT"),
-		Db_host:         getEnvOrDefault("DB_HOST"),
-		Db_name:         getEnvOrDefault("DB_NAME"),
-		Db_username:     getEnvOrDefault("DB_USERNAME"),
-		Db_pass:         getEnvOrDefault("DB_PASSWORD"),
-		Db_token_table:  getEnvOrDefault("DB_TOKEN_TABLE"),
-		Db_domain_table: getEnvOrDefault("DB_DOMAIN_TABLE"),
-		Db_scan_table:   getEnvOrDefault("DB_SCAN_TABLE"),
+		Port:          getEnvOrDefault("PORT"),
+		DbHost:        getEnvOrDefault("DB_HOST"),
+		DbName:        getEnvOrDefault("DB_NAME"),
+		DbUsername:    getEnvOrDefault("DB_USERNAME"),
+		DbPass:        getEnvOrDefault("DB_PASSWORD"),
+		DbTokenTable:  getEnvOrDefault("DB_TOKEN_TABLE"),
+		DbDomainTable: getEnvOrDefault("DB_DOMAIN_TABLE"),
+		DbScanTable:   getEnvOrDefault("DB_SCAN_TABLE"),
 	}, nil
 }
