@@ -20,6 +20,10 @@ import (
 
 var api *API
 
+func mockCheckPerform(domain string) (string, error) {
+	return fmt.Sprintf("{\n\"Domain\": \"%s\"\n}", domain), nil
+}
+
 // Load env. vars, initialize DB hook, and tests API
 func TestMain(m *testing.M) {
 	cfg, err := db.LoadEnvironmentVariables()
@@ -32,7 +36,8 @@ func TestMain(m *testing.M) {
 	//     log.Fatal(err)
 	// }
 	api = &API{
-		Database: db.InitMemDatabase(cfg),
+		Database:    db.InitMemDatabase(cfg),
+		CheckDomain: mockCheckPerform,
 	}
 	code := m.Run()
 	api.Database.ClearTables()

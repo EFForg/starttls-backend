@@ -49,7 +49,8 @@ func main() {
 		log.Fatal(err)
 	}
 	api := API{
-		Database: db,
+		Database:    db,
+		CheckDomain: defaultCheck,
 	}
 	ServePublicEndpoints(&api, &cfg)
 }
