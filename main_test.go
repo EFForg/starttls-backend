@@ -36,8 +36,8 @@ func TestMain(m *testing.M) {
 	//     log.Fatal(err)
 	// }
 	api = &API{
-		Database: db.InitMemDatabase(cfg),
-		Checker:  mockCheckPerform,
+		Database:    db.InitMemDatabase(cfg),
+		CheckDomain: mockCheckPerform,
 	}
 	code := m.Run()
 	api.Database.ClearTables()

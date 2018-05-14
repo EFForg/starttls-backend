@@ -33,8 +33,8 @@ type checkPerformer func(string) (string, error)
 //   POST /api/validate?token=<token>
 //        returns OK
 type API struct {
-	Database db.Database
-	Checker  checkPerformer
+	Database    db.Database
+	CheckDomain checkPerformer
 }
 
 func defaultCheck(domain string) (string, error) {
@@ -53,7 +53,7 @@ func (api API) Scan(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		// 0. TODO: check that last scan was over an hour ago
 		// 1. Conduct scan via starttls-checker
-		scandata, err := api.Checker(domain)
+		scandata, err := api.CheckDomain(domain)
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
 			return
