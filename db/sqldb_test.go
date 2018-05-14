@@ -11,18 +11,18 @@ import (
 )
 
 // Global database object for tests.
-var database *db.SqlDatabase
+var database *db.SQLDatabase
 
 // Connects to local test db.
-func initTestDb() *db.SqlDatabase {
+func initTestDb() *db.SQLDatabase {
 	os.Setenv("PRIV_KEY", "./certs/key.pem")
 	os.Setenv("PUBLIC_KEY", "./certs/cert.pem")
 	cfg, err := db.LoadEnvironmentVariables()
-	cfg.Db_name = fmt.Sprintf("%s_dev", cfg.Db_name)
+	cfg.DbName = fmt.Sprintf("%s_dev", cfg.DbName)
 	if err != nil {
 		log.Fatal(err)
 	}
-	database, err := db.InitSqlDatabase(cfg)
+	database, err := db.InitSQLDatabase(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -134,14 +134,14 @@ func TestPutGetDomain(t *testing.T) {
 	if err != nil {
 		t.Errorf("PutDomain failed: %v\n", err)
 	}
-	retrieved_data, err := database.GetDomain(data.Name)
+	retrievedData, err := database.GetDomain(data.Name)
 	if err != nil {
 		t.Errorf("GetDomain(%s) failed: %v\n", data.Name, err)
 	}
-	if retrieved_data.Name != data.Name {
+	if retrievedData.Name != data.Name {
 		t.Errorf("Somehow, GetDomain retrieved the wrong object?")
 	}
-	if retrieved_data.State != db.StateUnvalidated {
+	if retrievedData.State != db.StateUnvalidated {
 		t.Errorf("Default state should be 'Unvalidated'")
 	}
 }
@@ -157,9 +157,9 @@ func TestUpsertDomain(t *testing.T) {
 	if err != nil {
 		t.Errorf("PutDomain(%s) failed: %v\n", data.Name, err)
 	}
-	retrieved_data, err := database.GetDomain(data.Name)
-	if retrieved_data.State != db.StateQueued {
-		t.Errorf("Expected state to be 'Queued', was %v\n", retrieved_data)
+	retrievedData, err := database.GetDomain(data.Name)
+	if retrievedData.State != db.StateQueued {
+		t.Errorf("Expected state to be 'Queued', was %v\n", retrievedData)
 	}
 }
 

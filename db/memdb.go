@@ -6,7 +6,8 @@ import (
 	"time"
 )
 
-// Straw-man in-memory database (for testing!)
+// MemDatabase is a straw-man in-memory database for testing.
+// This DB does not persist.
 type MemDatabase struct {
 	cfg     Config
 	domains map[string]DomainData
@@ -14,6 +15,7 @@ type MemDatabase struct {
 	tokens  map[string]TokenData
 }
 
+// InitMemDatabase initializes a MemDatabase.
 func InitMemDatabase(cfg Config) *MemDatabase {
 	return &MemDatabase{
 		cfg:     cfg,
@@ -29,18 +31,19 @@ func randToken() string {
 	return fmt.Sprintf("%x", b)
 }
 
-func (db *MemDatabase) UseToken(token_str string) (string, error) {
-	token, ok := db.tokens[token_str]
+// UseToken uses the e-mail token specified by tokenStr.
+func (db *MemDatabase) UseToken(tokenStr string) (string, error) {
+	token, ok := db.tokens[tokenStr]
 	if !ok {
-		return "", fmt.Errorf("This token doesn't exist!")
+		return "", fmt.Errorf("This token doesn't exist")
 	}
 	if token.Used {
-		return "", fmt.Errorf("This token has already been used!")
+		return "", fmt.Errorf("This token has already been used")
 	}
 	if token.Expires.Before(time.Now()) {
-		return "", fmt.Errorf("This token has expired!")
+		return "", fmt.Errorf("This token has expired")
 	}
-	db.tokens[token_str] = TokenData{
+	db.tokens[tokenStr] = TokenData{
 		Domain:  token.Domain,
 		Token:   token.Token,
 		Expires: token.Expires,
@@ -55,9 +58,10 @@ func (db *MemDatabase) getTokenForDomain(domain string) (string, error) {
 			return token, nil
 		}
 	}
-	return "", fmt.Errorf("Couldn't find an entry for this domain!")
+	return "", fmt.Errorf("Couldn't find an entry for this domain")
 }
 
+// PutToken inserts a randomly generated token for domain. Returns the token.
 func (db *MemDatabase) PutToken(domain string) (TokenData, error) {
 	existingToken, err := db.getTokenForDomain(domain)
 	if err == nil {
@@ -74,6 +78,7 @@ func (db *MemDatabase) PutToken(domain string) (TokenData, error) {
 	return token, nil
 }
 
+// PutScan puts a scandata object.
 func (db *MemDatabase) PutScan(scanData ScanData) error {
 	if _, ok := db.scans[scanData.Domain]; !ok {
 		db.scans[scanData.Domain] = make([]ScanData, 0)
@@ -82,6 +87,7 @@ func (db *MemDatabase) PutScan(scanData ScanData) error {
 	return nil
 }
 
+// GetLatestScan retrives the latest scan.
 func (db MemDatabase) GetLatestScan(domain string) (ScanData, error) {
 	val, ok := db.scans[domain]
 	if !ok {
@@ -90,6 +96,7 @@ func (db MemDatabase) GetLatestScan(domain string) (ScanData, error) {
 	return val[len(val)-1], nil
 }
 
+// GetAllScans retrieves all the scans for a particular domain.
 func (db MemDatabase) GetAllScans(domain string) ([]ScanData, error) {
 	val, ok := db.scans[domain]
 	if !ok {
@@ -98,15 +105,18 @@ func (db MemDatabase) GetAllScans(domain string) ([]ScanData, error) {
 	return val, nil
 }
 
+// PutDomain inserts a new domain into the queue.
 func (db *MemDatabase) PutDomain(domainData DomainData) error {
 	db.domains[domainData.Name] = domainData
 	return nil
 }
 
+// GetDomain retrieves the queue status for a particular domain.
 func (db MemDatabase) GetDomain(domain string) (DomainData, error) {
 	return db.domains[domain], nil
 }
 
+// GetDomains retrieves all domains in a parituclar queue status.
 func (db MemDatabase) GetDomains(state DomainState) ([]DomainData, error) {
 	data := make([]DomainData, 0)
 	for _, value := range db.domains {
@@ -117,6 +127,7 @@ func (db MemDatabase) GetDomains(state DomainState) ([]DomainData, error) {
 	return data, nil
 }
 
+// ClearTables clears all the tables.
 func (db *MemDatabase) ClearTables() error {
 	db.domains = make(map[string]DomainData)
 	db.scans = make(map[string][]ScanData)
