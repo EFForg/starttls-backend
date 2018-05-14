@@ -39,12 +39,6 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-///////////////////////////
-// ***** API tests ***** //
-///////////////////////////
-
-// TODO (sydli)
-
 ////////////////////////////////
 // ***** Database tests ***** //
 ////////////////////////////////
@@ -181,5 +175,21 @@ func TestPutUseToken(t *testing.T) {
 	}
 	if domain != data.Domain {
 		t.Errorf("UseToken used token for %s instead of %s\n", domain, data.Domain)
+	}
+}
+
+func TestPutTokenTwice(t *testing.T) {
+	database.ClearTables()
+	data, err := database.PutToken("testing.com")
+	if err != nil {
+		t.Errorf("PutToken failed: %v\n", err)
+	}
+	_, err = database.PutToken("testing.com")
+	if err != nil {
+		t.Errorf("PutToken failed: %v\n", err)
+	}
+	domain, err := database.UseToken(data.Token)
+	if domain == data.Domain {
+		t.Errorf("UseToken should not have succeeded with old token!\n", domain, data.Domain)
 	}
 }

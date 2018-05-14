@@ -185,6 +185,31 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	}
 }
 
+func TestQueueTwice(t *testing.T) {
+	// 1. Request to be queued
+	resp := testRequest("POST", "/api/queue?domain=eff.org&email=testing@fake-email.org", api.Queue)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("POST to api/queue?domain=eff.org failed with error %d", resp.StatusCode)
+		return
+	}
+	// 2. Extract token from queue.
+	tokenBody, _ := ioutil.ReadAll(resp.Body)
+	var tokenObj map[string]interface{}
+	json.Unmarshal(tokenBody, &tokenObj)
+	token, _ := tokenObj["token"]
+	// 3. Request to be queued again.
+	resp = testRequest("POST", "/api/queue?domain=eff.org&email=testing@fake-email.org", api.Queue)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("POST to api/queue?domain=eff.org failed with error %d", resp.StatusCode)
+		return
+	}
+	// 4. Old token shouldn't work.
+	resp = testRequest("POST", fmt.Sprintf("/api/validate?token=%s", token), api.Validate)
+	if resp.StatusCode != 400 {
+		t.Errorf("Old validation token shouldn't work.")
+	}
+}
+
 // Tests basic scanning workflow.
 // Requests a scan for a particular domain, and
 // makes sure that the scan is persisted correctly in DB across requests.

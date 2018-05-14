@@ -52,8 +52,21 @@ func (db *MemDatabase) UseToken(tokenStr string) (string, error) {
 	return token.Domain, nil
 }
 
+func (db *MemDatabase) getTokenForDomain(domain string) (string, error) {
+	for token, tokenData := range db.tokens {
+		if tokenData.Domain == domain {
+			return token, nil
+		}
+	}
+	return "", fmt.Errorf("Couldn't find an entry for this domain")
+}
+
 // PutToken inserts a randomly generated token for domain. Returns the token.
 func (db *MemDatabase) PutToken(domain string) (TokenData, error) {
+	existingToken, err := db.getTokenForDomain(domain)
+	if err == nil {
+		delete(db.tokens, existingToken)
+	}
 	token := TokenData{
 		Domain: domain,
 		Token:  randToken(),
