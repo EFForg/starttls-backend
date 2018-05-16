@@ -1,0 +1,14 @@
+# Ignore configuration
+.dockerignore
+docker-compose.yml
+Dockerfile
+.env.example
+.env
+.travis.yml
+
+# Ignore git
+.git
+.gitignore
+
+# Ignore compiled scanner
+starttls-scanner

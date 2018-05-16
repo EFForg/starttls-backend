@@ -2,10 +2,12 @@ version: '2'
 services:
     postgres:
         build: db/
+        env_file:
+          - .env
         environment:
-            POSTGRES_DB: starttls_dev
-            POSTGRES_USER: postgres
-            POSTGRES_PASSWORD: "postgres password"
+          POSTGRES_DB: $DB_NAME
+          POSTGRES_USER: $DB_USERNAME
+          POSTGRES_PASSWORD: $DB_PASSWORD
         ports:
           - "5432:5432"
     app:
@@ -18,8 +20,5 @@ services:
           - postgres
         links:
           - postgres
-        environment:
-            DB_NAME: starttls_dev
-            DB_USERNAME: postgres
-            DB_PASSWORD: "postgres password"
-            DB_HOST: postgres
+        env_file:
+          - .env
