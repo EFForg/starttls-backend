@@ -190,7 +190,7 @@ func getASCIIDomain(w http.ResponseWriter, r *http.Request) (string, bool) {
 // Retrieves and lowercases `param` as a query parameter from `http.Request` r.
 // If fails, then writes error to `http.ResponseWriter` w.
 func getParam(param string, w http.ResponseWriter, r *http.Request) (string, bool) {
-	unicode := r.URL.Query().Get(param)
+	unicode := r.FormValue(param)
 	if unicode == "" {
 		http.Error(w, fmt.Sprintf("Query parameter %s not specified", param),
 			http.StatusBadRequest)

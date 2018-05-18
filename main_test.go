@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -91,16 +92,19 @@ func panickingHandler(w http.ResponseWriter, r *http.Request) {
 
 // Helper function to mock a request to the server via https.
 // Returns http.Response resulting from specified handler.
-func testRequest(method string, url string, handler func(http.ResponseWriter, *http.Request)) *http.Response {
-	req := httptest.NewRequest(method, fmt.Sprintf("http://localhost:8080/%s", url), nil)
+func testRequest(method string, path string, data url.Values, handler func(http.ResponseWriter, *http.Request)) *http.Response {
+	req := httptest.NewRequest(method, fmt.Sprintf("http://localhost:8080/%s", path), strings.NewReader(data.Encode()))
+	if data != nil {
+		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	}
 	w := httptest.NewRecorder()
 	handler(w, req)
 	return w.Result()
 }
 
 func TestGetDomainHidesEmail(t *testing.T) {
-	testRequest("POST", "/api/queue?domain=eff.org&email=testing@fake-email.org", api.Queue)
-	resp := testRequest("GET", "/api/queue?domain=eff.org", api.Queue)
+	testRequest("POST", "/api/queue?domain=eff.org&email=testing@fake-email.org", nil, api.Queue)
+	resp := testRequest("GET", "/api/queue?domain=eff.org", nil, api.Queue)
 	// Check to see domain JSON hides email
 	domainBody, _ := ioutil.ReadAll(resp.Body)
 	if bytes.Contains(domainBody, []byte("testing@fake-email.org")) {
@@ -113,9 +117,12 @@ func TestGetDomainHidesEmail(t *testing.T) {
 // Domain status should then be updated to "queued".
 func TestBasicQueueWorkflow(t *testing.T) {
 	// 1. Request to be queued
-	resp := testRequest("POST", "/api/queue?domain=eff.org&email=testing@fake-email.org", api.Queue)
+	data := url.Values{}
+	data.Set("domain", "eff.org")
+	data.Set("email", "testing@fake-email.org")
+	resp := testRequest("POST", "/api/queue", data, api.Queue)
 	if resp.StatusCode != http.StatusOK {
-		t.Errorf("POST to api/queue?domain=eff.org failed with error %d", resp.StatusCode)
+		t.Errorf("POST to api/queue failed with error %d", resp.StatusCode)
 		return
 	}
 	if resp.Header.Get("Content-Type") != "application/json; charset=utf-8" {
@@ -140,7 +147,7 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	}
 
 	// 2. Request queue status
-	resp = testRequest("GET", "/api/queue?domain=eff.org", api.Queue)
+	resp = testRequest("GET", "/api/queue?domain=eff.org", nil, api.Queue)
 	// 2-T. Check to see domain status was initialized to 'unvalidated'
 	domainBody, _ := ioutil.ReadAll(resp.Body)
 	var domainObj map[string]interface{}
@@ -155,7 +162,9 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	}
 
 	// 3. Validate domain token
-	resp = testRequest("POST", fmt.Sprintf("/api/validate?token=%s", token), api.Validate)
+	data = url.Values{}
+	data.Set("token", token.(string))
+	resp = testRequest("POST", "/api/validate", data, api.Validate)
 	// 3-T. Ensure response body contains domain name
 	domainBody, _ = ioutil.ReadAll(resp.Body)
 	var domain string
@@ -170,13 +179,13 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	}
 
 	// 3-T2. Ensure double-validation does not work.
-	resp = testRequest("POST", fmt.Sprintf("/api/validate?token=%s", token), api.Validate)
+	resp = testRequest("POST", "/api/validate", data, api.Validate)
 	if resp.StatusCode != 400 {
 		t.Errorf("Validation token shouldn't be able to be used twice!")
 	}
 
 	// 4. Request queue status again
-	resp = testRequest("GET", "/api/queue?domain=eff.org", api.Queue)
+	resp = testRequest("GET", "/api/queue?domain=eff.org", nil, api.Queue)
 	// 4-T. Check to see domain status was updated to "queued" after valid token redemption
 	domainBody, _ = ioutil.ReadAll(resp.Body)
 	err = json.Unmarshal(domainBody, &domainObj)
@@ -192,9 +201,12 @@ func TestBasicQueueWorkflow(t *testing.T) {
 
 func TestQueueTwice(t *testing.T) {
 	// 1. Request to be queued
-	resp := testRequest("POST", "/api/queue?domain=eff.org&email=testing@fake-email.org", api.Queue)
+	data := url.Values{}
+	data.Set("domain", "eff.org")
+	data.Set("email", "testing@fake-email.org")
+	resp := testRequest("POST", "/api/queue", data, api.Queue)
 	if resp.StatusCode != http.StatusOK {
-		t.Errorf("POST to api/queue?domain=eff.org failed with error %d", resp.StatusCode)
+		t.Errorf("POST to api/queue failed with error %d", resp.StatusCode)
 		return
 	}
 	// 2. Extract token from queue.
@@ -203,13 +215,15 @@ func TestQueueTwice(t *testing.T) {
 	json.Unmarshal(tokenBody, &tokenObj)
 	token, _ := tokenObj["token"]
 	// 3. Request to be queued again.
-	resp = testRequest("POST", "/api/queue?domain=eff.org&email=testing@fake-email.org", api.Queue)
+	resp = testRequest("POST", "/api/queue", data, api.Queue)
 	if resp.StatusCode != http.StatusOK {
-		t.Errorf("POST to api/queue?domain=eff.org failed with error %d", resp.StatusCode)
+		t.Errorf("POST to api/queue failed with error %d", resp.StatusCode)
 		return
 	}
 	// 4. Old token shouldn't work.
-	resp = testRequest("POST", fmt.Sprintf("/api/validate?token=%s", token), api.Validate)
+	data = url.Values{}
+	data.Set("token", token.(string))
+	resp = testRequest("POST", "/api/validate", data, api.Validate)
 	if resp.StatusCode != 400 {
 		t.Errorf("Old validation token shouldn't work.")
 	}
@@ -221,9 +235,11 @@ func TestQueueTwice(t *testing.T) {
 func TestBasicScan(t *testing.T) {
 	api.Database.ClearTables()
 	// Request a scan!
-	resp := testRequest("POST", "/api/scan?domain=eff.org", api.Scan)
+	data := url.Values{}
+	data.Set("domain", "eff.org")
+	resp := testRequest("POST", "/api/scan", data, api.Scan)
 	if resp.StatusCode != http.StatusOK {
-		t.Errorf("POST to api/scan?domain=eff.org failed with error %d", resp.StatusCode)
+		t.Errorf("POST to api/scan failed with error %d", resp.StatusCode)
 		return
 	}
 	if resp.Header.Get("Content-Type") != "application/json; charset=utf-8" {
@@ -246,7 +262,7 @@ func TestBasicScan(t *testing.T) {
 	}
 
 	// Check to see that scan results persisted.
-	resp = testRequest("GET", "api/scan?domain=eff.org", api.Scan)
+	resp = testRequest("GET", "api/scan?domain=eff.org", nil, api.Scan)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("GET api/scan?domain=eff.org failed with error %d", resp.StatusCode)
 		return
