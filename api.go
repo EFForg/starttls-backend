@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/EFForg/starttls-check/checker"
 	"github.com/EFForg/starttls-scanner/db"
-	"github.com/sydneyli/starttls-check/checker"
 )
 
 ////////////////////////////////
@@ -38,9 +38,9 @@ type API struct {
 }
 
 func defaultCheck(domain string) (string, error) {
-	// false and true specify which of the checks we'd like to perform--
-	// Only STARTTLS but not MTASTS.
-	return checker.PerformChecksJSON(domain, false, true)
+	result := checker.CheckDomain(domain, nil)
+	byteArray, err := json.Marshal(result)
+	return string(byteArray), err
 }
 
 // Scan allows GET or POST /api/scan?domain=abc.com

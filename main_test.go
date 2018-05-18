@@ -21,7 +21,7 @@ import (
 var api *API
 
 func mockCheckPerform(domain string) (string, error) {
-	return fmt.Sprintf("{\n\"Domain\": \"%s\"\n}", domain), nil
+	return fmt.Sprintf("{\n\"domain\": \"%s\"\n}", domain), nil
 }
 
 // Load env. vars, initialize DB hook, and tests API
@@ -237,7 +237,7 @@ func TestBasicScan(t *testing.T) {
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n", string(scanBody))
 	}
-	if domain, ok := jsonObj["Domain"]; !ok {
+	if domain, ok := jsonObj["domain"]; !ok {
 		t.Errorf("Scan JSON should contain Domain field")
 	} else {
 		if domain != "eff.org" {
