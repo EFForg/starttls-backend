@@ -23,8 +23,10 @@ func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
 	mux.HandleFunc("/api/queue", api.Queue)
 	mux.HandleFunc("/api/validate", api.Validate)
 
+	originsOk := handlers.AllowedOrigins([]string{os.Getenv("ALLOWED_ORIGINS")})
+
 	return handlers.RecoveryHandler()(
-		handlers.LoggingHandler(os.Stdout, mux),
+		handlers.CORS(originsOk)(handlers.LoggingHandler(os.Stdout, mux)),
 	)
 }
 
