@@ -125,49 +125,6 @@ func UnmarshalAPIResponseJSON(b []byte, response interface{}) error {
 	return nil
 }
 
-//
-// func UnmarshalJSONIntoToken(b []byte) (*db.TokenData, error) {
-// 	var objMap map[string]*json.RawMessage
-// 	err := json.Unmarshal(b, &objMap)
-// 	result := db.TokenData{}
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	err = json.Unmarshal(*objMap["response"], &result)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &result, nil
-// }
-//
-// func UnmarshalJSONIntoDomain(b []byte) (*db.DomainData, error) {
-// 	var objMap map[string]*json.RawMessage
-// 	err := json.Unmarshal(b, &objMap)
-// 	result := db.DomainData{}
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	err = json.Unmarshal(*objMap["response"], &result)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &result, nil
-// }
-//
-// func UnmarshalJSONIntoScan(b []byte) (*db.ScanData, error) {
-// 	var objMap map[string]*json.RawMessage
-// 	err := json.Unmarshal(b, &objMap)
-// 	result := db.ScanData{}
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	err = json.Unmarshal(*objMap["response"], &result)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &result, nil
-// }
-
 // Tests basic queuing workflow.
 // Requests domain to be queued, and validates corresponding e-mail token.
 // Domain status should then be updated to "queued".

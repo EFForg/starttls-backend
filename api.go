@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"golang.org/x/net/idna"
 	"net/http"
@@ -35,6 +34,7 @@ type API struct {
 	CheckDomain checkPerformer
 }
 
+// APIResponse wraps all the responses from this API.
 type APIResponse struct {
 	StatusCode int         `json:"status_code"`
 	Message    string      `json:"message"`
@@ -196,7 +196,7 @@ func getASCIIDomain(r *http.Request) (string, error) {
 	}
 	ascii, err := idna.ToASCII(domain)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Could not convert domain %s to ASCII (%s)", domain, err))
+		return "", fmt.Errorf("Could not convert domain %s to ASCII (%s)", domain, err)
 	}
 	return ascii, nil
 }
@@ -206,7 +206,7 @@ func getASCIIDomain(r *http.Request) (string, error) {
 func getParam(param string, r *http.Request) (string, error) {
 	unicode := r.FormValue(param)
 	if unicode == "" {
-		return "", errors.New(fmt.Sprintf("Query parameter %s not specified", param))
+		return "", fmt.Errorf("Query parameter %s not specified", param)
 	}
 	return strings.ToLower(unicode), nil
 }
