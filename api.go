@@ -38,6 +38,24 @@ type API struct {
 	CheckDomain checkPerformer
 }
 
+type APIResponse struct {
+	StatusCode int
+	Message    string
+	Response   interface{}
+}
+
+type apiHandler func(r *http.Request) APIResponse
+
+func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response := api(r)
+		if response.StatusCode != http.StatusOK {
+			http.Error(w, response.Message, response.StatusCode)
+		}
+		writeJSON(w, response)
+	}
+}
+
 func defaultCheck(domain string) (string, error) {
 	result := checker.CheckDomain(domain, nil)
 	byteArray, err := json.Marshal(result)
@@ -45,11 +63,10 @@ func defaultCheck(domain string) (string, error) {
 }
 
 // Scan allows GET or POST /api/scan?domain=abc.com
-func (api API) Scan(w http.ResponseWriter, r *http.Request) {
+func (api API) Scan(r *http.Request) APIResponse {
 	domain, err := getASCIIDomain(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
 	}
 	// POST: Force scan to be conducted
 	if r.Method == http.MethodPost {
@@ -57,8 +74,7 @@ func (api API) Scan(w http.ResponseWriter, r *http.Request) {
 		// 1. Conduct scan via starttls-checker
 		scandata, err := api.CheckDomain(domain)
 		if err != nil {
-			http.Error(w, "", http.StatusInternalServerError)
-			return
+			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
 		// 2. Put scan into DB
 		err = api.Database.PutScan(db.ScanData{
@@ -67,42 +83,35 @@ func (api API) Scan(w http.ResponseWriter, r *http.Request) {
 			Timestamp: time.Now(),
 		})
 		if err != nil {
-			http.Error(w, "", http.StatusInternalServerError)
-			return
+			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
 		// 3. TODO: Return scandata as JSON (also set response type)
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		fmt.Fprintf(w, "%s\n", scandata)
-		w.WriteHeader(200)
+		return APIResponse{StatusCode: http.StatusOK, Response: scandata}
 		// GET: Just fetch the most recent scan
 	} else if r.Method == http.MethodGet {
 		scan, err := api.Database.GetLatestScan(domain)
 		if err != nil {
-			http.Error(w, "No scans found!", http.StatusNotFound)
-			return
+			return APIResponse{StatusCode: http.StatusNotFound, Message: err.Error()}
 		}
-		writeJSON(w, scan)
+		return APIResponse{StatusCode: http.StatusOK, Response: scan}
 	} else {
-		http.Error(w, "/api/queue only accepts POST and GET requests",
-			http.StatusMethodNotAllowed)
+		return APIResponse{StatusCode: http.StatusMethodNotAllowed,
+			Message: "/api/scan only accepts POST and GET requests"}
 	}
 }
 
 // Queue allows GET or POST /api/queue?domain=abc.com
-func (api API) Queue(w http.ResponseWriter, r *http.Request) {
+func (api API) Queue(r *http.Request) APIResponse {
 	// Retrieve domain param
 	domain, err := getASCIIDomain(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
 	}
-
 	// POST: Insert this domain into the queue
 	if r.Method == http.MethodPost {
 		email, err := getParam("email", r)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+			return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
 		}
 		// 1. Insert domain into DB
 		err = api.Database.PutDomain(db.DomainData{
@@ -111,57 +120,46 @@ func (api API) Queue(w http.ResponseWriter, r *http.Request) {
 			State: db.StateUnvalidated,
 		})
 		if err != nil {
-			http.Error(w, "Internal server error",
-				http.StatusInternalServerError)
-			return
+			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
 		// 2. Create token for domain
 		token, err := api.Database.PutToken(domain)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Something happened %s", err), // TODO
-				http.StatusInternalServerError)
-			return
+			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
-		writeJSON(w, token)
-
+		return APIResponse{StatusCode: http.StatusOK, Response: token}
 		// GET: Retrieve domain status from queue
 	} else if r.Method == http.MethodGet {
 		status, err := api.Database.GetDomain(domain)
 		if err != nil {
-			http.Error(w, "No domains found!", http.StatusNotFound)
-			return
+			return APIResponse{StatusCode: http.StatusNotFound, Message: err.Error()}
 		}
-		writeJSON(w, status)
+		return APIResponse{StatusCode: http.StatusOK, Response: status}
 	} else {
-		http.Error(w, "/api/queue only accepts POST and GET requests",
-			http.StatusMethodNotAllowed)
+		return APIResponse{StatusCode: http.StatusMethodNotAllowed,
+			Message: "/api/queue only accepts POST and GET requests"}
 	}
 }
 
 // Validate allows POST /api/validate?token=xyz
-func (api API) Validate(w http.ResponseWriter, r *http.Request) {
+func (api API) Validate(r *http.Request) APIResponse {
 	token, err := getParam("token", r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
 	}
 	if r.Method != http.MethodPost {
-		http.Error(w, "/api/validate only accepts POST requests",
-			http.StatusMethodNotAllowed)
-		return
+		return APIResponse{StatusCode: http.StatusMethodNotAllowed,
+			Message: "/api/validate only accepts POST requests"}
 	}
 	// 1. Use the token
 	domain, err := api.Database.UseToken(token)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Could not use token %s (%s)", token, err),
-			http.StatusBadRequest)
-		return
+		return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
 	}
 	// 2. Update domain status from "UNVALIDATED" to "QUEUED"
 	domainData, err := api.Database.GetDomain(domain)
 	if err != nil {
-		http.Error(w, "Could not find associated domain!", http.StatusInternalServerError)
-		return
+		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 	}
 	err = api.Database.PutDomain(db.DomainData{
 		Name:  domainData.Name,
@@ -169,10 +167,9 @@ func (api API) Validate(w http.ResponseWriter, r *http.Request) {
 		State: db.StateQueued,
 	})
 	if err != nil {
-		http.Error(w, "Could not update domain status!", http.StatusInternalServerError)
-		return
+		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 	}
-	writeJSON(w, domain)
+	return APIResponse{StatusCode: http.StatusOK, Response: domain}
 }
 
 // Retrieve "domain" parameter from request as ASCII
