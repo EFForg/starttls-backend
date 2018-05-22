@@ -133,6 +133,8 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	data := url.Values{}
 	data.Set("domain", "eff.org")
 	data.Set("email", "testing@fake-email.org")
+	data.Set("hostname_0", ".eff.org")
+	data.Set("hostname_1", "mx.eff.org")
 	resp := testRequest("POST", "/api/queue", data, api.Queue)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("POST to api/queue failed with error %d", resp.StatusCode)
@@ -166,6 +168,10 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	}
 	if domainData.State != "unvalidated" {
 		t.Errorf("Initial state for domains should be 'unvalidated'")
+		return
+	}
+	if len(domainData.MXs) != 2 {
+		t.Errorf("Domain should have loaded two hostnames into policy")
 		return
 	}
 
@@ -207,11 +213,24 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	}
 }
 
+func TestQueueWithoutHostnames(t *testing.T) {
+	data := url.Values{}
+	data.Set("domain", "eff.org")
+	data.Set("email", "testing@fake-email.org")
+	resp := testRequest("POST", "/api/queue", data, api.Queue)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("POST to api/queue should have failed with error %d", http.StatusBadRequest)
+		return
+	}
+}
+
 func TestQueueTwice(t *testing.T) {
 	// 1. Request to be queued
 	data := url.Values{}
 	data.Set("domain", "eff.org")
 	data.Set("email", "testing@fake-email.org")
+	data.Set("hostname_0", ".eff.org")
+	data.Set("hostname_1", "mx.eff.org")
 	resp := testRequest("POST", "/api/queue", data, api.Queue)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("POST to api/queue failed with error %d", resp.StatusCode)
