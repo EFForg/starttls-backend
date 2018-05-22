@@ -21,27 +21,24 @@ import (
 // a JSON-formatted string.
 type checkPerformer func(string) (string, error)
 
-// API is the HTTP API that this service provides. In particular:
-// Scan:
-//   POST /api/scan?domain=<domain>
-//        returns scanData (JSON blob from starttls-check)
-// Queue:
-//   POST /api/queue?domain=<domain>
-//        returns {token: <token>}
-//   GET  /api/queue?domain=<domain>
-//        returns domainData
-// Validate:
-//   POST /api/validate?token=<token>
-//        returns OK
+// API is the HTTP API that this service provides.
+// All requests respond with an APIResponse JSON, with fields:
+// {
+//     status_code // HTTP status code of request
+//     message // Any error message accompanying the status_code. If 200, empty.
+//     response // Response data (as JSON) from this request.
+// }
+// Any POST request accepts either URL query parameters or data value parameters,
+// and prefers the latter if both are present.
 type API struct {
 	Database    db.Database
 	CheckDomain checkPerformer
 }
 
 type APIResponse struct {
-	StatusCode int
-	Message    string
-	Response   interface{}
+	StatusCode int         `json:"status_code"`
+	Message    string      `json:"message"`
+	Response   interface{} `json:"response"`
 }
 
 type apiHandler func(r *http.Request) APIResponse
@@ -62,7 +59,13 @@ func defaultCheck(domain string) (string, error) {
 	return string(byteArray), err
 }
 
-// Scan allows GET or POST /api/scan?domain=abc.com
+// Scan is the handler for /api/scan.
+//   POST /api/scan
+//        domain: Mail domain to scan.
+//        Scans domain and returns data from it.
+//   GET /api/scan?domain=<domain>
+//        Retrieves most recent scan for domain.
+// Both set a db.ScanData JSON as the response.
 func (api API) Scan(r *http.Request) APIResponse {
 	domain, err := getASCIIDomain(r)
 	if err != nil {
@@ -101,7 +104,15 @@ func (api API) Scan(r *http.Request) APIResponse {
 	}
 }
 
-// Queue allows GET or POST /api/queue?domain=abc.com
+// Queue is the handler for /api/queue
+//   POST /api/queue?domain=<domain>
+//        domain: Mail domain to queue a TLS policy for.
+//        email: Contact email associated with domain, to be verified.
+//        hostname_<n>: MX hostnames to put into this domain's TLS policy. n up to 8.
+//        Sets db.TokenData object as response.
+//        TODO (sydneyli): Return DomainData instead, to not expose token.
+//   GET  /api/queue?domain=<domain>
+//        Sets db.DomainData object as response.
 func (api API) Queue(r *http.Request) APIResponse {
 	// Retrieve domain param
 	domain, err := getASCIIDomain(r)
@@ -142,7 +153,10 @@ func (api API) Queue(r *http.Request) APIResponse {
 	}
 }
 
-// Validate allows POST /api/validate?token=xyz
+// Validate handles requests to /api/validate
+//   POST /api/validate
+//        token: token to validate/redeem
+//        Sets the queued domain name as response.
 func (api API) Validate(r *http.Request) APIResponse {
 	token, err := getParam("token", r)
 	if err != nil {
