@@ -72,16 +72,17 @@ func (api API) Scan(r *http.Request) APIResponse {
 	if r.Method == http.MethodPost {
 		// 0. TODO: check that last scan was over an hour ago
 		// 1. Conduct scan via starttls-checker
-		scandata, err := api.CheckDomain(domain)
+		rawScandata, err := api.CheckDomain(domain)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
-		// 2. Put scan into DB
-		err = api.Database.PutScan(db.ScanData{
+		scandata := db.ScanData{
 			Domain:    domain,
-			Data:      scandata,
+			Data:      rawScandata,
 			Timestamp: time.Now(),
-		})
+		}
+		// 2. Put scan into DB
+		err = api.Database.PutScan(scandata)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
