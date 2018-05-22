@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"golang.org/x/net/idna"
 	"net/http"
@@ -45,8 +46,9 @@ func defaultCheck(domain string) (string, error) {
 
 // Scan allows GET or POST /api/scan?domain=abc.com
 func (api API) Scan(w http.ResponseWriter, r *http.Request) {
-	domain, ok := getASCIIDomain(w, r)
-	if !ok {
+	domain, err := getASCIIDomain(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	// POST: Force scan to be conducted
@@ -89,19 +91,21 @@ func (api API) Scan(w http.ResponseWriter, r *http.Request) {
 // Queue allows GET or POST /api/queue?domain=abc.com
 func (api API) Queue(w http.ResponseWriter, r *http.Request) {
 	// Retrieve domain param
-	domain, ok := getASCIIDomain(w, r)
-	if !ok {
+	domain, err := getASCIIDomain(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// POST: Insert this domain into the queue
 	if r.Method == http.MethodPost {
-		email, ok := getParam("email", w, r)
-		if !ok {
+		email, err := getParam("email", r)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		// 1. Insert domain into DB
-		err := api.Database.PutDomain(db.DomainData{
+		err = api.Database.PutDomain(db.DomainData{
 			Name:  domain,
 			Email: email,
 			State: db.StateUnvalidated,
@@ -136,8 +140,9 @@ func (api API) Queue(w http.ResponseWriter, r *http.Request) {
 
 // Validate allows POST /api/validate?token=xyz
 func (api API) Validate(w http.ResponseWriter, r *http.Request) {
-	token, ok := getParam("token", w, r)
-	if !ok {
+	token, err := getParam("token", r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	if r.Method != http.MethodPost {
@@ -171,32 +176,27 @@ func (api API) Validate(w http.ResponseWriter, r *http.Request) {
 }
 
 // Retrieve "domain" parameter from request as ASCII
-// If fails, then writes error to `http.ResponseWriter` w.
-func getASCIIDomain(w http.ResponseWriter, r *http.Request) (string, bool) {
-	domain, ok := getParam("domain", w, r)
-	if !ok {
-		return domain, ok
+// If fails, returns an error.
+func getASCIIDomain(r *http.Request) (string, error) {
+	domain, err := getParam("domain", r)
+	if err != nil {
+		return domain, err
 	}
 	ascii, err := idna.ToASCII(domain)
 	if err != nil {
-
-		http.Error(w, fmt.Sprintf("Could not convert domain %s to ASCII (%s)", domain, err),
-			http.StatusInternalServerError)
-		return "", false
+		return "", errors.New(fmt.Sprintf("Could not convert domain %s to ASCII (%s)", domain, err))
 	}
-	return ascii, true
+	return ascii, nil
 }
 
 // Retrieves and lowercases `param` as a query parameter from `http.Request` r.
 // If fails, then writes error to `http.ResponseWriter` w.
-func getParam(param string, w http.ResponseWriter, r *http.Request) (string, bool) {
+func getParam(param string, r *http.Request) (string, error) {
 	unicode := r.FormValue(param)
 	if unicode == "" {
-		http.Error(w, fmt.Sprintf("Query parameter %s not specified", param),
-			http.StatusBadRequest)
-		return "", false
+		return "", errors.New(fmt.Sprintf("Query parameter %s not specified", param))
 	}
-	return strings.ToLower(unicode), true
+	return strings.ToLower(unicode), nil
 }
 
 // Writes `v` as a JSON object to http.ResponseWriter `w`. If an error
