@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/sydneyli/starttls-check/checker"
+	"github.com/EFForg/starttls-check/checker"
 	"io/ioutil"
 	"os"
 	"strings"

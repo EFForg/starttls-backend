@@ -76,7 +76,7 @@ func checkConnectivity(h HostnameResult) CheckResult {
 	result := CheckResult{Name: "connectivity"}
 	client, err := smtpDialWithTimeout(h.Hostname)
 	if err != nil {
-		return result.Error("Could not establish connection with hostname %s")
+		return result.Error("Could not establish connection with hostname %s", h.Hostname)
 	}
 	defer client.Close()
 	return result.Success()
