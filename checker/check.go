@@ -45,7 +45,7 @@ func (c *CheckResult) ensureInit() {
 func (c CheckResult) Error(format string, a ...interface{}) CheckResult {
 	c.ensureInit()
 	c.Status = SetStatus(c.Status, Error)
-	c.Messages = append(c.Messages, fmt.Sprintf("Error: "+format, a))
+	c.Messages = append(c.Messages, fmt.Sprintf("Error: "+format, a...))
 	return c
 }
 
@@ -55,7 +55,7 @@ func (c CheckResult) Error(format string, a ...interface{}) CheckResult {
 func (c CheckResult) Failure(format string, a ...interface{}) CheckResult {
 	c.ensureInit()
 	c.Status = SetStatus(c.Status, Failure)
-	c.Messages = append(c.Messages, fmt.Sprintf("Failure: "+format, a))
+	c.Messages = append(c.Messages, fmt.Sprintf("Failure: "+format, a...))
 	return c
 }
 
@@ -64,7 +64,7 @@ func (c CheckResult) Failure(format string, a ...interface{}) CheckResult {
 func (c CheckResult) Warning(format string, a ...interface{}) CheckResult {
 	c.ensureInit()
 	c.Status = SetStatus(c.Status, Warning)
-	c.Messages = append(c.Messages, fmt.Sprintf("Warning: "+format, a))
+	c.Messages = append(c.Messages, fmt.Sprintf("Warning: "+format, a...))
 	return c
 }
 
