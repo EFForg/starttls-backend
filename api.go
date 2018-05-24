@@ -10,6 +10,7 @@ import (
 
 	"github.com/EFForg/starttls-check/checker"
 	"github.com/EFForg/starttls-scanner/db"
+	"github.com/EFForg/starttls-scanner/policy"
 )
 
 ////////////////////////////////
@@ -35,6 +36,7 @@ type checkPerformer func(string) (string, error)
 type API struct {
 	Database    db.Database
 	CheckDomain checkPerformer
+	List        policy.List
 }
 
 func defaultCheck(domain string) (string, error) {
