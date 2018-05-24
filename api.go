@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"golang.org/x/net/idna"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -19,7 +20,7 @@ import (
 
 // Type for performing checks against an input domain. Returns
 // a JSON-formatted string.
-type checkPerformer func(string) (string, error)
+type checkPerformer func(API, string) (string, error)
 
 // API is the HTTP API that this service provides. In particular:
 // Scan:
@@ -39,8 +40,49 @@ type API struct {
 	List        policy.List
 }
 
-func defaultCheck(domain string) (string, error) {
+// APIResponse wraps all the responses from this API.
+type APIResponse struct {
+	StatusCode int         `json:"status_code"`
+	Message    string      `json:"message"`
+	Response   interface{} `json:"response"`
+}
+
+type apiHandler func(r *http.Request) APIResponse
+
+func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response := api(r)
+		if response.StatusCode != http.StatusOK {
+			http.Error(w, response.Message, response.StatusCode)
+		}
+		writeJSON(w, response)
+	}
+}
+
+func (api API) policyCheck(domain string) checker.CheckResult {
+	result := checker.CheckResult{Name: "policylist"}
+	if _, err := api.List.Get(domain); err != nil {
+		return result.Success()
+	}
+	domainData, err := api.Database.GetDomain(domain)
+	if err != nil {
+		return result.Failure("Domain %s is not on the policy list.", domain)
+	}
+	if domainData.State == db.StateAdded {
+		log.Println("Warning: Domain was StateAdded in DB but was not found on the policy list.")
+		return result.Success()
+	} else if domainData.State == db.StateQueued {
+		return result.Warning("Domain %s is queued to be added to the policy list.", domain)
+	} else if domainData.State == db.StateUnvalidated {
+		return result.Warning("The policy addition request for %s is waiting on email validation", domain)
+	}
+	return result.Failure("Domain %s is not on the policy list.", domain)
+}
+
+func defaultCheck(api API, domain string) (string, error) {
 	result := checker.CheckDomain(domain, nil)
+	result.ExtraResults = make(map[string]checker.CheckResult)
+	result.ExtraResults["policylist"] = api.policyCheck(domain)
 	byteArray, err := json.Marshal(result)
 	return string(byteArray), err
 }
@@ -55,7 +97,7 @@ func (api API) Scan(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		// 0. TODO: check that last scan was over an hour ago
 		// 1. Conduct scan via starttls-checker
-		scandata, err := api.CheckDomain(domain)
+		scandata, err := api.CheckDomain(api, domain)
 		if err != nil {
 			http.Error(w, "", http.StatusInternalServerError)
 			return

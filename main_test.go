@@ -21,7 +21,7 @@ import (
 
 var api *API
 
-func mockCheckPerform(domain string) (string, error) {
+func mockCheckPerform(api API, domain string) (string, error) {
 	return fmt.Sprintf("{\n\"domain\": \"%s\"\n}", domain), nil
 }
 
