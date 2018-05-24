@@ -61,7 +61,7 @@ func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
 
 func (api API) policyCheck(domain string) checker.CheckResult {
 	result := checker.CheckResult{Name: "policylist"}
-	if _, err := api.List.Get(domain); err != nil {
+	if _, err := api.List.Get(domain); err == nil {
 		return result.Success()
 	}
 	domainData, err := api.Database.GetDomain(domain)

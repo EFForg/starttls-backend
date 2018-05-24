@@ -13,7 +13,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/EFForg/starttls-check/checker"
 	"github.com/EFForg/starttls-scanner/db"
+	"github.com/EFForg/starttls-scanner/policy"
 )
 
 // Workflow tests against REST API.
@@ -23,6 +25,17 @@ var api *API
 
 func mockCheckPerform(api API, domain string) (string, error) {
 	return fmt.Sprintf("{\n\"domain\": \"%s\"\n}", domain), nil
+}
+
+type mockList struct {
+	domains map[string]bool
+}
+
+func (l mockList) Get(domain string) (policy.TLSPolicy, error) {
+	if _, ok := l.domains[domain]; ok {
+		return policy.TLSPolicy{Mode: "enforce", MXs: []string{"mx.fake.com"}}, nil
+	}
+	return policy.TLSPolicy{}, fmt.Errorf("no such domain on this list")
 }
 
 // Load env. vars, initialize DB hook, and tests API
@@ -36,9 +49,13 @@ func TestMain(m *testing.M) {
 	// if err != nil {
 	//     log.Fatal(err)
 	// }
+	fakeList := map[string]bool{
+		"eff.org": true,
+	}
 	api = &API{
 		Database:    db.InitMemDatabase(cfg),
 		CheckDomain: mockCheckPerform,
+		List:        mockList{domains: fakeList},
 	}
 	code := m.Run()
 	api.Database.ClearTables()
@@ -226,6 +243,37 @@ func TestQueueTwice(t *testing.T) {
 	resp = testRequest("POST", "/api/validate", data, api.Validate)
 	if resp.StatusCode != 400 {
 		t.Errorf("Old validation token shouldn't work.")
+	}
+}
+
+func TestPolicyCheck(t *testing.T) {
+	result := api.policyCheck("eff.org")
+	if result.Status != checker.Success {
+		t.Errorf("Check should have succeeded.")
+	}
+	result = api.policyCheck("failmail.com")
+	if result.Status != checker.Failure {
+		t.Errorf("Check should have failed.")
+	}
+}
+
+func TestPolicyCheckWithQueuedDomain(t *testing.T) {
+	api.Database.ClearTables()
+	domainData := db.DomainData{
+		Name:  "example.com",
+		Email: "postmaster@example.com",
+		State: db.StateUnvalidated,
+	}
+	api.Database.PutDomain(domainData)
+	result := api.policyCheck("example.com")
+	if result.Status != checker.Warning {
+		t.Errorf("Check should have warned.")
+	}
+	domainData.State = db.StateQueued
+	api.Database.PutDomain(domainData)
+	result = api.policyCheck("example.com")
+	if result.Status != checker.Warning {
+		t.Errorf("Check should have warned.")
 	}
 }
 
