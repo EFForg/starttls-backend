@@ -27,15 +27,8 @@ type TLSPolicy struct {
 	Report        string   `json:"report,omitempty"`
 }
 
-// List interface wraps a policy-list like structure.
-// The most important query you can perform is to fetch the policy
-// for a particular domain.
-type List interface {
-	Get(string) (TLSPolicy, error)
-}
-
-// RawList is a raw representation of the policy list.
-type RawList struct {
+// List is a raw representation of the policy list.
+type List struct {
 	Timestamp     time.Time            `json:"timestamp"`
 	Expires       time.Time            `json:"expires"`
 	Version       string               `json:"version"`
@@ -47,7 +40,7 @@ type RawList struct {
 
 // Get retrieves the TLSPolicy for a domain, and resolves
 // aliases if they exist.
-func (t RawList) Get(domain string) (TLSPolicy, error) {
+func (t List) Get(domain string) (TLSPolicy, error) {
 	policy, ok := t.Policies[domain]
 	if !ok {
 		return TLSPolicy{}, fmt.Errorf("Policy for %d doesn't exist")
@@ -61,9 +54,9 @@ func (t RawList) Get(domain string) (TLSPolicy, error) {
 	return policy, nil
 }
 
-type listFetcher func(string) (RawList, error)
+type listFetcher func(string) (List, error)
 
-// UpdatedList wraps a RawList that is updated from a remote
+// UpdatedList wraps a List that is updated from a remote
 // policyURL every hour. Safe for concurrent calls to `Get`.
 type UpdatedList struct {
 	messages        chan policyRequest
@@ -72,18 +65,18 @@ type UpdatedList struct {
 	policyURL       string
 }
 
-// Retrieve and parse RawList from policyURL.
-func fetchListHTTP(policyURL string) (RawList, error) {
+// Retrieve and parse List from policyURL.
+func fetchListHTTP(policyURL string) (List, error) {
 	resp, err := http.Get(policyURL)
 	if err != nil {
-		return RawList{}, err
+		return List{}, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
-	var policyList RawList
+	var policyList List
 	err = json.Unmarshal(body, &policyList)
 	if err != nil {
-		return RawList{}, err
+		return List{}, err
 	}
 	return policyList, nil
 }

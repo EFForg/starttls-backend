@@ -26,6 +26,7 @@ func mockCheckPerform(api API, domain string) (string, error) {
 	return fmt.Sprintf("{\n\"domain\": \"%s\"\n}", domain), nil
 }
 
+// Mock PolicyList
 type mockList struct {
 	domains map[string]bool
 }

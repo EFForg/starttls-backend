@@ -34,7 +34,14 @@ type checkPerformer func(API, string) (string, error)
 type API struct {
 	Database    db.Database
 	CheckDomain checkPerformer
-	List        policy.List
+	List        PolicyList
+}
+
+// PolicyList interface wraps a policy-list like structure.
+// The most important query you can perform is to fetch the policy
+// for a particular domain.
+type PolicyList interface {
+	Get(string) (policy.TLSPolicy, error)
 }
 
 // APIResponse wraps all the responses from this API.
