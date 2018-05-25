@@ -10,3 +10,4 @@ install:
 script:
   - golint -set_exit_status ./...
   - go test -v .
+  - go test -v ./policy
