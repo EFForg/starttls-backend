@@ -27,6 +27,8 @@ type DomainResult struct {
 	PreferredHostnames []string `json:"preferred_hostnames"`
 	// Expected MX hostnames supplied by the caller of CheckDomain.
 	MxHostnames []string `json:"mx_hostnames,omitempty"`
+	// Extra global results
+	ExtraResults map[string]CheckResult `json:"extra_results,omitempty"`
 }
 
 func lookupHostnames(domain string) ([]string, []string, error) {
