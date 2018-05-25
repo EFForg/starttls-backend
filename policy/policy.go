@@ -61,17 +61,20 @@ func (t RawList) Get(domain string) (TLSPolicy, error) {
 	return policy, nil
 }
 
+type listFetcher func(string) (RawList, error)
+
 // UpdatedList wraps a RawList that is updated from a remote
 // policyURL every hour.
 type UpdatedList struct {
 	messages        chan policyRequest
 	updateFrequency time.Duration
+	fetch           listFetcher
 	policyURL       string
 }
 
 // Retrieve and parse RawList from policyURL.
-func (l UpdatedList) fetchRawList() (RawList, error) {
-	resp, err := http.Get(l.policyURL)
+func fetchListHTTP(policyURL string) (RawList, error) {
+	resp, err := http.Get(policyURL)
 	if err != nil {
 		return RawList{}, err
 	}
@@ -94,7 +97,7 @@ type policyRequest struct {
 
 // This routine serializes all reads and writes to the policy list.
 func (l UpdatedList) worker() {
-	currentList, err := l.fetchRawList()
+	currentList, err := l.fetch(l.policyURL)
 	for true {
 		select {
 		case req := <-l.messages:
@@ -109,7 +112,7 @@ func (l UpdatedList) worker() {
 			}
 			req.responses <- policy
 		case <-time.After(l.updateFrequency):
-			currentList, err = l.fetchRawList()
+			currentList, err = l.fetch(l.policyURL)
 		}
 	}
 }
@@ -139,6 +142,7 @@ func CreateUpdatedList() UpdatedList {
 	list := UpdatedList{
 		messages:        make(chan policyRequest),
 		policyURL:       PolicyURL,
+		fetch:           fetchListHTTP,
 		updateFrequency: time.Hour,
 	}
 	go list.worker()

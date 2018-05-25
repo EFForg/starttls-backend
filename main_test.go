@@ -19,7 +19,6 @@ import (
 )
 
 // Workflow tests against REST API.
-// TODO: Mock starttls-scanner/check so we don't actually make check requests
 
 var api *API
 
