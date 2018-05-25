@@ -108,13 +108,13 @@ func panickingHandler(w http.ResponseWriter, r *http.Request) {
 
 // Helper function to mock a request to the server via https.
 // Returns http.Response resulting from specified handler.
-func testRequest(method string, path string, data url.Values, handler func(http.ResponseWriter, *http.Request)) *http.Response {
+func testRequest(method string, path string, data url.Values, handler apiHandler) *http.Response {
 	req := httptest.NewRequest(method, fmt.Sprintf("http://localhost:8080/%s", path), strings.NewReader(data.Encode()))
 	if data != nil {
 		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	}
 	w := httptest.NewRecorder()
-	handler(w, req)
+	apiWrapper(handler)(w, req)
 	return w.Result()
 }
 
@@ -136,6 +136,8 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	data := url.Values{}
 	data.Set("domain", "eff.org")
 	data.Set("email", "testing@fake-email.org")
+	data.Set("hostname_0", ".eff.org")
+	data.Set("hostname_1", "mx.eff.org")
 	resp := testRequest("POST", "/api/queue", data, api.Queue)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("POST to api/queue failed with error %d", resp.StatusCode)
@@ -147,49 +149,48 @@ func TestBasicQueueWorkflow(t *testing.T) {
 
 	// 1-T. Check that response body contains a token we can validate
 	tokenBody, _ := ioutil.ReadAll(resp.Body)
-	var tokenObj map[string]interface{}
-	err := json.Unmarshal(tokenBody, &tokenObj)
+	token := db.TokenData{}
+	err := json.Unmarshal(tokenBody, &APIResponse{Response: &token})
 	if err != nil {
-		t.Errorf("Returned invalid JSON object:%v\n", string(tokenBody))
+		t.Errorf("Coudln't unmarshal TokenData from JSON: %v", err)
 		return
 	}
-	token, ok := tokenObj["token"]
-	if !ok {
-		t.Errorf("Expected Token to be returned in JSON")
-		return
-	}
-	if tokenObj["domain"] != "eff.org" {
-		t.Errorf("Token JSON expected to have Domain: eff.org, not %s\n", tokenObj["domain"])
+	if token.Domain != "eff.org" {
+		t.Errorf("Token JSON expected to have Domain: eff.org, not %s\n", token.Domain)
 	}
 
 	// 2. Request queue status
 	resp = testRequest("GET", "/api/queue?domain=eff.org", nil, api.Queue)
 	// 2-T. Check to see domain status was initialized to 'unvalidated'
 	domainBody, _ := ioutil.ReadAll(resp.Body)
-	var domainObj map[string]interface{}
-	err = json.Unmarshal(domainBody, &domainObj)
+	domainData := db.DomainData{}
+	err = json.Unmarshal(domainBody, &APIResponse{Response: &domainData})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n", string(domainBody))
 		return
 	}
-	if domainObj["state"] != "unvalidated" {
+	if domainData.State != "unvalidated" {
 		t.Errorf("Initial state for domains should be 'unvalidated'")
+		return
+	}
+	if len(domainData.MXs) != 2 {
+		t.Errorf("Domain should have loaded two hostnames into policy")
 		return
 	}
 
 	// 3. Validate domain token
 	data = url.Values{}
-	data.Set("token", token.(string))
+	data.Set("token", token.Token)
 	resp = testRequest("POST", "/api/validate", data, api.Validate)
 	// 3-T. Ensure response body contains domain name
 	domainBody, _ = ioutil.ReadAll(resp.Body)
-	var domain string
-	err = json.Unmarshal(domainBody, &domain)
+	var responseObj map[string]interface{}
+	err = json.Unmarshal(domainBody, &responseObj)
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n", string(domainBody))
 		return
 	}
-	if domain != "eff.org" {
+	if responseObj["response"] != "eff.org" {
 		t.Errorf("Token was not validated for eff.org")
 		return
 	}
@@ -204,13 +205,24 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	resp = testRequest("GET", "/api/queue?domain=eff.org", nil, api.Queue)
 	// 4-T. Check to see domain status was updated to "queued" after valid token redemption
 	domainBody, _ = ioutil.ReadAll(resp.Body)
-	err = json.Unmarshal(domainBody, &domainObj)
+	err = json.Unmarshal(domainBody, &APIResponse{Response: &domainData})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n", string(domainBody))
 		return
 	}
-	if domainObj["state"] != "queued" {
+	if domainData.State != "queued" {
 		t.Errorf("Token validation should have automatically queued eff.org")
+		return
+	}
+}
+
+func TestQueueWithoutHostnames(t *testing.T) {
+	data := url.Values{}
+	data.Set("domain", "eff.org")
+	data.Set("email", "testing@fake-email.org")
+	resp := testRequest("POST", "/api/queue", data, api.Queue)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("POST to api/queue should have failed with error %d", http.StatusBadRequest)
 		return
 	}
 }
@@ -220,6 +232,8 @@ func TestQueueTwice(t *testing.T) {
 	data := url.Values{}
 	data.Set("domain", "eff.org")
 	data.Set("email", "testing@fake-email.org")
+	data.Set("hostname_0", ".eff.org")
+	data.Set("hostname_1", "mx.eff.org")
 	resp := testRequest("POST", "/api/queue", data, api.Queue)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("POST to api/queue failed with error %d", resp.StatusCode)
@@ -227,9 +241,13 @@ func TestQueueTwice(t *testing.T) {
 	}
 	// 2. Extract token from queue.
 	tokenBody, _ := ioutil.ReadAll(resp.Body)
-	var tokenObj map[string]interface{}
-	json.Unmarshal(tokenBody, &tokenObj)
-	token, _ := tokenObj["token"]
+	tokenData := db.TokenData{}
+	err := json.Unmarshal(tokenBody, &APIResponse{Response: &tokenData})
+	if err != nil {
+		t.Errorf("Couldn't unmarshal JSON into TokenData object: %v", err)
+		return
+	}
+	token := tokenData.Token
 	// 3. Request to be queued again.
 	resp = testRequest("POST", "/api/queue", data, api.Queue)
 	if resp.StatusCode != http.StatusOK {
@@ -238,7 +256,7 @@ func TestQueueTwice(t *testing.T) {
 	}
 	// 4. Old token shouldn't work.
 	data = url.Values{}
-	data.Set("token", token.(string))
+	data.Set("token", token)
 	resp = testRequest("POST", "/api/validate", data, api.Validate)
 	if resp.StatusCode != 400 {
 		t.Errorf("Old validation token shouldn't work.")
@@ -295,17 +313,13 @@ func TestBasicScan(t *testing.T) {
 
 	// Checking response JSON returns successful scan
 	scanBody, _ := ioutil.ReadAll(resp.Body)
-	var jsonObj map[string]interface{}
-	err := json.Unmarshal(scanBody, &jsonObj)
+	scanData := db.ScanData{}
+	err := json.Unmarshal(scanBody, &APIResponse{Response: &scanData})
 	if err != nil {
-		t.Errorf("Returned invalid JSON object:%v\n", string(scanBody))
+		t.Errorf("Returned invalid JSON object:%v\n%v\n", string(scanBody), err)
 	}
-	if domain, ok := jsonObj["domain"]; !ok {
-		t.Errorf("Scan JSON should contain Domain field")
-	} else {
-		if domain != "eff.org" {
-			t.Errorf("Scan JSON expected to have Domain: eff.org, not %s\n", domain)
-		}
+	if scanData.Domain != "eff.org" {
+		t.Errorf("Scan JSON expected to have Domain: eff.org, not %s\n", scanData.Domain)
 	}
 
 	// Check to see that scan results persisted.
@@ -319,24 +333,16 @@ func TestBasicScan(t *testing.T) {
 	}
 
 	// Checking response JSON returns scan associated with domain
-	body, _ := ioutil.ReadAll(resp.Body)
-	var jsonObj2 map[string]string
-	err = json.Unmarshal(body, &jsonObj2)
+	scanBody, _ = ioutil.ReadAll(resp.Body)
+	scanData2 := db.ScanData{}
+	err = json.Unmarshal(scanBody, &APIResponse{Response: &scanData2})
 	if err != nil {
-		t.Errorf("Returned invalid JSON object:%v\n", string(body))
+		t.Errorf("Returned invalid JSON object:%v\n", string(scanBody))
 	}
-	if domain, ok := jsonObj2["domain"]; !ok {
-		t.Errorf("Scan JSON should contain Domain field")
-	} else {
-		if domain != "eff.org" {
-			t.Errorf("Scan JSON expected to have Domain: eff.org, not %s\n", domain)
-		}
+	if scanData2.Domain != "eff.org" {
+		t.Errorf("Scan JSON expected to have Domain: eff.org, not %s\n", scanData2.Domain)
 	}
-	if scandata, ok := jsonObj2["scandata"]; !ok {
-		t.Errorf("Scan JSON should contain Domain field")
-	} else {
-		if strings.Compare(scandata, strings.TrimSpace(string(scanBody))) != 0 {
-			t.Errorf("Scan JSON mismatch:\n%s\n%s\n", scandata, string(scanBody))
-		}
+	if strings.Compare(scanData2.Data, scanData.Data) != 0 {
+		t.Errorf("Scan JSON mismatch:\n%v\n%v\n", scanData2.Data, scanData.Data)
 	}
 }
