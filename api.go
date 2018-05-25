@@ -22,6 +22,13 @@ import (
 // a JSON-formatted string.
 type checkPerformer func(API, string) (string, error)
 
+// List interface wraps a policy-list like structure.
+// The most important query you can perform is to fetch the policy
+// for a particular domain.
+type PolicyList interface {
+	Get(string) (policy.TLSPolicy, error)
+}
+
 // API is the HTTP API that this service provides. In particular:
 // Scan:
 //   POST /api/scan?domain=<domain>
@@ -37,7 +44,7 @@ type checkPerformer func(API, string) (string, error)
 type API struct {
 	Database    db.Database
 	CheckDomain checkPerformer
-	List        policy.List
+	List        PolicyList
 }
 
 // APIResponse wraps all the responses from this API.
