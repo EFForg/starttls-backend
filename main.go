@@ -19,9 +19,9 @@ func validPort(port string) (string, error) {
 }
 
 func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
-	mux.HandleFunc("/api/scan", api.Scan)
-	mux.HandleFunc("/api/queue", api.Queue)
-	mux.HandleFunc("/api/validate", api.Validate)
+	mux.HandleFunc("/api/scan", apiWrapper(api.Scan))
+	mux.HandleFunc("/api/queue", apiWrapper(api.Queue))
+	mux.HandleFunc("/api/validate", apiWrapper(api.Validate))
 
 	originsOk := handlers.AllowedOrigins([]string{os.Getenv("ALLOWED_ORIGINS")})
 
