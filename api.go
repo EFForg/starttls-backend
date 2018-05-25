@@ -104,6 +104,33 @@ func (api API) Scan(r *http.Request) APIResponse {
 	}
 }
 
+// MaxHostnames is the maximum number of hostnames that can be specified for a single domain's TLS policy.
+const MaxHostnames = 8
+
+// Extracts relevant parameters from http.Request for a POST to /api/queue
+// TODO: also validate hostnames as FQDNs.
+func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
+	domainData := db.DomainData{Name: domain, State: db.StateUnvalidated}
+	email, err := getParam("email", r)
+	if err != nil {
+		return domainData, err
+	}
+	domainData.Email = email
+	domainData.MXs = make([]string, 0)
+	for i := 0; i < MaxHostnames; i++ {
+		field := fmt.Sprintf("hostname_%d", i)
+		hostname, err := getParam(field, r)
+		if err != nil {
+			break
+		}
+		domainData.MXs = append(domainData.MXs, hostname)
+	}
+	if len(domainData.MXs) == 0 {
+		return domainData, fmt.Errorf("No hostnames supplied for domain's TLS policy")
+	}
+	return domainData, nil
+}
+
 // Queue is the handler for /api/queue
 //   POST /api/queue?domain=<domain>
 //        domain: Mail domain to queue a TLS policy for.
@@ -121,16 +148,12 @@ func (api API) Queue(r *http.Request) APIResponse {
 	}
 	// POST: Insert this domain into the queue
 	if r.Method == http.MethodPost {
-		email, err := getParam("email", r)
+		domainData, err := getDomainParams(r, domain)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
 		}
 		// 1. Insert domain into DB
-		err = api.Database.PutDomain(db.DomainData{
-			Name:  domain,
-			Email: email,
-			State: db.StateUnvalidated,
-		})
+		err = api.Database.PutDomain(domainData)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
