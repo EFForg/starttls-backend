@@ -112,19 +112,6 @@ func TestGetDomainHidesEmail(t *testing.T) {
 	}
 }
 
-func UnmarshalAPIResponseJSON(b []byte, response interface{}) error {
-	var objMap map[string]*json.RawMessage
-	err := json.Unmarshal(b, &objMap)
-	if err != nil {
-		return err
-	}
-	err = json.Unmarshal(*objMap["response"], response)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // Tests basic queuing workflow.
 // Requests domain to be queued, and validates corresponding e-mail token.
 // Domain status should then be updated to "queued".
@@ -145,7 +132,7 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	// 1-T. Check that response body contains a token we can validate
 	tokenBody, _ := ioutil.ReadAll(resp.Body)
 	token := db.TokenData{}
-	err := UnmarshalAPIResponseJSON(tokenBody, &token)
+	err := json.Unmarshal(tokenBody, &APIResponse{Response: &token})
 	if err != nil {
 		t.Errorf("Coudln't unmarshal TokenData from JSON: %v", err)
 		return
@@ -159,7 +146,7 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	// 2-T. Check to see domain status was initialized to 'unvalidated'
 	domainBody, _ := ioutil.ReadAll(resp.Body)
 	domainData := db.DomainData{}
-	err = UnmarshalAPIResponseJSON(domainBody, &domainData)
+	err = json.Unmarshal(domainBody, &APIResponse{Response: &domainData})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n", string(domainBody))
 		return
@@ -178,7 +165,7 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	var responseObj map[string]interface{}
 	err = json.Unmarshal(domainBody, &responseObj)
 	if err != nil {
-		t.Errorf("Returned invalid JSON object:%v\n", string(domainBody), err)
+		t.Errorf("Returned invalid JSON object:%v\n", string(domainBody))
 		return
 	}
 	if responseObj["response"] != "eff.org" {
@@ -196,7 +183,7 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	resp = testRequest("GET", "/api/queue?domain=eff.org", nil, api.Queue)
 	// 4-T. Check to see domain status was updated to "queued" after valid token redemption
 	domainBody, _ = ioutil.ReadAll(resp.Body)
-	err = UnmarshalAPIResponseJSON(domainBody, &domainData)
+	err = json.Unmarshal(domainBody, &APIResponse{Response: &domainData})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n", string(domainBody))
 		return
@@ -220,7 +207,7 @@ func TestQueueTwice(t *testing.T) {
 	// 2. Extract token from queue.
 	tokenBody, _ := ioutil.ReadAll(resp.Body)
 	tokenData := db.TokenData{}
-	err := UnmarshalAPIResponseJSON(tokenBody, &tokenData)
+	err := json.Unmarshal(tokenBody, &APIResponse{Response: &tokenData})
 	if err != nil {
 		t.Errorf("Couldn't unmarshal JSON into TokenData object: %v", err)
 		return
@@ -261,7 +248,7 @@ func TestBasicScan(t *testing.T) {
 	// Checking response JSON returns successful scan
 	scanBody, _ := ioutil.ReadAll(resp.Body)
 	scanData := db.ScanData{}
-	err := UnmarshalAPIResponseJSON(scanBody, &scanData)
+	err := json.Unmarshal(scanBody, &APIResponse{Response: &scanData})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n%v\n", string(scanBody), err)
 	}
@@ -282,7 +269,7 @@ func TestBasicScan(t *testing.T) {
 	// Checking response JSON returns scan associated with domain
 	scanBody, _ = ioutil.ReadAll(resp.Body)
 	scanData2 := db.ScanData{}
-	err = UnmarshalAPIResponseJSON(scanBody, &scanData2)
+	err = json.Unmarshal(scanBody, &APIResponse{Response: &scanData2})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n", string(scanBody))
 	}

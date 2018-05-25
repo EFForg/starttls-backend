@@ -196,7 +196,7 @@ func getASCIIDomain(r *http.Request) (string, error) {
 	}
 	ascii, err := idna.ToASCII(domain)
 	if err != nil {
-		return "", fmt.Errorf("Could not convert domain %s to ASCII (%s)", domain, err)
+		return "", fmt.Errorf("could not convert domain %s to ASCII (%s)", domain, err)
 	}
 	return ascii, nil
 }
@@ -206,7 +206,7 @@ func getASCIIDomain(r *http.Request) (string, error) {
 func getParam(param string, r *http.Request) (string, error) {
 	unicode := r.FormValue(param)
 	if unicode == "" {
-		return "", fmt.Errorf("Query parameter %s not specified", param)
+		return "", fmt.Errorf("query parameter %s not specified", param)
 	}
 	return strings.ToLower(unicode), nil
 }
