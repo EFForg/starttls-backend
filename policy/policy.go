@@ -64,7 +64,7 @@ func (t RawList) Get(domain string) (TLSPolicy, error) {
 type listFetcher func(string) (RawList, error)
 
 // UpdatedList wraps a RawList that is updated from a remote
-// policyURL every hour.
+// policyURL every hour. Safe for concurrent calls to `Get`.
 type UpdatedList struct {
 	messages        chan policyRequest
 	updateFrequency time.Duration
@@ -137,7 +137,8 @@ func (l UpdatedList) Get(domain string) (TLSPolicy, error) {
 	}
 }
 
-// CreateUpdatedList constructs and UpdatedList object and launches
+// CreateUpdatedList constructs and UpdatedList object and launches a
+// worker thread to continually update it.
 func CreateUpdatedList() UpdatedList {
 	list := UpdatedList{
 		messages:        make(chan policyRequest),
