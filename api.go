@@ -136,8 +136,7 @@ func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
 //        domain: Mail domain to queue a TLS policy for.
 //        email: Contact email associated with domain, to be verified.
 //        hostname_<n>: MX hostnames to put into this domain's TLS policy. n up to 8.
-//        Sets db.TokenData object as response.
-//        TODO (sydneyli): Return DomainData instead, to not expose token.
+//        Sets db.DomainData object as response.
 //   GET  /api/queue?domain=<domain>
 //        Sets db.DomainData object as response.
 func (api API) Queue(r *http.Request) APIResponse {
@@ -158,11 +157,11 @@ func (api API) Queue(r *http.Request) APIResponse {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
 		// 2. Create token for domain
-		token, err := api.Database.PutToken(domain)
+		_, err = api.Database.PutToken(domain)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
-		return APIResponse{StatusCode: http.StatusOK, Response: token}
+		return APIResponse{StatusCode: http.StatusOK, Response: domainData}
 		// GET: Retrieve domain status from queue
 	} else if r.Method == http.MethodGet {
 		status, err := api.Database.GetDomain(domain)

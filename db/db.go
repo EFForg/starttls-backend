@@ -64,6 +64,8 @@ type Database interface {
 	GetDomain(string) (DomainData, error)
 	// Retrieves all domains in a particular state.
 	GetDomains(DomainState) ([]DomainData, error)
+	// Gets the token for a domain
+	GetTokenByDomain(string) (string, error)
 	// Creates a token in the db
 	PutToken(string) (TokenData, error)
 	// Uses a token in the db

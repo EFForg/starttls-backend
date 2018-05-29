@@ -53,6 +53,16 @@ func (db *SQLDatabase) UseToken(tokenStr string) (string, error) {
 	return domain, err
 }
 
+// GetTokenByDomain gets the token for a domain name.
+func (db *SQLDatabase) GetTokenByDomain(domain string) (string, error) {
+	var token string
+	err := db.conn.QueryRow("SELECT token FROM tokens WHERE domain=?", domain).Scan(&token)
+	if err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
 // PutToken generates and inserts a token into the database for a particular
 // domain, and returns the resulting token row.
 func (db *SQLDatabase) PutToken(domain string) (TokenData, error) {
