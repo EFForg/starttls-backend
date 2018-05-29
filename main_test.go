@@ -31,10 +31,10 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Note: we can use either MemDatabase or SqlDatabase here, should not make a difference.
-	// db, err := db.InitSqlDatabase(cfg)
+	// Note: we can use either MemDatabase or SQLDatabase here, should not make a difference.
+	// db, err := db.InitSQLDatabase(cfg)
 	// if err != nil {
-	//     log.Fatal(err)
+	// 	log.Fatal(err)
 	// }
 	api = &API{
 		Database:    db.InitMemDatabase(cfg),
@@ -125,7 +125,6 @@ func TestGetDomainHidesEmail(t *testing.T) {
 func TestQueueDomainHidesToken(t *testing.T) {
 	requestData := validQueueData()
 	resp := testRequest("POST", "/api/queue", requestData, api.Queue)
-
 	token, err := api.Database.GetTokenByDomain(requestData.Get("domain"))
 	if err != nil {
 		t.Fatal(err)

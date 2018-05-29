@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"strings"
 	"time"
 
 	// Imports postgresql driver for database/sql
@@ -48,7 +49,7 @@ func InitSQLDatabase(cfg Config) (*SQLDatabase, error) {
 // true, and returns the domain that was associated with the token.
 func (db *SQLDatabase) UseToken(tokenStr string) (string, error) {
 	var domain string
-	err := db.conn.QueryRow("UPDATE tokens SET used=TRUE WHERE token=$1 RETURNING domain",
+	err := db.conn.QueryRow("UPDATE tokens SET used=TRUE WHERE token=$1 AND used=FALSE RETURNING domain",
 		tokenStr).Scan(&domain)
 	return domain, err
 }
@@ -56,7 +57,7 @@ func (db *SQLDatabase) UseToken(tokenStr string) (string, error) {
 // GetTokenByDomain gets the token for a domain name.
 func (db *SQLDatabase) GetTokenByDomain(domain string) (string, error) {
 	var token string
-	err := db.conn.QueryRow("SELECT token FROM tokens WHERE domain=?", domain).Scan(&token)
+	err := db.conn.QueryRow("SELECT token FROM tokens WHERE domain=$1", domain).Scan(&token)
 	if err != nil {
 		return "", err
 	}
@@ -131,7 +132,8 @@ func (db SQLDatabase) GetAllScans(domain string) ([]ScanData, error) {
 // the object provided.
 func (db *SQLDatabase) PutDomain(domainData DomainData) error {
 	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status) VALUES($1, $2, $3, $4) ON CONFLICT (domain) DO UPDATE SET status=$5",
-		domainData.Name, domainData.Email, "", StateUnvalidated, domainData.State)
+		domainData.Name, domainData.Email, strings.Join(domainData.MXs[:], ","),
+		StateUnvalidated, domainData.State)
 	return err
 }
 
@@ -139,9 +141,11 @@ func (db *SQLDatabase) PutDomain(domainData DomainData) error {
 // mailserver domain.
 func (db SQLDatabase) GetDomain(domain string) (DomainData, error) {
 	data := DomainData{}
-	err := db.conn.QueryRow("SELECT domain, email, status FROM domains WHERE domain=$1",
+	var rawMXs string
+	err := db.conn.QueryRow("SELECT domain, email, data, status FROM domains WHERE domain=$1",
 		domain).Scan(
-		&data.Name, &data.Email, &data.State)
+		&data.Name, &data.Email, &rawMXs, &data.State)
+	data.MXs = strings.Split(rawMXs, ",")
 	return data, err
 }
 
