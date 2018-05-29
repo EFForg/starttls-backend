@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
@@ -85,8 +86,13 @@ func (db *SQLDatabase) PutToken(domain string) (TokenData, error) {
 
 // PutScan inserts a new scan for a particular domain into the database.
 func (db *SQLDatabase) PutScan(scanData ScanData) error {
-	_, err := db.conn.Exec("INSERT INTO scans(domain, scandata, timestamp) VALUES($1, $2, $3)",
-		scanData.Domain, scanData.Data, scanData.Timestamp.UTC().Format(sqlTimeFormat))
+	byteArray, err := json.Marshal(scanData.Data)
+	if err != nil {
+		return err
+	}
+	// Serialize scanData.Data for insertion into SQLdb!
+	_, err = db.conn.Exec("INSERT INTO scans(domain, scandata, timestamp) VALUES($1, $2, $3)",
+		scanData.Domain, string(byteArray), scanData.Timestamp.UTC().Format(sqlTimeFormat))
 	return err
 }
 
@@ -98,10 +104,17 @@ SELECT domain, scandata, timestamp FROM scans
 // GetLatestScan retrieves the most recent scan performed on a particular email
 // domain.
 func (db SQLDatabase) GetLatestScan(domain string) (ScanData, error) {
-	scanData := ScanData{}
+	var rawScanData []byte
+	result := ScanData{}
 	err := db.conn.QueryRow(mostRecentQuery, domain).Scan(
-		&scanData.Domain, &scanData.Data, &scanData.Timestamp)
-	return scanData, err
+		&result.Domain, &rawScanData, &result.Timestamp)
+	if err != nil {
+		return result, err
+	}
+	// Deserializes scanData from string, although it's type-agnostic; this will unmarshal
+	// scanData.Data as a map[string]interface{} by default.
+	err = json.Unmarshal(rawScanData, &result.Data)
+	return result, err
 }
 
 // GetAllScans retrieves all the scans performed for a particular domain.

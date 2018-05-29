@@ -119,7 +119,7 @@ func TestGetAllScans(t *testing.T) {
 	if len(data) != 2 {
 		t.Errorf("Expected GetAllScans to return two items, returned %d\n", len(data))
 	}
-	if data[0].Data != "test1" || data[1].Data != "test2" {
+	if data[0].Data != "\"test1\"" || data[1].Data != "\"test2\"" {
 		t.Errorf("Expected Data of scan objects to include both test1 and test2")
 	}
 }
