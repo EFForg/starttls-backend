@@ -111,8 +111,6 @@ func (db SQLDatabase) GetLatestScan(domain string) (ScanData, error) {
 	if err != nil {
 		return result, err
 	}
-	// Deserializes scanData from string, although it's type-agnostic; this will unmarshal
-	// scanData.Data as a map[string]interface{} by default.
 	err = json.Unmarshal(rawScanData, &result.Data)
 	return result, err
 }
@@ -128,9 +126,11 @@ func (db SQLDatabase) GetAllScans(domain string) ([]ScanData, error) {
 	scans := []ScanData{}
 	for rows.Next() {
 		var scan ScanData
-		if err := rows.Scan(&scan.Domain, &scan.Data, &scan.Timestamp); err != nil {
+		var rawScanData []byte
+		if err := rows.Scan(&scan.Domain, &rawScanData, &scan.Timestamp); err != nil {
 			return nil, err
 		}
+		err = json.Unmarshal(rawScanData, &scan.Data)
 		scans = append(scans, scan)
 	}
 	return scans, nil

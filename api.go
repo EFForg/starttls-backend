@@ -17,8 +17,8 @@ import (
 ////////////////////////////////
 
 // Type for performing checks against an input domain. Returns
-// a JSON-formatted string.
-type checkPerformer func(string) (interface{}, error)
+// a DomainResult object from the checker.
+type checkPerformer func(string) (checker.DomainResult, error)
 
 // API is the HTTP API that this service provides.
 // All requests respond with an APIResponse JSON, with fields:
@@ -53,7 +53,7 @@ func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func defaultCheck(domain string) (interface{}, error) {
+func defaultCheck(domain string) (checker.DomainResult, error) {
 	result := checker.CheckDomain(domain, nil)
 	return result, nil
 }

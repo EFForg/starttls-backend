@@ -22,7 +22,7 @@ import (
 
 var api *API
 
-func mockCheckPerform(domain string) (interface{}, error) {
+func mockCheckPerform(domain string) (checker.DomainResult, error) {
 	return checker.DomainResult{Domain: domain, Message: "testequal"}, nil
 }
 
@@ -263,8 +263,7 @@ func TestBasicScan(t *testing.T) {
 
 	// Checking response JSON returns successful scan
 	scanBody, _ := ioutil.ReadAll(resp.Body)
-	checkResult := checker.DomainResult{}
-	scanData := db.ScanData{Data: &checkResult}
+	scanData := db.ScanData{}
 	err := json.Unmarshal(scanBody, &APIResponse{Response: &scanData})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n%v\n", string(scanBody), err)
@@ -284,8 +283,7 @@ func TestBasicScan(t *testing.T) {
 
 	// Checking response JSON returns scan associated with domain
 	scanBody, _ = ioutil.ReadAll(resp.Body)
-	checkResult2 := checker.DomainResult{}
-	scanData2 := db.ScanData{Data: &checkResult2}
+	scanData2 := db.ScanData{}
 	err = json.Unmarshal(scanBody, &APIResponse{Response: &scanData2})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n", string(scanBody))
@@ -293,7 +291,7 @@ func TestBasicScan(t *testing.T) {
 	if scanData2.Domain != "eff.org" {
 		t.Errorf("Scan JSON expected to have Domain: eff.org, not %s\n", scanData2.Domain)
 	}
-	if strings.Compare(checkResult.Domain, checkResult2.Domain) != 0 {
-		t.Errorf("Scan JSON mismatch:\n%v\n%v\n", checkResult.Domain, checkResult2.Domain)
+	if strings.Compare(scanData.Data.Domain, scanData2.Data.Domain) != 0 {
+		t.Errorf("Scan JSON mismatch:\n%v\n%v\n", scanData.Data.Domain, scanData2.Data.Domain)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/EFForg/starttls-check/checker"
 	"github.com/joho/godotenv"
 )
 
@@ -16,9 +17,9 @@ import (
 // ScanData each represent the result of a single scan, conducted using
 // starttls-checker.
 type ScanData struct {
-	Domain    string      `json:"domain"`    // Input domain
-	Data      interface{} `json:"scandata"`  // JSON blob: scan results from starttls-checker
-	Timestamp time.Time   `json:"timestamp"` // Time at which this scan was conducted
+	Domain    string               `json:"domain"`    // Input domain
+	Data      checker.DomainResult `json:"scandata"`  // JSON blob: scan results from starttls-checker
+	Timestamp time.Time            `json:"timestamp"` // Time at which this scan was conducted
 }
 
 // DomainState represents the state of a single domain.
