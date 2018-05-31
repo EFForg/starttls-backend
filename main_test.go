@@ -314,6 +314,6 @@ func TestScanCached(t *testing.T) {
 		t.Errorf("Returned invalid JSON object:%v\n%v\n", string(scanBody), err)
 	}
 	if scanData.Data.Message != original.Message {
-		t.Fatalf("Scan JSON expected to have Domain: eff.org, not %s\n", scanData.Domain)
+		t.Fatalf("Scan expected to have been cached, not reperformed\n")
 	}
 }
