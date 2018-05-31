@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/EFForg/starttls-check/checker"
-	"github.com/joho/godotenv"
 )
 
 ///////////////////////////////////////
@@ -99,7 +98,6 @@ var configDefaults = map[string]string{
 }
 
 func getEnvOrDefault(varName string) string {
-	godotenv.Load()
 	envVar := os.Getenv(varName)
 	if len(envVar) == 0 {
 		envVar = configDefaults[varName]
