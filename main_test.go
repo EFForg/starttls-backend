@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/EFForg/starttls-check/checker"
 	"github.com/EFForg/starttls-scanner/db"
 )
 
@@ -21,8 +22,8 @@ import (
 
 var api *API
 
-func mockCheckPerform(domain string) (string, error) {
-	return fmt.Sprintf("{\n\"domain\": \"%s\"\n}", domain), nil
+func mockCheckPerform(domain string) (checker.DomainResult, error) {
+	return checker.DomainResult{Domain: domain, Message: "testequal"}, nil
 }
 
 // Load env. vars, initialize DB hook, and tests API
@@ -289,7 +290,7 @@ func TestBasicScan(t *testing.T) {
 	if scanData2.Domain != "eff.org" {
 		t.Errorf("Scan JSON expected to have Domain: eff.org, not %s\n", scanData2.Domain)
 	}
-	if strings.Compare(scanData2.Data, scanData.Data) != 0 {
-		t.Errorf("Scan JSON mismatch:\n%v\n%v\n", scanData2.Data, scanData.Data)
+	if strings.Compare(scanData.Data.Domain, scanData2.Data.Domain) != 0 {
+		t.Errorf("Scan JSON mismatch:\n%v\n%v\n", scanData.Data.Domain, scanData2.Data.Domain)
 	}
 }

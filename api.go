@@ -17,8 +17,8 @@ import (
 ////////////////////////////////
 
 // Type for performing checks against an input domain. Returns
-// a JSON-formatted string.
-type checkPerformer func(string) (string, error)
+// a DomainResult object from the checker.
+type checkPerformer func(string) (checker.DomainResult, error)
 
 // API is the HTTP API that this service provides.
 // All requests respond with an APIResponse JSON, with fields:
@@ -53,10 +53,9 @@ func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func defaultCheck(domain string) (string, error) {
+func defaultCheck(domain string) (checker.DomainResult, error) {
 	result := checker.CheckDomain(domain, nil)
-	byteArray, err := json.Marshal(result)
-	return string(byteArray), err
+	return result, nil
 }
 
 // Scan is the handler for /api/scan.
@@ -89,7 +88,6 @@ func (api API) Scan(r *http.Request) APIResponse {
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
-		// 3. TODO: Return scandata as JSON (also set response type)
 		return APIResponse{StatusCode: http.StatusOK, Response: scandata}
 		// GET: Just fetch the most recent scan
 	} else if r.Method == http.MethodGet {

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/EFForg/starttls-check/checker"
 	"github.com/EFForg/starttls-scanner/db"
 )
 
@@ -47,7 +48,7 @@ func TestPutScan(t *testing.T) {
 	database.ClearTables()
 	dummyScan := db.ScanData{
 		Domain:    "dummy.com",
-		Data:      "{}",
+		Data:      checker.DomainResult{Domain: "dummy.com"},
 		Timestamp: time.Now(),
 	}
 	err := database.PutScan(dummyScan)
@@ -61,12 +62,12 @@ func TestGetLatestScan(t *testing.T) {
 	// Add two dummy objects
 	earlyScan := db.ScanData{
 		Domain:    "dummy.com",
-		Data:      "test_before",
+		Data:      checker.DomainResult{Domain: "dummy.com", Message: "test_before"},
 		Timestamp: time.Now(),
 	}
 	laterScan := db.ScanData{
 		Domain:    "dummy.com",
-		Data:      "test_after",
+		Data:      checker.DomainResult{Domain: "dummy.com", Message: "test_after"},
 		Timestamp: time.Now().Add(time.Duration(time.Hour)),
 	}
 	err := database.PutScan(laterScan)
@@ -81,7 +82,7 @@ func TestGetLatestScan(t *testing.T) {
 	if err != nil {
 		t.Errorf("GetLatestScan failed: %v\n", err)
 	}
-	if scan.Data != "test_after" {
+	if scan.Data.Message != "test_after" {
 		t.Errorf("Expected GetLatestScan to retrieve most recent scanData: %v", scan)
 	}
 }
@@ -99,14 +100,14 @@ func TestGetAllScans(t *testing.T) {
 	// Add two dummy objects
 	dummyScan := db.ScanData{
 		Domain:    "dummy.com",
-		Data:      "test1",
+		Data:      checker.DomainResult{Domain: "dummy.com", Message: "test1"},
 		Timestamp: time.Now(),
 	}
 	err = database.PutScan(dummyScan)
 	if err != nil {
 		t.Errorf("PutScan failed: %v\n", err)
 	}
-	dummyScan.Data = "test2"
+	dummyScan.Data.Message = "test2"
 	err = database.PutScan(dummyScan)
 	if err != nil {
 		t.Errorf("PutScan failed: %v\n", err)
@@ -119,7 +120,7 @@ func TestGetAllScans(t *testing.T) {
 	if len(data) != 2 {
 		t.Errorf("Expected GetAllScans to return two items, returned %d\n", len(data))
 	}
-	if data[0].Data != "test1" || data[1].Data != "test2" {
+	if data[0].Data.Message != "test1" || data[1].Data.Message != "test2" {
 		t.Errorf("Expected Data of scan objects to include both test1 and test2")
 	}
 }
