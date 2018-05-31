@@ -3,6 +3,8 @@ Evaluates an @mail domain on how secure its TLS settings are. First retrieves
 all MX records for the domain, then performs a series of checks on each
 discovered hostname's port 25.
 
+If `$HOSTNAME` environment variable is set, this is used in the SMTP hello.
+
 ## What does it check?
 For each hostname found via a MX lookup, we check:
  - Can connect (over SMTP) on port 25

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/smtp"
+	"os"
 	"strings"
 	"time"
 )
@@ -61,6 +62,15 @@ func hasValidName(certNames []string, mxs []string) bool {
 	return false
 }
 
+// Retrieves this machine's hostname, if specified.
+func getThisHostname() string {
+	hostname := os.Getenv("HOSTNAME")
+	if len(hostname) == 0 {
+		return "localhost"
+	}
+	return hostname
+}
+
 // Performs an SMTP dial with a short timeout.
 // https://github.com/golang/go/issues/16436
 func smtpDialWithTimeout(hostname string) (*smtp.Client, error) {
@@ -68,7 +78,11 @@ func smtpDialWithTimeout(hostname string) (*smtp.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return smtp.NewClient(conn, hostname)
+	client, err := smtp.NewClient(conn, hostname)
+	if err != nil {
+		return client, err
+	}
+	return client, client.Hello(getThisHostname())
 }
 
 // Performs a connectivity check.
@@ -87,7 +101,7 @@ func checkStartTLS(h HostnameResult) CheckResult {
 	result := CheckResult{Name: "starttls"}
 	client, err := smtpDialWithTimeout(h.Hostname)
 	if err != nil {
-		return result.Error("Could not establish connection with hostname %s")
+		return result.Error("Could not establish connection with hostname %s", h.Hostname)
 	}
 	defer client.Close()
 	ok, _ := client.Extension("StartTLS")
