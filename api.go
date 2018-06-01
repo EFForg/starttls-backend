@@ -97,7 +97,7 @@ func asyncPolicyCheck(api API, domain string) <-chan checker.CheckResult {
 	return result
 }
 
-func defaultCheck(api API, domain string) (string, error) {
+func defaultCheck(api API, domain string) (checker.DomainResult, error) {
 	policyChan := asyncPolicyCheck(api, domain)
 	result := checker.CheckDomain(domain, nil)
 	result.ExtraResults = make(map[string]checker.CheckResult)

@@ -22,7 +22,7 @@ import (
 
 var api *API
 
-func mockCheckPerform(message string) func(string) (checker.DomainResult, error) {
+func mockCheckPerform(message string) func(API, string) (checker.DomainResult, error) {
 	return func(api API, domain string) (checker.DomainResult, error) {
 		return checker.DomainResult{Domain: domain, Message: message}, nil
 	}
@@ -359,7 +359,7 @@ func TestScanCached(t *testing.T) {
 	data := url.Values{}
 	data.Set("domain", "eff.org")
 	testRequest("POST", "/api/scan", data, api.Scan)
-	original, _ := api.CheckDomain("eff.org")
+	original, _ := api.CheckDomain(*api, "eff.org")
 	// Perform scan again, with different expected result.
 	api.CheckDomain = mockCheckPerform("somethingelse")
 	resp := testRequest("POST", "/api/scan", data, api.Scan)
