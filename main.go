@@ -44,8 +44,13 @@ func ServePublicEndpoints(api *API, cfg *db.Config) {
 	log.Fatal(http.ListenAndServe(portString, mainHandler))
 }
 
+// Loads a map of domains (effectively a set for fast lookup) to blacklist.
+// if `DOMAIN_BLACKLIST` is not set, returns an empty map.
 func loadDontScan() map[string]bool {
 	filepath := os.Getenv("DOMAIN_BLACKLIST")
+	if len(filepath) == 0 {
+		return make(map[string]bool)
+	}
 	data, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		log.Fatal(err)
