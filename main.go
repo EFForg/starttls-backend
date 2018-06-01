@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 
 	"github.com/EFForg/starttls-scanner/db"
@@ -34,11 +36,31 @@ func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
 func ServePublicEndpoints(api *API, cfg *db.Config) {
 	mux := http.NewServeMux()
 	mainHandler := registerHandlers(api, mux)
+
 	portString, err := validPort(cfg.Port)
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Fatal(http.ListenAndServe(portString, mainHandler))
+
+	server := http.Server{
+		Addr:    portString,
+		Handler: mainHandler,
+	}
+
+	exited := make(chan struct{})
+	go func() {
+		sigint := make(chan os.Signal, 1)
+		signal.Notify(sigint, os.Interrupt)
+		<-sigint
+
+		if err := server.Shutdown(context.Background()); err != nil {
+			log.Printf("HTTP server Shutdown: %v", err)
+		}
+		close(exited)
+	}()
+
+	log.Fatal(server.ListenAndServe())
+	<-exited
 }
 
 func main() {
