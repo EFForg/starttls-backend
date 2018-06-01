@@ -24,7 +24,7 @@ var api *API
 
 func mockCheckPerform(message string) func(string) (checker.DomainResult, error) {
 	return func(domain string) (checker.DomainResult, error) {
-		return checker.DomainResult{Domain: domain, Message: "testequal"}, nil
+		return checker.DomainResult{Domain: domain, Message: message}, nil
 	}
 }
 
