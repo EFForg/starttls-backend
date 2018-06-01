@@ -2,9 +2,11 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
+	"strings"
 	"time"
 
 	// Imports postgresql driver for database/sql
@@ -48,9 +50,19 @@ func InitSQLDatabase(cfg Config) (*SQLDatabase, error) {
 // true, and returns the domain that was associated with the token.
 func (db *SQLDatabase) UseToken(tokenStr string) (string, error) {
 	var domain string
-	err := db.conn.QueryRow("UPDATE tokens SET used=TRUE WHERE token=$1 RETURNING domain",
+	err := db.conn.QueryRow("UPDATE tokens SET used=TRUE WHERE token=$1 AND used=FALSE RETURNING domain",
 		tokenStr).Scan(&domain)
 	return domain, err
+}
+
+// GetTokenByDomain gets the token for a domain name.
+func (db *SQLDatabase) GetTokenByDomain(domain string) (string, error) {
+	var token string
+	err := db.conn.QueryRow("SELECT token FROM tokens WHERE domain=$1", domain).Scan(&token)
+	if err != nil {
+		return "", err
+	}
+	return token, nil
 }
 
 // PutToken generates and inserts a token into the database for a particular
@@ -75,8 +87,13 @@ func (db *SQLDatabase) PutToken(domain string) (TokenData, error) {
 
 // PutScan inserts a new scan for a particular domain into the database.
 func (db *SQLDatabase) PutScan(scanData ScanData) error {
-	_, err := db.conn.Exec("INSERT INTO scans(domain, scandata, timestamp) VALUES($1, $2, $3)",
-		scanData.Domain, scanData.Data, scanData.Timestamp.UTC().Format(sqlTimeFormat))
+	byteArray, err := json.Marshal(scanData.Data)
+	if err != nil {
+		return err
+	}
+	// Serialize scanData.Data for insertion into SQLdb!
+	_, err = db.conn.Exec("INSERT INTO scans(domain, scandata, timestamp) VALUES($1, $2, $3)",
+		scanData.Domain, string(byteArray), scanData.Timestamp.UTC().Format(sqlTimeFormat))
 	return err
 }
 
@@ -88,10 +105,15 @@ SELECT domain, scandata, timestamp FROM scans
 // GetLatestScan retrieves the most recent scan performed on a particular email
 // domain.
 func (db SQLDatabase) GetLatestScan(domain string) (ScanData, error) {
-	scanData := ScanData{}
+	var rawScanData []byte
+	result := ScanData{}
 	err := db.conn.QueryRow(mostRecentQuery, domain).Scan(
-		&scanData.Domain, &scanData.Data, &scanData.Timestamp)
-	return scanData, err
+		&result.Domain, &rawScanData, &result.Timestamp)
+	if err != nil {
+		return result, err
+	}
+	err = json.Unmarshal(rawScanData, &result.Data)
+	return result, err
 }
 
 // GetAllScans retrieves all the scans performed for a particular domain.
@@ -105,9 +127,11 @@ func (db SQLDatabase) GetAllScans(domain string) ([]ScanData, error) {
 	scans := []ScanData{}
 	for rows.Next() {
 		var scan ScanData
-		if err := rows.Scan(&scan.Domain, &scan.Data, &scan.Timestamp); err != nil {
+		var rawScanData []byte
+		if err := rows.Scan(&scan.Domain, &rawScanData, &scan.Timestamp); err != nil {
 			return nil, err
 		}
+		err = json.Unmarshal(rawScanData, &scan.Data)
 		scans = append(scans, scan)
 	}
 	return scans, nil
@@ -121,7 +145,8 @@ func (db SQLDatabase) GetAllScans(domain string) ([]ScanData, error) {
 // the object provided.
 func (db *SQLDatabase) PutDomain(domainData DomainData) error {
 	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status) VALUES($1, $2, $3, $4) ON CONFLICT (domain) DO UPDATE SET status=$5",
-		domainData.Name, domainData.Email, "", StateUnvalidated, domainData.State)
+		domainData.Name, domainData.Email, strings.Join(domainData.MXs[:], ","),
+		StateUnvalidated, domainData.State)
 	return err
 }
 
@@ -129,9 +154,11 @@ func (db *SQLDatabase) PutDomain(domainData DomainData) error {
 // mailserver domain.
 func (db SQLDatabase) GetDomain(domain string) (DomainData, error) {
 	data := DomainData{}
-	err := db.conn.QueryRow("SELECT domain, email, status FROM domains WHERE domain=$1",
+	var rawMXs string
+	err := db.conn.QueryRow("SELECT domain, email, data, status FROM domains WHERE domain=$1",
 		domain).Scan(
-		&data.Name, &data.Email, &data.State)
+		&data.Name, &data.Email, &rawMXs, &data.State)
+	data.MXs = strings.Split(rawMXs, ",")
 	return data, err
 }
 

@@ -18,9 +18,12 @@ import (
 //  *****   REST API   *****  //
 ////////////////////////////////
 
+// Minimum time to cache each domain scan
+const cacheScanTime = time.Minute
+
 // Type for performing checks against an input domain. Returns
-// a JSON-formatted string.
-type checkPerformer func(API, string) (string, error)
+// a DomainResult object from the checker.
+type checkPerformer func(API, string) (checker.DomainResult, error)
 
 // API is the HTTP API that this service provides.
 // All requests respond with an APIResponse JSON, with fields:
@@ -98,8 +101,7 @@ func defaultCheck(api API, domain string) (string, error) {
 	result := checker.CheckDomain(domain, nil)
 	result.ExtraResults = make(map[string]checker.CheckResult)
 	result.ExtraResults["policylist"] = <-policyChan
-	byteArray, err := json.Marshal(result)
-	return string(byteArray), err
+	return result, nil
 }
 
 // Scan is the handler for /api/scan.
@@ -116,7 +118,11 @@ func (api API) Scan(r *http.Request) APIResponse {
 	}
 	// POST: Force scan to be conducted
 	if r.Method == http.MethodPost {
-		// 0. TODO: check that last scan was over an hour ago
+		// 0. If last scan was recent, return cached scan.
+		scan, err := api.Database.GetLatestScan(domain)
+		if err == nil && time.Now().Before(scan.Timestamp.Add(cacheScanTime)) {
+			return APIResponse{StatusCode: http.StatusOK, Response: scan}
+		}
 		// 1. Conduct scan via starttls-checker
 		rawScandata, err := api.CheckDomain(api, domain)
 		if err != nil {
@@ -132,7 +138,6 @@ func (api API) Scan(r *http.Request) APIResponse {
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
-		// 3. TODO: Return scandata as JSON (also set response type)
 		return APIResponse{StatusCode: http.StatusOK, Response: scandata}
 		// GET: Just fetch the most recent scan
 	} else if r.Method == http.MethodGet {
@@ -179,8 +184,7 @@ func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
 //        domain: Mail domain to queue a TLS policy for.
 //        email: Contact email associated with domain, to be verified.
 //        hostname_<n>: MX hostnames to put into this domain's TLS policy. n up to 8.
-//        Sets db.TokenData object as response.
-//        TODO (sydneyli): Return DomainData instead, to not expose token.
+//        Sets db.DomainData object as response.
 //   GET  /api/queue?domain=<domain>
 //        Sets db.DomainData object as response.
 func (api API) Queue(r *http.Request) APIResponse {
@@ -201,11 +205,11 @@ func (api API) Queue(r *http.Request) APIResponse {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
 		// 2. Create token for domain
-		token, err := api.Database.PutToken(domain)
+		_, err = api.Database.PutToken(domain)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
-		return APIResponse{StatusCode: http.StatusOK, Response: token}
+		return APIResponse{StatusCode: http.StatusOK, Response: domainData}
 		// GET: Retrieve domain status from queue
 	} else if r.Method == http.MethodGet {
 		status, err := api.Database.GetDomain(domain)

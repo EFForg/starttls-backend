@@ -31,6 +31,16 @@ func randToken() string {
 	return fmt.Sprintf("%x", b)
 }
 
+// GetTokenByDomain gets the token for a domain name.
+func (db *MemDatabase) GetTokenByDomain(domain string) (string, error) {
+	for token, tokenData := range db.tokens {
+		if tokenData.Domain == domain {
+			return token, nil
+		}
+	}
+	return "", fmt.Errorf("Couldn't find an entry for this domain")
+}
+
 // UseToken uses the e-mail token specified by tokenStr.
 func (db *MemDatabase) UseToken(tokenStr string) (string, error) {
 	token, ok := db.tokens[tokenStr]
@@ -52,18 +62,9 @@ func (db *MemDatabase) UseToken(tokenStr string) (string, error) {
 	return token.Domain, nil
 }
 
-func (db *MemDatabase) getTokenForDomain(domain string) (string, error) {
-	for token, tokenData := range db.tokens {
-		if tokenData.Domain == domain {
-			return token, nil
-		}
-	}
-	return "", fmt.Errorf("Couldn't find an entry for this domain")
-}
-
 // PutToken inserts a randomly generated token for domain. Returns the token.
 func (db *MemDatabase) PutToken(domain string) (TokenData, error) {
-	existingToken, err := db.getTokenForDomain(domain)
+	existingToken, err := db.GetTokenByDomain(domain)
 	if err == nil {
 		delete(db.tokens, existingToken)
 	}
