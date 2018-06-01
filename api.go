@@ -38,6 +38,7 @@ type API struct {
 	Database    db.Database
 	CheckDomain checkPerformer
 	List        PolicyList
+	DontScan    map[string]bool
 }
 
 // PolicyList interface wraps a policy-list like structure.
@@ -115,6 +116,12 @@ func (api API) Scan(r *http.Request) APIResponse {
 	domain, err := getASCIIDomain(r)
 	if err != nil {
 		return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
+	}
+	// Check if we shouldn't scan this domain
+	if api.DontScan != nil {
+		if _, ok := api.DontScan[domain]; ok {
+			return APIResponse{StatusCode: http.StatusTooManyRequests}
+		}
 	}
 	// POST: Force scan to be conducted
 	if r.Method == http.MethodPost {
