@@ -297,6 +297,16 @@ func TestBasicScan(t *testing.T) {
 	}
 }
 
+func TestDontScanList(t *testing.T) {
+	api.DontScan = map[string]bool{"dontscan.com": true}
+	data := url.Values{}
+	data.Set("domain", "dontscan.com")
+	resp := testRequest("POST", "/api/scan", data, api.Scan)
+	if resp.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("GET api/scan?domain=dontscan.com should have failed with %d", resp.StatusCode)
+	}
+}
+
 func TestScanCached(t *testing.T) {
 	api.Database.ClearTables()
 	data := url.Values{}

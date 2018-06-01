@@ -3,14 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 
 	"github.com/EFForg/starttls-scanner/db"
 	"github.com/gorilla/handlers"
+	"github.com/joho/godotenv"
 )
 
 func validPort(port string) (string, error) {
@@ -63,7 +66,29 @@ func ServePublicEndpoints(api *API, cfg *db.Config) {
 	<-exited
 }
 
+// Loads a map of domains (effectively a set for fast lookup) to blacklist.
+// if `DOMAIN_BLACKLIST` is not set, returns an empty map.
+func loadDontScan() map[string]bool {
+	filepath := os.Getenv("DOMAIN_BLACKLIST")
+	if len(filepath) == 0 {
+		return make(map[string]bool)
+	}
+	data, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	domainlist := strings.Split(string(data), "\n")
+	domainset := make(map[string]bool)
+	for _, domain := range domainlist {
+		if len(domain) > 0 {
+			domainset[domain] = true
+		}
+	}
+	return domainset
+}
+
 func main() {
+	godotenv.Load()
 	cfg, err := db.LoadEnvironmentVariables()
 	if err != nil {
 		log.Fatal(err)
@@ -75,6 +100,7 @@ func main() {
 	api := API{
 		Database:    db,
 		CheckDomain: defaultCheck,
+		DontScan:    loadDontScan(),
 	}
 	ServePublicEndpoints(&api, &cfg)
 }

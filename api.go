@@ -35,6 +35,7 @@ type checkPerformer func(string) (checker.DomainResult, error)
 type API struct {
 	Database    db.Database
 	CheckDomain checkPerformer
+	DontScan    map[string]bool
 }
 
 // APIResponse wraps all the responses from this API.
@@ -72,6 +73,12 @@ func (api API) Scan(r *http.Request) APIResponse {
 	domain, err := getASCIIDomain(r)
 	if err != nil {
 		return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
+	}
+	// Check if we shouldn't scan this domain
+	if api.DontScan != nil {
+		if _, ok := api.DontScan[domain]; ok {
+			return APIResponse{StatusCode: http.StatusTooManyRequests}
+		}
 	}
 	// POST: Force scan to be conducted
 	if r.Method == http.MethodPost {
