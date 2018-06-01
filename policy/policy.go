@@ -91,21 +91,24 @@ type policyRequest struct {
 // This routine serializes all reads and writes to the policy list.
 func (l UpdatedList) worker() {
 	currentList, err := l.fetch(l.policyURL)
-	for true {
+	for {
 		select {
 		case req := <-l.messages:
 			if err != nil {
 				req.errors <- err
 				continue
 			}
-			policy, err := currentList.Get(req.domain)
-			if err != nil {
-				req.errors <- err
+			policy, getErr := currentList.Get(req.domain)
+			if getErr != nil {
+				req.errors <- getErr
 				continue
 			}
 			req.responses <- policy
 		case <-time.After(l.updateFrequency):
-			currentList, err = l.fetch(l.policyURL)
+			if list, err := l.fetch(l.policyURL); err == nil {
+				currentList = list
+			}
+
 		}
 	}
 }
@@ -130,9 +133,9 @@ func (l UpdatedList) Get(domain string) (TLSPolicy, error) {
 	}
 }
 
-// CreateUpdatedList constructs and UpdatedList object and launches a
+// MakeUpdatedList constructs and UpdatedList object and launches a
 // worker thread to continually update it.
-func CreateUpdatedList() UpdatedList {
+func MakeUpdatedList() UpdatedList {
 	list := UpdatedList{
 		messages:        make(chan policyRequest),
 		policyURL:       PolicyURL,

@@ -54,7 +54,7 @@ func main() {
 	api := API{
 		Database:    db,
 		CheckDomain: defaultCheck,
-		List:        policy.CreateUpdatedList(),
+		List:        policy.MakeUpdatedList(),
 	}
 	ServePublicEndpoints(&api, &cfg)
 }

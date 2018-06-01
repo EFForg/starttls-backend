@@ -89,9 +89,7 @@ func (api API) policyCheck(domain string) checker.CheckResult {
 // is List.
 func asyncPolicyCheck(api API, domain string) <-chan checker.CheckResult {
 	result := make(chan checker.CheckResult)
-	go func(result chan<- checker.CheckResult, api API, domain string) {
-		result <- api.policyCheck(domain)
-	}(result, api, domain)
+	go func() { result <- api.policyCheck(domain) }()
 	return result
 }
 
