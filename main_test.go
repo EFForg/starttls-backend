@@ -22,8 +22,10 @@ import (
 
 var api *API
 
-func mockCheckPerform(domain string) (checker.DomainResult, error) {
-	return checker.DomainResult{Domain: domain, Message: "testequal"}, nil
+func mockCheckPerform(message string) func(string) (checker.DomainResult, error) {
+	return func(domain string) (checker.DomainResult, error) {
+		return checker.DomainResult{Domain: domain, Message: message}, nil
+	}
 }
 
 // Load env. vars, initialize DB hook, and tests API
@@ -39,7 +41,7 @@ func TestMain(m *testing.M) {
 	// }
 	api = &API{
 		Database:    db.InitMemDatabase(cfg),
-		CheckDomain: mockCheckPerform,
+		CheckDomain: mockCheckPerform("testequal"),
 	}
 	code := m.Run()
 	api.Database.ClearTables()
@@ -302,5 +304,26 @@ func TestDontScanList(t *testing.T) {
 	resp := testRequest("POST", "/api/scan", data, api.Scan)
 	if resp.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("GET api/scan?domain=dontscan.com should have failed with %d", resp.StatusCode)
+	}
+}
+
+func TestScanCached(t *testing.T) {
+	api.Database.ClearTables()
+	data := url.Values{}
+	data.Set("domain", "eff.org")
+	testRequest("POST", "/api/scan", data, api.Scan)
+	original, _ := api.CheckDomain("eff.org")
+	// Perform scan again, with different expected result.
+	api.CheckDomain = mockCheckPerform("somethingelse")
+	resp := testRequest("POST", "/api/scan", data, api.Scan)
+	scanBody, _ := ioutil.ReadAll(resp.Body)
+	scanData := db.ScanData{}
+	// Since scan occurred recently, we should have returned the cached OG response.
+	err := json.Unmarshal(scanBody, &APIResponse{Response: &scanData})
+	if err != nil {
+		t.Errorf("Returned invalid JSON object:%v\n%v\n", string(scanBody), err)
+	}
+	if scanData.Data.Message != original.Message {
+		t.Fatalf("Scan expected to have been cached, not reperformed\n")
 	}
 }

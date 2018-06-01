@@ -16,6 +16,9 @@ import (
 //  *****   REST API   *****  //
 ////////////////////////////////
 
+// Minimum time to cache each domain scan
+const cacheScanTime = time.Minute
+
 // Type for performing checks against an input domain. Returns
 // a DomainResult object from the checker.
 type checkPerformer func(string) (checker.DomainResult, error)
@@ -79,7 +82,11 @@ func (api API) Scan(r *http.Request) APIResponse {
 	}
 	// POST: Force scan to be conducted
 	if r.Method == http.MethodPost {
-		// 0. TODO: check that last scan was over an hour ago
+		// 0. If last scan was recent, return cached scan.
+		scan, err := api.Database.GetLatestScan(domain)
+		if err == nil && time.Now().Before(scan.Timestamp.Add(cacheScanTime)) {
+			return APIResponse{StatusCode: http.StatusOK, Response: scan}
+		}
 		// 1. Conduct scan via starttls-checker
 		rawScandata, err := api.CheckDomain(domain)
 		if err != nil {

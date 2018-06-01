@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 
@@ -37,11 +39,31 @@ func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
 func ServePublicEndpoints(api *API, cfg *db.Config) {
 	mux := http.NewServeMux()
 	mainHandler := registerHandlers(api, mux)
+
 	portString, err := validPort(cfg.Port)
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Fatal(http.ListenAndServe(portString, mainHandler))
+
+	server := http.Server{
+		Addr:    portString,
+		Handler: mainHandler,
+	}
+
+	exited := make(chan struct{})
+	go func() {
+		sigint := make(chan os.Signal, 1)
+		signal.Notify(sigint, os.Interrupt)
+		<-sigint
+
+		if err := server.Shutdown(context.Background()); err != nil {
+			log.Printf("HTTP server Shutdown: %v", err)
+		}
+		close(exited)
+	}()
+
+	log.Fatal(server.ListenAndServe())
+	<-exited
 }
 
 // Loads a map of domains (effectively a set for fast lookup) to blacklist.
