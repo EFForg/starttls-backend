@@ -122,8 +122,8 @@ func validQueueData() url.Values {
 	data := url.Values{}
 	data.Set("domain", "eff.org")
 	data.Set("email", "testing@fake-email.org")
-	data.Set("hostname_0", ".eff.org")
-	data.Set("hostname_1", "mx.eff.org")
+	data.Add("hostnames", ".eff.org")
+	data.Add("hostnames", "mx.eff.org")
 	return data
 }
 
