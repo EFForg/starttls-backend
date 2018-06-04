@@ -15,17 +15,29 @@ import (
 
 	"github.com/EFForg/starttls-check/checker"
 	"github.com/EFForg/starttls-scanner/db"
+	"github.com/EFForg/starttls-scanner/policy"
 )
 
 // Workflow tests against REST API.
-// TODO: Mock starttls-scanner/check so we don't actually make check requests
 
 var api *API
 
-func mockCheckPerform(message string) func(string) (checker.DomainResult, error) {
-	return func(domain string) (checker.DomainResult, error) {
+func mockCheckPerform(message string) func(API, string) (checker.DomainResult, error) {
+	return func(api API, domain string) (checker.DomainResult, error) {
 		return checker.DomainResult{Domain: domain, Message: message}, nil
 	}
+}
+
+// Mock PolicyList
+type mockList struct {
+	domains map[string]bool
+}
+
+func (l mockList) Get(domain string) (policy.TLSPolicy, error) {
+	if _, ok := l.domains[domain]; ok {
+		return policy.TLSPolicy{Mode: "enforce", MXs: []string{"mx.fake.com"}}, nil
+	}
+	return policy.TLSPolicy{}, fmt.Errorf("no such domain on this list")
 }
 
 // Load env. vars, initialize DB hook, and tests API
@@ -39,9 +51,13 @@ func TestMain(m *testing.M) {
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
+	fakeList := map[string]bool{
+		"eff.org": true,
+	}
 	api = &API{
 		Database:    db.InitMemDatabase(cfg),
 		CheckDomain: mockCheckPerform("testequal"),
+		List:        mockList{domains: fakeList},
 	}
 	code := m.Run()
 	api.Database.ClearTables()
@@ -246,6 +262,37 @@ func TestQueueTwice(t *testing.T) {
 	}
 }
 
+func TestPolicyCheck(t *testing.T) {
+	result := api.policyCheck("eff.org")
+	if result.Status != checker.Success {
+		t.Errorf("Check should have succeeded.")
+	}
+	result = api.policyCheck("failmail.com")
+	if result.Status != checker.Failure {
+		t.Errorf("Check should have failed.")
+	}
+}
+
+func TestPolicyCheckWithQueuedDomain(t *testing.T) {
+	api.Database.ClearTables()
+	domainData := db.DomainData{
+		Name:  "example.com",
+		Email: "postmaster@example.com",
+		State: db.StateUnvalidated,
+	}
+	api.Database.PutDomain(domainData)
+	result := api.policyCheck("example.com")
+	if result.Status != checker.Warning {
+		t.Errorf("Check should have warned.")
+	}
+	domainData.State = db.StateQueued
+	api.Database.PutDomain(domainData)
+	result = api.policyCheck("example.com")
+	if result.Status != checker.Warning {
+		t.Errorf("Check should have warned.")
+	}
+}
+
 // Tests basic scanning workflow.
 // Requests a scan for a particular domain, and
 // makes sure that the scan is persisted correctly in DB across requests.
@@ -312,7 +359,7 @@ func TestScanCached(t *testing.T) {
 	data := url.Values{}
 	data.Set("domain", "eff.org")
 	testRequest("POST", "/api/scan", data, api.Scan)
-	original, _ := api.CheckDomain("eff.org")
+	original, _ := api.CheckDomain(*api, "eff.org")
 	// Perform scan again, with different expected result.
 	api.CheckDomain = mockCheckPerform("somethingelse")
 	resp := testRequest("POST", "/api/scan", data, api.Scan)

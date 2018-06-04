@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/EFForg/starttls-scanner/db"
+	"github.com/EFForg/starttls-scanner/policy"
 	"github.com/gorilla/handlers"
 	"github.com/joho/godotenv"
 )
@@ -100,6 +101,7 @@ func main() {
 	api := API{
 		Database:    db,
 		CheckDomain: defaultCheck,
+		List:        policy.MakeUpdatedList(),
 		DontScan:    loadDontScan(),
 	}
 	ServePublicEndpoints(&api, &cfg)

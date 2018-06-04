@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"golang.org/x/net/idna"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/EFForg/starttls-check/checker"
 	"github.com/EFForg/starttls-scanner/db"
+	"github.com/EFForg/starttls-scanner/policy"
 )
 
 ////////////////////////////////
@@ -21,7 +23,7 @@ const cacheScanTime = time.Minute
 
 // Type for performing checks against an input domain. Returns
 // a DomainResult object from the checker.
-type checkPerformer func(string) (checker.DomainResult, error)
+type checkPerformer func(API, string) (checker.DomainResult, error)
 
 // API is the HTTP API that this service provides.
 // All requests respond with an APIResponse JSON, with fields:
@@ -35,7 +37,15 @@ type checkPerformer func(string) (checker.DomainResult, error)
 type API struct {
 	Database    db.Database
 	CheckDomain checkPerformer
+	List        PolicyList
 	DontScan    map[string]bool
+}
+
+// PolicyList interface wraps a policy-list like structure.
+// The most important query you can perform is to fetch the policy
+// for a particular domain.
+type PolicyList interface {
+	Get(string) (policy.TLSPolicy, error)
 }
 
 // APIResponse wraps all the responses from this API.
@@ -57,8 +67,41 @@ func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func defaultCheck(domain string) (checker.DomainResult, error) {
+// Checks the policy status of this domain.
+func (api API) policyCheck(domain string) checker.CheckResult {
+	result := checker.CheckResult{Name: "policylist"}
+	if _, err := api.List.Get(domain); err == nil {
+		return result.Success()
+	}
+	domainData, err := api.Database.GetDomain(domain)
+	if err != nil {
+		return result.Failure("Domain %s is not on the policy list.", domain)
+	}
+	if domainData.State == db.StateAdded {
+		log.Println("Warning: Domain was StateAdded in DB but was not found on the policy list.")
+		return result.Success()
+	} else if domainData.State == db.StateQueued {
+		return result.Warning("Domain %s is queued to be added to the policy list.", domain)
+	} else if domainData.State == db.StateUnvalidated {
+		return result.Warning("The policy addition request for %s is waiting on email validation", domain)
+	}
+	return result.Failure("Domain %s is not on the policy list.", domain)
+}
+
+// Performs policyCheck asynchronously.
+// Should be safe since Database is safe for concurrent use, and so
+// is List.
+func asyncPolicyCheck(api API, domain string) <-chan checker.CheckResult {
+	result := make(chan checker.CheckResult)
+	go func() { result <- api.policyCheck(domain) }()
+	return result
+}
+
+func defaultCheck(api API, domain string) (checker.DomainResult, error) {
+	policyChan := asyncPolicyCheck(api, domain)
 	result := checker.CheckDomain(domain, nil)
+	result.ExtraResults = make(map[string]checker.CheckResult)
+	result.ExtraResults["policylist"] = <-policyChan
 	return result, nil
 }
 
@@ -88,7 +131,7 @@ func (api API) Scan(r *http.Request) APIResponse {
 			return APIResponse{StatusCode: http.StatusOK, Response: scan}
 		}
 		// 1. Conduct scan via starttls-checker
-		rawScandata, err := api.CheckDomain(domain)
+		rawScandata, err := api.CheckDomain(api, domain)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
