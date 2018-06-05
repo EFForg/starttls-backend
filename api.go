@@ -209,9 +209,16 @@ func (api API) Queue(r *http.Request) APIResponse {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
 		// 2. Create token for domain
-		_, err = api.Database.PutToken(domain)
+		token, err := api.Database.PutToken(domain)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
+		}
+
+		// 3. Send email
+		err = sendValidationEmail(&domainData, token.Token)
+		if err != nil {
+			return APIResponse{StatusCode: http.StatusInternalServerError,
+				Message: "Unable to send validation e-mail."}
 		}
 		return APIResponse{StatusCode: http.StatusOK, Response: domainData}
 		// GET: Retrieve domain status from queue
