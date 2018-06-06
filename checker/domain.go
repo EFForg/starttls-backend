@@ -13,6 +13,18 @@ func (d DomainResult) reportError(err error) DomainResult {
 	return d
 }
 
+type DomainStatus int32
+
+// In order of precedence.
+const (
+	DomainSuccess           DomainStatus = 0
+	DomainWarning           DomainStatus = 1
+	DomainFailure           DomainStatus = 2
+	DomainError             DomainStatus = 3
+	DomainNoSTARTTLSFailure DomainStatus = 4
+	DomainCouldNotConnect   DomainStatus = 5
+)
+
 // DomainResult wraps all the results for a particular mail domain.
 type DomainResult struct {
 	// Domain being checked against.
@@ -20,7 +32,7 @@ type DomainResult struct {
 	// Message if a failure or error occurs on the domain lookup level.
 	Message string `json:"message,omitempty"`
 	// Status of this check, inherited from the results of preferred hostnames.
-	Status CheckStatus `json:"status"`
+	Status DomainStatus `json:"status"`
 	// Results of this check, on each hostname.
 	HostnameResults map[string]HostnameResult `json:"results"`
 	// The list of hostnames which impact the Status of this result.
@@ -93,7 +105,20 @@ func CheckDomain(domain string, mxHostnames []string) DomainResult {
 		}
 	}
 	result.PreferredHostnames = checkedHostnames
+
+	// Derive Domain code from Hostname results.
+	// We couldn't connect to any of those hostnames.
+	if len(checkedHostnames) == 0 {
+		result.Status = DomainCouldNotConnect
+		return result
+	}
 	for _, hostname := range checkedHostnames {
+		hostnameResult := result.HostnameResults[hostname]
+		// Any of the connected hostnames don't support STARTTLS.
+		if !hostnameResult.couldSTARTTLS() {
+			result.Status = SetStatus(result.Status, DomainNoSTARTTLSFailure)
+			return
+		}
 		result.Status = SetStatus(result.Status, result.HostnameResults[hostname].Status)
 	}
 	return result
