@@ -23,9 +23,9 @@ type HostnameResult struct {
 // Returns result of connectivity check. Should only be called after
 // checkConnectivity. If called before that check occurs,
 // returns false.
-func (r HostnameResult) couldConnect() bool {
-	if result, ok := r.Checks["connectivity"]; ok {
-		return result.Status == Error
+func (h HostnameResult) couldConnect() bool {
+	if result, ok := h.Checks["connectivity"]; ok {
+		return result.Status == Success
 	}
 	return false
 }
