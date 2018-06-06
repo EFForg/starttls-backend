@@ -20,6 +20,23 @@ type HostnameResult struct {
 	Checks      map[string]CheckResult `json:"checks"`
 }
 
+// Returns result of specifiedcheck.
+// If called before that check occurs, returns false.
+func (h HostnameResult) checkSucceeded(checkName string) bool {
+	if result, ok := h.Checks[checkName]; ok {
+		return result.Status == Success
+	}
+	return false
+}
+
+func (h HostnameResult) couldConnect() bool {
+	return h.checkSucceeded("connectivity")
+}
+
+func (h HostnameResult) couldSTARTTLS() bool {
+	return h.checkSucceeded("starttls")
+}
+
 // Modelled after isWildcardMatch in Appendix B of the MTA-STS draft.
 // From draft v17:
 // Senders who are comparing a "suffix" MX pattern with a wildcard

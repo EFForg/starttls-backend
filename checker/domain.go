@@ -1,16 +1,30 @@
 package checker
 
 import (
-	"errors"
+	"context"
+	"fmt"
 	"net"
+	"time"
 )
 
 // Reports an error during the domain checks.
 func (d DomainResult) reportError(err error) DomainResult {
-	d.Status = Error
+	d.Status = DomainError
 	d.Message = err.Error()
 	return d
 }
+
+type DomainStatus int32
+
+// In order of precedence.
+const (
+	DomainSuccess           DomainStatus = 0
+	DomainWarning           DomainStatus = 1
+	DomainFailure           DomainStatus = 2
+	DomainError             DomainStatus = 3
+	DomainNoSTARTTLSFailure DomainStatus = 4
+	DomainCouldNotConnect   DomainStatus = 5
+)
 
 // DomainResult wraps all the results for a particular mail domain.
 type DomainResult struct {
@@ -19,7 +33,7 @@ type DomainResult struct {
 	// Message if a failure or error occurs on the domain lookup level.
 	Message string `json:"message,omitempty"`
 	// Status of this check, inherited from the results of preferred hostnames.
-	Status CheckStatus `json:"status"`
+	Status DomainStatus `json:"status"`
 	// Results of this check, on each hostname.
 	HostnameResults map[string]HostnameResult `json:"results"`
 	// The list of hostnames which impact the Status of this result.
@@ -31,17 +45,24 @@ type DomainResult struct {
 	ExtraResults map[string]CheckResult `json:"extra_results,omitempty"`
 }
 
-func lookupHostnames(domain string) ([]string, []string, error) {
-	mxs, err := net.LookupMX(domain)
+func lookupMXWithTimeout(domain string) ([]*net.MX, error) {
+	const timeout = 2 * time.Second
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	defer cancel()
+	var r net.Resolver
+	return r.LookupMX(ctx, domain)
+}
+
+func lookupHostnames(domain string) ([]string, error) {
+	mxs, err := lookupMXWithTimeout(domain)
 	if err != nil || len(mxs) == 0 {
-		return nil, nil, errors.New("No MX records found")
+		return nil, fmt.Errorf("No MX records found")
 	}
 	hostnames := make([]string, 0)
 	for _, mx := range mxs {
 		hostnames = append(hostnames, mx.Host)
 	}
-	// TODO: support >1 hostname with same MX priority
-	return hostnames, []string{hostnames[0]}, nil
+	return hostnames, nil
 }
 
 // CheckDomain performs all associated checks for a particular domain.
@@ -59,17 +80,35 @@ func CheckDomain(domain string, mxHostnames []string) DomainResult {
 	// 2. Perform and aggregate checks from those hostnames.
 	// 3. Set a summary message.
 	result := DomainResult{Domain: domain, MxHostnames: mxHostnames}
-	hostnames, preferredHostnames, err := lookupHostnames(domain)
+	hostnames, err := lookupHostnames(domain)
 	if err != nil {
 		return result.reportError(err)
 	}
-	result.PreferredHostnames = preferredHostnames
+	checkedHostnames := make([]string, 0)
 	result.HostnameResults = make(map[string]HostnameResult)
 	for _, hostname := range hostnames {
 		result.HostnameResults[hostname] = CheckHostname(domain, hostname, mxHostnames)
+		if result.HostnameResults[hostname].couldConnect() {
+			checkedHostnames = append(checkedHostnames, hostname)
+		}
 	}
-	for _, hostname := range preferredHostnames {
-		result.Status = SetStatus(result.Status, result.HostnameResults[hostname].Status)
+	result.PreferredHostnames = checkedHostnames
+
+	// Derive Domain code from Hostname results.
+	// We couldn't connect to any of those hostnames.
+	if len(checkedHostnames) == 0 {
+		result.Status = DomainCouldNotConnect
+		return result
+	}
+	for _, hostname := range checkedHostnames {
+		hostnameResult := result.HostnameResults[hostname]
+		// Any of the connected hostnames don't support STARTTLS.
+		if !hostnameResult.couldSTARTTLS() {
+			result.Status = DomainNoSTARTTLSFailure
+			return result
+		}
+		result.Status = DomainStatus(
+			SetStatus(CheckStatus(result.Status), CheckStatus(result.HostnameResults[hostname].Status)))
 	}
 	return result
 }
