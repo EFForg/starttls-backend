@@ -1,8 +1,9 @@
 package checker
 
 import (
-	"errors"
+	"fmt"
 	"net"
+	"time"
 )
 
 // Reports an error during the domain checks.
@@ -31,10 +32,31 @@ type DomainResult struct {
 	ExtraResults map[string]CheckResult `json:"extra_results,omitempty"`
 }
 
+func lookupMXWithTimeout(domain string) ([]*net.MX, error) {
+	mxsChan := make(chan []*net.MX)
+	errChan := make(chan error)
+	go func() {
+		mxs, err := net.LookupMX(domain)
+		if err != nil {
+			errChan <- err
+		} else {
+			mxsChan <- mxs
+		}
+	}()
+	select {
+	case mxs := <-mxsChan:
+		return mxs, nil
+	case err := <-errChan:
+		return []*net.MX{}, err
+	case <-time.After(2 * time.Second):
+		return []*net.MX{}, fmt.Errorf("DNS lookup for domain %s timed out", domain)
+	}
+}
+
 func lookupHostnames(domain string) ([]string, []string, error) {
-	mxs, err := net.LookupMX(domain)
+	mxs, err := lookupMXWithTimeout(domain)
 	if err != nil || len(mxs) == 0 {
-		return nil, nil, errors.New("No MX records found")
+		return nil, nil, fmt.Errorf("No MX records found")
 	}
 	hostnames := make([]string, 0)
 	for _, mx := range mxs {
