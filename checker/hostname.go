@@ -20,6 +20,16 @@ type HostnameResult struct {
 	Checks      map[string]CheckResult `json:"checks"`
 }
 
+// Returns result of connectivity check. Should only be called after
+// checkConnectivity. If called before that check occurs,
+// returns false.
+func (r HostnameResult) couldConnect() bool {
+	if result, ok := r.Checks["connectivity"]; ok {
+		return result.Status == Error
+	}
+	return false
+}
+
 // Modelled after isWildcardMatch in Appendix B of the MTA-STS draft.
 // From draft v17:
 // Senders who are comparing a "suffix" MX pattern with a wildcard

@@ -53,17 +53,16 @@ func lookupMXWithTimeout(domain string) ([]*net.MX, error) {
 	}
 }
 
-func lookupHostnames(domain string) ([]string, []string, error) {
+func lookupHostnames(domain string) ([]string, error) {
 	mxs, err := lookupMXWithTimeout(domain)
 	if err != nil || len(mxs) == 0 {
-		return nil, nil, fmt.Errorf("No MX records found")
+		return nil, fmt.Errorf("No MX records found")
 	}
 	hostnames := make([]string, 0)
 	for _, mx := range mxs {
 		hostnames = append(hostnames, mx.Host)
 	}
-	// TODO: support >1 hostname with same MX priority
-	return hostnames, []string{hostnames[0]}, nil
+	return hostnames, nil
 }
 
 // CheckDomain performs all associated checks for a particular domain.
@@ -81,16 +80,20 @@ func CheckDomain(domain string, mxHostnames []string) DomainResult {
 	// 2. Perform and aggregate checks from those hostnames.
 	// 3. Set a summary message.
 	result := DomainResult{Domain: domain, MxHostnames: mxHostnames}
-	hostnames, preferredHostnames, err := lookupHostnames(domain)
+	hostnames, err := lookupHostnames(domain)
 	if err != nil {
 		return result.reportError(err)
 	}
-	result.PreferredHostnames = preferredHostnames
+	checkedHostnames := make([]string, 0)
 	result.HostnameResults = make(map[string]HostnameResult)
 	for _, hostname := range hostnames {
 		result.HostnameResults[hostname] = CheckHostname(domain, hostname, mxHostnames)
+		if result.HostnameResults[hostname].couldConnect() {
+			checkedHostnames = append(checkedHostnames, hostname)
+		}
 	}
-	for _, hostname := range preferredHostnames {
+	result.PreferredHostnames = checkedHostnames
+	for _, hostname := range checkedHostnames {
 		result.Status = SetStatus(result.Status, result.HostnameResults[hostname].Status)
 	}
 	return result
