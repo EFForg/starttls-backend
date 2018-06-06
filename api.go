@@ -39,6 +39,7 @@ type API struct {
 	CheckDomain checkPerformer
 	List        PolicyList
 	DontScan    map[string]bool
+	Emailer     EmailSender
 }
 
 // PolicyList interface wraps a policy-list like structure.
@@ -46,6 +47,13 @@ type API struct {
 // for a particular domain.
 type PolicyList interface {
 	Get(string) (policy.TLSPolicy, error)
+}
+
+// EmailSender interface wraps a back-end that can send e-mails.
+type EmailSender interface {
+	// SendValidation sends a validation e-mail for a particular domain,
+	// with a particular validation token.
+	SendValidation(*db.DomainData, string) error
 }
 
 // APIResponse wraps all the responses from this API.
@@ -215,7 +223,7 @@ func (api API) Queue(r *http.Request) APIResponse {
 		}
 
 		// 3. Send email
-		err = sendValidationEmail(&domainData, token.Token)
+		err = api.Emailer.SendValidation(&domainData, token.Token)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError,
 				Message: "Unable to send validation e-mail."}

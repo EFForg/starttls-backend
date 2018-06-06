@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/EFForg/starttls-check/checker"
 	"github.com/EFForg/starttls-scanner/db"
@@ -40,6 +41,11 @@ func (l mockList) Get(domain string) (policy.TLSPolicy, error) {
 	return policy.TLSPolicy{}, fmt.Errorf("no such domain on this list")
 }
 
+// Mock emailer
+type mockEmailer struct{}
+
+func (e mockEmailer) SendValidation(domainInfo *db.DomainData, token string) error { return nil }
+
 // Load env. vars, initialize DB hook, and tests API
 func TestMain(m *testing.M) {
 	cfg, err := db.LoadEnvironmentVariables()
@@ -58,6 +64,7 @@ func TestMain(m *testing.M) {
 		Database:    db.InitMemDatabase(cfg),
 		CheckDomain: mockCheckPerform("testequal"),
 		List:        mockList{domains: fakeList},
+		Emailer:     mockEmailer{},
 	}
 	code := m.Run()
 	api.Database.ClearTables()
@@ -372,5 +379,13 @@ func TestScanCached(t *testing.T) {
 	}
 	if scanData.Data.Message != original.Message {
 		t.Fatalf("Scan expected to have been cached, not reperformed\n")
+	}
+}
+
+func TestValidationEmailText(t *testing.T) {
+	content := validationEmailText("example.com", []string{"mx.example.com, .mx.example.com"}, "abcd", time.Now(),
+		"https://fake.starttls-everywhere.website")
+	if !strings.Contains(content, "https://fake.starttls-everywhere.website/validate/abcd") {
+		t.Errorf("E-mail formatted incorrectly.")
 	}
 }
