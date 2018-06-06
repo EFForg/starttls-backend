@@ -1,6 +1,7 @@
 package checker
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -8,7 +9,7 @@ import (
 
 // Reports an error during the domain checks.
 func (d DomainResult) reportError(err error) DomainResult {
-	d.Status = Error
+	d.Status = DomainError
 	d.Message = err.Error()
 	return d
 }
@@ -45,24 +46,11 @@ type DomainResult struct {
 }
 
 func lookupMXWithTimeout(domain string) ([]*net.MX, error) {
-	mxsChan := make(chan []*net.MX)
-	errChan := make(chan error)
-	go func() {
-		mxs, err := net.LookupMX(domain)
-		if err != nil {
-			errChan <- err
-		} else {
-			mxsChan <- mxs
-		}
-	}()
-	select {
-	case mxs := <-mxsChan:
-		return mxs, nil
-	case err := <-errChan:
-		return []*net.MX{}, err
-	case <-time.After(2 * time.Second):
-		return []*net.MX{}, fmt.Errorf("DNS lookup for domain %s timed out", domain)
-	}
+	const timeout = 2 * time.Second
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	defer cancel()
+	var r net.Resolver
+	return r.LookupMX(ctx, domain)
 }
 
 func lookupHostnames(domain string) ([]string, error) {
@@ -116,10 +104,11 @@ func CheckDomain(domain string, mxHostnames []string) DomainResult {
 		hostnameResult := result.HostnameResults[hostname]
 		// Any of the connected hostnames don't support STARTTLS.
 		if !hostnameResult.couldSTARTTLS() {
-			result.Status = SetStatus(result.Status, DomainNoSTARTTLSFailure)
-			return
+			result.Status = DomainNoSTARTTLSFailure
+			return result
 		}
-		result.Status = SetStatus(result.Status, result.HostnameResults[hostname].Status)
+		result.Status = DomainStatus(
+			SetStatus(CheckStatus(result.Status), CheckStatus(result.HostnameResults[hostname].Status)))
 	}
 	return result
 }

@@ -30,11 +30,11 @@ func (h HostnameResult) checkSucceeded(checkName string) bool {
 }
 
 func (h HostnameResult) couldConnect() bool {
-	return checkSucceeded("connectivity")
+	return h.checkSucceeded("connectivity")
 }
 
 func (h HostnameResult) couldSTARTTLS() bool {
-	return checkSucceeded("starttls")
+	return h.checkSucceeded("starttls")
 }
 
 // Modelled after isWildcardMatch in Appendix B of the MTA-STS draft.
