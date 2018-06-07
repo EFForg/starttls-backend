@@ -187,7 +187,14 @@ func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
 	if len(domainData.MXs) > MaxHostnames {
 		return domainData, fmt.Errorf("No more than 8 MX hostnames are permitted")
 	}
-
+	for _, hostname := range domainData.MXs {
+		if hostname[0] == '.' {
+			hostname = hostname[1:len(hostname)]
+		}
+		if !validDomainName(hostname) {
+			return domainData, fmt.Errorf("Hostname %s is invalid", hostname)
+		}
+	}
 	return domainData, nil
 }
 
