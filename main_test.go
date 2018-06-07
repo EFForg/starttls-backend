@@ -247,13 +247,8 @@ func TestQueueWithoutScan(t *testing.T) {
 	api.Database.ClearTables()
 	requestData := validQueueData(false)
 	resp := testRequest("POST", "/api/queue", requestData, api.Queue)
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("POST to api/queue failed with error %d", resp.StatusCode)
-	}
-	resultBody, _ := ioutil.ReadAll(resp.Body)
-	if !strings.Contains(string(resultBody), "No scans") {
-		log.Print(string(resultBody))
-		t.Errorf("Should not have conducted queue without scanning first")
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("POST to api/queue should have failed with error %d", resp.StatusCode)
 	}
 }
 
