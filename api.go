@@ -189,7 +189,7 @@ func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
 	}
 	for _, hostname := range domainData.MXs {
 		if hostname[0] == '.' {
-			hostname = hostname[1:len(hostname)]
+			hostname = hostname[1:]
 		}
 		if !validDomainName(hostname) {
 			return domainData, fmt.Errorf("Hostname %s is invalid", hostname)
