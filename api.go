@@ -73,7 +73,8 @@ func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, response.Message, response.StatusCode)
 		}
 		if response.StatusCode == http.StatusInternalServerError {
-			raven.CaptureError(fmt.Errorf(response.Message), nil)
+			packet := raven.NewPacket(response.Message, raven.NewHttp(r))
+			raven.Capture(packet, nil)
 		}
 		writeJSON(w, response)
 	}
