@@ -13,6 +13,7 @@ import (
 
 	"github.com/EFForg/starttls-scanner/db"
 	"github.com/EFForg/starttls-scanner/policy"
+	"github.com/getsentry/raven-go"
 	"github.com/gorilla/handlers"
 	"github.com/joho/godotenv"
 )
@@ -31,9 +32,10 @@ func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
 
 	originsOk := handlers.AllowedOrigins([]string{os.Getenv("ALLOWED_ORIGINS")})
 
-	return handlers.RecoveryHandler()(
-		handlers.CORS(originsOk)(handlers.LoggingHandler(os.Stdout, mux)),
-	)
+	handler := http.HandlerFunc(raven.RecoveryHandler(
+		handlers.CORS(originsOk)(mux).ServeHTTP,
+	))
+	return handlers.LoggingHandler(os.Stdout, handler)
 }
 
 // ServePublicEndpoints serves all public HTTP endpoints.
@@ -90,6 +92,7 @@ func loadDontScan() map[string]bool {
 
 func main() {
 	godotenv.Load()
+	raven.SetDSN("url")
 	cfg, err := db.LoadEnvironmentVariables()
 	if err != nil {
 		log.Fatal(err)

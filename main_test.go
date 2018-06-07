@@ -102,7 +102,7 @@ func TestPanicRecovery(t *testing.T) {
 	log.SetOutput(os.Stderr)
 
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 	if resp.StatusCode != 500 {
 		t.Errorf("Expected server to respond with 500")

@@ -12,6 +12,7 @@ import (
 	"github.com/EFForg/starttls-check/checker"
 	"github.com/EFForg/starttls-scanner/db"
 	"github.com/EFForg/starttls-scanner/policy"
+	"github.com/getsentry/raven-go"
 )
 
 ////////////////////////////////
@@ -70,6 +71,9 @@ func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
 		response := api(r)
 		if response.StatusCode != http.StatusOK {
 			http.Error(w, response.Message, response.StatusCode)
+		}
+		if response.StatusCode == http.StatusInternalServerError {
+			raven.CaptureError(fmt.Errorf(response.Message), nil)
 		}
 		writeJSON(w, response)
 	}
