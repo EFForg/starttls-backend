@@ -217,14 +217,18 @@ func (api API) Queue(r *http.Request) APIResponse {
 		// 0. Check if scan occurred.
 		scan, err := api.Database.GetLatestScan(domain)
 		if err != nil {
-			return APIResponse{StatusCode: http.StatusOK,
-				Message: "No scans found for this domain." +
-					" Please use our checker to scan your" +
-					" domain before trying to queue it."}
+			return APIResponse{
+				StatusCode: http.StatusBadRequest,
+				Message: "We haven't scanned this domain yet. " +
+					"Please use the STARTTLS checker to scan your domain's " +
+					"STARTTLS configuration so we can validate your submission",
+			}
 		}
 		if scan.Data.Status != 0 {
-			return APIResponse{StatusCode: http.StatusOK,
-				Message: "Scan for this domain didn't succeed."}
+			return APIResponse{
+				StatusCode: http.StatusBadRequest,
+				Message:    "%s hasn't passed our STARTTLS security checks",
+			}
 		}
 		domainData, err := getDomainParams(r, domain)
 		if err != nil {
