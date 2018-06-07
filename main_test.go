@@ -108,7 +108,7 @@ func TestPanicRecovery(t *testing.T) {
 }
 
 func panickingHandler(w http.ResponseWriter, r *http.Request) {
-	panic(fmt.Errorf("Ahh!"))
+	panic(fmt.Errorf("oh no"))
 }
 
 // Helper function to mock a request to the server via https.
