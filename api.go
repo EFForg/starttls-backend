@@ -207,6 +207,18 @@ func (api API) Queue(r *http.Request) APIResponse {
 	}
 	// POST: Insert this domain into the queue
 	if r.Method == http.MethodPost {
+		// 0. Check if scan occurred.
+		scan, err := api.Database.GetLatestScan(domain)
+		if err != nil {
+			return APIResponse{StatusCode: http.StatusOK,
+				Message: "No scans found for this domain." +
+					" Please use our checker to scan your" +
+					" domain before trying to queue it."}
+		}
+		if scan.Data.Status != 0 {
+			return APIResponse{StatusCode: http.StatusOK,
+				Message: "Scan for this domain didn't succeed."}
+		}
 		domainData, err := getDomainParams(r, domain)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
@@ -225,8 +237,9 @@ func (api API) Queue(r *http.Request) APIResponse {
 		// 3. Send email
 		err = api.Emailer.SendValidation(&domainData, token.Token)
 		if err != nil {
+			log.Print(err)
 			return APIResponse{StatusCode: http.StatusInternalServerError,
-				Message: "Unable to send validation e-mail."}
+				Message: "Unable to send validation e-mail"}
 		}
 		return APIResponse{StatusCode: http.StatusOK, Response: domainData}
 		// GET: Retrieve domain status from queue
