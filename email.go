@@ -11,7 +11,6 @@ import (
 // Configuration variables needed to submit emails for sending, as well as
 // to generate the templates.
 type emailConfig struct {
-	hostname           string
 	username           string
 	password           string
 	submissionHostname string
@@ -57,7 +56,7 @@ func (c emailConfig) SendValidation(domainInfo *db.DomainData, token string) err
 func (c emailConfig) sendEmail(subject string, body string, address string) error {
 	message := fmt.Sprintf("From: %s\nTo: %s\nSubject: %s\n\n%s",
 		c.sender, address, subject, body)
-	return smtp.SendMail(fmt.Sprintf("%s:%s", c.hostname, c.port),
-		smtp.PlainAuth("", c.username, c.password, c.hostname),
+	return smtp.SendMail(fmt.Sprintf("%s:%s", c.submissionHostname, c.port),
+		smtp.PlainAuth("", c.username, c.password, c.submissionHostname),
 		c.sender, []string{address}, []byte(message))
 }
