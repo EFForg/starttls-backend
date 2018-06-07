@@ -107,7 +107,11 @@ func loadDontScan() map[string]bool {
 
 func main() {
 	godotenv.Load()
-	raven.SetDSN("url")
+
+	// Report errors Sentry
+	sentryURL := fmt.Sprintf("https://%s@sentry.eff.org/%s", os.Getenv("SENTRY_DSN"), os.Getenv("SENTRY_PROJECT_ID"))
+	raven.SetDSN(sentryURL)
+
 	cfg, err := db.LoadEnvironmentVariables()
 	if err != nil {
 		log.Fatal(err)
