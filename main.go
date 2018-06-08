@@ -13,6 +13,7 @@ import (
 
 	"github.com/EFForg/starttls-scanner/db"
 	"github.com/EFForg/starttls-scanner/policy"
+	"github.com/getsentry/raven-go"
 	"github.com/gorilla/handlers"
 	"github.com/joho/godotenv"
 )
@@ -31,9 +32,25 @@ func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
 
 	originsOk := handlers.AllowedOrigins([]string{os.Getenv("ALLOWED_ORIGINS")})
 
-	return handlers.RecoveryHandler()(
-		handlers.CORS(originsOk)(handlers.LoggingHandler(os.Stdout, mux)),
-	)
+	handler := http.HandlerFunc(recoveryHandler(
+		handlers.CORS(originsOk)(mux).ServeHTTP,
+	))
+	return handlers.LoggingHandler(os.Stdout, handler)
+}
+
+func recoveryHandler(f http.HandlerFunc) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err, ok := recover().(error); ok {
+				rvalStr := fmt.Sprint(err)
+				packet := raven.NewPacket(rvalStr, raven.NewException(err.(error), raven.GetOrNewStacktrace(err.(error), 2, 3, nil)), raven.NewHttp(r))
+				raven.Capture(packet, nil)
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+		}()
+
+		f(w, r)
+	}
 }
 
 // ServePublicEndpoints serves all public HTTP endpoints.
@@ -90,6 +107,8 @@ func loadDontScan() map[string]bool {
 
 func main() {
 	godotenv.Load()
+	raven.SetDSN(os.Getenv("SENTRY_URL"))
+
 	cfg, err := db.LoadEnvironmentVariables()
 	if err != nil {
 		log.Fatal(err)

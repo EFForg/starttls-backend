@@ -97,12 +97,10 @@ func TestPanicRecovery(t *testing.T) {
 	server := httptest.NewServer(registerHandlers(api, mux))
 	defer server.Close()
 
-	log.SetOutput(ioutil.Discard)
 	resp, err := http.Get(fmt.Sprintf("%s/panic", server.URL))
-	log.SetOutput(os.Stderr)
 
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 	if resp.StatusCode != 500 {
 		t.Errorf("Expected server to respond with 500")
@@ -110,7 +108,7 @@ func TestPanicRecovery(t *testing.T) {
 }
 
 func panickingHandler(w http.ResponseWriter, r *http.Request) {
-	panic("Something went wrong")
+	panic(fmt.Errorf("oh no"))
 }
 
 // Helper function to mock a request to the server via https.
