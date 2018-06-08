@@ -187,7 +187,14 @@ func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
 	if len(domainData.MXs) > MaxHostnames {
 		return domainData, fmt.Errorf("No more than 8 MX hostnames are permitted")
 	}
-
+	for _, hostname := range domainData.MXs {
+		if hostname[0] == '.' {
+			hostname = hostname[1:]
+		}
+		if !validDomainName(hostname) {
+			return domainData, fmt.Errorf("Hostname %s is invalid", hostname)
+		}
+	}
 	return domainData, nil
 }
 
@@ -207,6 +214,22 @@ func (api API) Queue(r *http.Request) APIResponse {
 	}
 	// POST: Insert this domain into the queue
 	if r.Method == http.MethodPost {
+		// 0. Check if scan occurred.
+		scan, err := api.Database.GetLatestScan(domain)
+		if err != nil {
+			return APIResponse{
+				StatusCode: http.StatusBadRequest,
+				Message: "We haven't scanned this domain yet. " +
+					"Please use the STARTTLS checker to scan your domain's " +
+					"STARTTLS configuration so we can validate your submission",
+			}
+		}
+		if scan.Data.Status != 0 {
+			return APIResponse{
+				StatusCode: http.StatusBadRequest,
+				Message:    "%s hasn't passed our STARTTLS security checks",
+			}
+		}
 		domainData, err := getDomainParams(r, domain)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
@@ -225,8 +248,9 @@ func (api API) Queue(r *http.Request) APIResponse {
 		// 3. Send email
 		err = api.Emailer.SendValidation(&domainData, token.Token)
 		if err != nil {
+			log.Print(err)
 			return APIResponse{StatusCode: http.StatusInternalServerError,
-				Message: "Unable to send validation e-mail."}
+				Message: "Unable to send validation e-mail"}
 		}
 		return APIResponse{StatusCode: http.StatusOK, Response: domainData}
 		// GET: Retrieve domain status from queue

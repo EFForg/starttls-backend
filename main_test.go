@@ -125,9 +125,12 @@ func testRequest(method string, path string, data url.Values, handler apiHandler
 	return w.Result()
 }
 
-func validQueueData() url.Values {
+func validQueueData(scan bool) url.Values {
 	data := url.Values{}
 	data.Set("domain", "eff.org")
+	if scan {
+		testRequest("POST", "/api/scan", data, api.Scan)
+	}
 	data.Set("email", "testing@fake-email.org")
 	data.Add("hostnames", ".eff.org")
 	data.Add("hostnames", "mx.eff.org")
@@ -135,7 +138,7 @@ func validQueueData() url.Values {
 }
 
 func TestGetDomainHidesEmail(t *testing.T) {
-	requestData := validQueueData()
+	requestData := validQueueData(true)
 	testRequest("POST", "/api/queue", requestData, api.Queue)
 
 	path := fmt.Sprintf("/api/queue?domain=%s", requestData.Get("domain"))
@@ -149,7 +152,7 @@ func TestGetDomainHidesEmail(t *testing.T) {
 }
 
 func TestQueueDomainHidesToken(t *testing.T) {
-	requestData := validQueueData()
+	requestData := validQueueData(true)
 	resp := testRequest("POST", "/api/queue", requestData, api.Queue)
 	token, err := api.Database.GetTokenByDomain(requestData.Get("domain"))
 	if err != nil {
@@ -166,7 +169,7 @@ func TestQueueDomainHidesToken(t *testing.T) {
 // Domain status should then be updated to "queued".
 func TestBasicQueueWorkflow(t *testing.T) {
 	// 1. Request to be queued
-	queueDomainPostData := validQueueData()
+	queueDomainPostData := validQueueData(true)
 	resp := testRequest("POST", "/api/queue", queueDomainPostData, api.Queue)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("POST to api/queue failed with error %d", resp.StatusCode)
@@ -240,9 +243,27 @@ func TestQueueWithoutHostnames(t *testing.T) {
 	}
 }
 
+func TestQueueWithoutScan(t *testing.T) {
+	api.Database.ClearTables()
+	requestData := validQueueData(false)
+	resp := testRequest("POST", "/api/queue", requestData, api.Queue)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("POST to api/queue should have failed with error %d", resp.StatusCode)
+	}
+}
+
+func TestQueueInvalidDomain(t *testing.T) {
+	requestData := validQueueData(true)
+	requestData.Add("hostnames", "banana")
+	resp := testRequest("POST", "/api/queue", requestData, api.Queue)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("Expected POST to api/queue to fail.")
+	}
+}
+
 func TestQueueTwice(t *testing.T) {
 	// 1. Request to be queued
-	requestData := validQueueData()
+	requestData := validQueueData(true)
 	resp := testRequest("POST", "/api/queue", requestData, api.Queue)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("POST to api/queue failed with error %d", resp.StatusCode)
