@@ -313,9 +313,9 @@ func CheckHostname(domain string, hostname string, mxHostnames []string) Hostnam
 	// 2. Perform remainder of checks in parallel.
 	results := make(chan CheckResult)
 	go func() { results <- checkCert(result) }()
-	go func() { results <- checkTLSCipher(result) }()
+	// go func() { results <- checkTLSCipher(result) }()
 	go func() { results <- checkTLSVersion(result) }()
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		checkResult := <-results
 		result.updateStatus(checkResult.Status)
 		result.Checks[checkResult.Name] = checkResult
