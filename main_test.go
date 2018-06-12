@@ -100,15 +100,33 @@ func TestPanicRecovery(t *testing.T) {
 	resp, err := http.Get(fmt.Sprintf("%s/panic", server.URL))
 
 	if err != nil {
-		t.Error(err)
+		t.Errorf("Request to panic endpoint failed: %s\n", err)
 	}
-	if resp.StatusCode != 500 {
-		t.Errorf("Expected server to respond with 500")
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Errorf("Expected server to respond with 500, got %d", resp.StatusCode)
 	}
 }
 
 func panickingHandler(w http.ResponseWriter, r *http.Request) {
 	panic(fmt.Errorf("oh no"))
+}
+
+func TestRateLimitByIP(t *testing.T) {
+	mux := http.NewServeMux()
+	server := httptest.NewServer(registerHandlers(api, mux))
+	defer server.Close()
+
+	for i := 0; i < 10; i++ {
+		http.Get(fmt.Sprintf("%s/", server.URL))
+	}
+	resp, err := http.Get(fmt.Sprintf("%s/", server.URL))
+
+	if err != nil {
+		t.Errorf("Rate limit request failed: %s\n", err)
+	}
+	if resp.StatusCode != http.StatusTooManyRequests {
+		t.Errorf("Expected server to respond with 429, got %d", resp.StatusCode)
+	}
 }
 
 // Helper function to mock a request to the server via https.
