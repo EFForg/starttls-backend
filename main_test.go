@@ -277,6 +277,16 @@ func TestQueueInvalidDomain(t *testing.T) {
 	}
 }
 
+func TestQueueEmptyHostname(t *testing.T) {
+	// The HTML form will submit hostnames fields left blank as empty strings.
+	requestData := validQueueData(true)
+	requestData.Add("hostnames", "")
+	resp := testRequest("POST", "/api/queue", requestData, api.Queue)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected empty hostname submissions to be filtered out.")
+	}
+}
+
 func TestQueueTwice(t *testing.T) {
 	// 1. Request to be queued
 	requestData := validQueueData(true)

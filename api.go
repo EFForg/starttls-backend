@@ -185,20 +185,20 @@ func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
 	}
 	domainData.Email = email
 
-	domainData.MXs = r.PostForm["hostnames"]
+	for _, hostname := range r.PostForm["hostnames"] {
+		if len(hostname) == 0 {
+			continue
+		}
+		if !validDomainName(strings.TrimPrefix(hostname, ".")) {
+			return domainData, fmt.Errorf("Hostname %s is invalid", hostname)
+		}
+		domainData.MXs = append(domainData.MXs, hostname)
+	}
 	if len(domainData.MXs) == 0 {
 		return domainData, fmt.Errorf("No hostnames supplied for domain's TLS policy")
 	}
 	if len(domainData.MXs) > MaxHostnames {
 		return domainData, fmt.Errorf("No more than 8 MX hostnames are permitted")
-	}
-	for _, hostname := range domainData.MXs {
-		if hostname[0] == '.' {
-			hostname = hostname[1:]
-		}
-		if !validDomainName(hostname) {
-			return domainData, fmt.Errorf("Hostname %s is invalid", hostname)
-		}
 	}
 	return domainData, nil
 }
