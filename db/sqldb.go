@@ -75,7 +75,7 @@ func (db *SQLDatabase) PutToken(domain string) (TokenData, error) {
 		Used:    false,
 	}
 	_, err := db.conn.Exec("INSERT INTO tokens(domain, token, expires) VALUES($1, $2, $3) "+
-		"ON CONFLICT (domain) DO UPDATE SET token=$2, expires=$3",
+		"ON CONFLICT (domain) DO UPDATE SET token=$2, expires=$3, used=FALSE",
 		domain, tokenData.Token, tokenData.Expires.UTC().Format(sqlTimeFormat))
 	if err != nil {
 		return TokenData{}, err

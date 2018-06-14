@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/EFForg/starttls-scanner/db"
+	"log"
 	"net/smtp"
 	"strings"
 	"time"
@@ -11,6 +13,7 @@ import (
 // Configuration variables needed to submit emails for sending, as well as
 // to generate the templates.
 type emailConfig struct {
+	auth               smtp.Auth
 	username           string
 	password           string
 	submissionHostname string
@@ -25,7 +28,7 @@ Hey there!
 
 It looks like you requested *%s* to be added to the STARTTLS Policy List, with hostnames %s. If this was you, visit
 
- %s/validate/%s
+ %s/validate?%s
 
 to confirm! If this wasn't you, please let us know at starttls-policy@eff.org or by replying to this e-mail.
 
@@ -35,6 +38,45 @@ Remember to read our guidelines (%s/policy-list) about the requirements your mai
 
 Thanks for helping us secure email for everyone :)
 `
+
+func makeEmailConfigFromEnv() (emailConfig, error) {
+	// create config
+	varErrs := Errors{}
+	c := emailConfig{
+		username:           requireEnv("SMTP_USERNAME", &varErrs),
+		password:           requireEnv("SMTP_PASSWORD", &varErrs),
+		submissionHostname: requireEnv("SMTP_ENDPOINT", &varErrs),
+		port:               requireEnv("SMTP_PORT", &varErrs),
+		sender:             requireEnv("SMTP_FROM_ADDRESS", &varErrs),
+		website:            requireEnv("FRONTEND_WEBSITE_LINK", &varErrs),
+	}
+	if len(varErrs) > 0 {
+		return c, varErrs
+	}
+	log.Printf("Establishing auth connection with SMTP server %s", c.submissionHostname)
+	// create auth
+	client, err := smtp.Dial(fmt.Sprintf("%s:%s", c.submissionHostname, c.port))
+	if err != nil {
+		return c, err
+	}
+	defer client.Close()
+	err = client.StartTLS(&tls.Config{ServerName: c.submissionHostname})
+	if err != nil {
+		return c, fmt.Errorf("SMTP server doesn't support STARTTLS")
+	}
+	ok, auths := client.Extension("AUTH")
+	if !ok {
+		return c, fmt.Errorf("remote SMTP server doesn't support any authentication mechanisms")
+	}
+	if strings.Contains(auths, "PLAIN") {
+		c.auth = smtp.PlainAuth("", c.username, c.password, c.submissionHostname)
+	} else if strings.Contains(auths, "CRAM-MD5") {
+		c.auth = smtp.CRAMMD5Auth(c.username, c.password)
+	} else {
+		return c, fmt.Errorf("%s SMTP server doesn't support PLAIN or CRAM-MD5 authentication")
+	}
+	return c, nil
+}
 
 func validationEmailText(domain string, hostnames []string, token string, additionDate time.Time, website string) string {
 	dateString := additionDate.String()
@@ -57,6 +99,6 @@ func (c emailConfig) sendEmail(subject string, body string, address string) erro
 	message := fmt.Sprintf("From: %s\nTo: %s\nSubject: %s\n\n%s",
 		c.sender, address, subject, body)
 	return smtp.SendMail(fmt.Sprintf("%s:%s", c.submissionHostname, c.port),
-		smtp.PlainAuth("", c.username, c.password, c.submissionHostname),
+		c.auth,
 		c.sender, []string{address}, []byte(message))
 }

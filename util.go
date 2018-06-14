@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -20,4 +22,39 @@ func validDomainName(s string) bool {
 		return false
 	}
 	return ok
+}
+
+// Errors composites multiple errors.
+type Errors []error
+
+// Error composites the messages from all contained errors.
+func (e Errors) Error() string {
+	if len(e) == 1 {
+		return e[0].Error()
+	}
+	msg := "multiple errors:"
+	for _, err := range e {
+		msg += "\n" + err.Error()
+	}
+	return msg
+}
+
+// Add adds another error to this composite.
+func (e Errors) Add(err error) Errors {
+	if err != nil {
+		return append(e, err)
+	}
+	return e
+}
+
+// Retrieves environment variable varName. If not set as environment
+// variable, panic and exit.
+//   varName is the OS environment variable name.
+//   errors is a composite errors object to add to if a variable is not set.
+func requireEnv(varName string, errors *Errors) string {
+	envVar := os.Getenv(varName)
+	if len(envVar) == 0 {
+		*errors = errors.Add(fmt.Errorf("expected environment variable %s to be set", varName))
+	}
+	return envVar
 }

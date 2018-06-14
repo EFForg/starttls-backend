@@ -135,19 +135,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	emailConfig, err := makeEmailConfigFromEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
 	api := API{
 		Database:    db,
 		CheckDomain: defaultCheck,
 		List:        policy.MakeUpdatedList(),
 		DontScan:    loadDontScan(),
-		Emailer: emailConfig{
-			username:           os.Getenv("SMTP_USERNAME"),
-			password:           os.Getenv("SMTP_PASSWORD"),
-			submissionHostname: os.Getenv("SMTP_ENDPOINT"),
-			port:               os.Getenv("SMTP_PORT"),
-			sender:             os.Getenv("SMTP_FROM_ADDRESS"),
-			website:            os.Getenv("FRONTEND_WEBSITE_LINK"),
-		},
+		Emailer:     emailConfig,
 	}
 	ServePublicEndpoints(&api, &cfg)
 }
