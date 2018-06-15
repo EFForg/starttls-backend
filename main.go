@@ -67,7 +67,7 @@ func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
 	mux.Handle("/api/queue",
 		throttle(time.Hour, 3, http.HandlerFunc(apiWrapper(api.Queue))))
 	mux.HandleFunc("/api/validate", apiWrapper(api.Validate))
-	mux.HandleFunc("/ping", pingHandler)
+	mux.HandleFunc("/api/ping", pingHandler)
 
 	originsOk := handlers.AllowedOrigins([]string{os.Getenv("ALLOWED_ORIGINS")})
 
