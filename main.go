@@ -56,12 +56,18 @@ func recoveryHandler(f http.Handler) http.Handler {
 	})
 }
 
+func pingHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+}
+
 func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
 	mux.HandleFunc("/api/scan", apiWrapper(api.Scan))
 	// Throttle the queue endpoint more aggressively so we don't send junk e-mail.
 	mux.Handle("/api/queue",
 		throttle(time.Hour, 3, http.HandlerFunc(apiWrapper(api.Queue))))
 	mux.HandleFunc("/api/validate", apiWrapper(api.Validate))
+	mux.HandleFunc("/ping", pingHandler)
 
 	originsOk := handlers.AllowedOrigins([]string{os.Getenv("ALLOWED_ORIGINS")})
 
