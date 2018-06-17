@@ -296,7 +296,6 @@ func (api API) Validate(r *http.Request) APIResponse {
 	}
 	err = api.Database.PutDomain(db.DomainData{
 		Name:  domainData.Name,
-		Email: domainData.Email,
 		State: db.StateQueued,
 	})
 	if err != nil {

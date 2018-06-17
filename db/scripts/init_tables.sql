@@ -18,8 +18,9 @@ CREATE TABLE IF NOT EXISTS scans
 
 CREATE TABLE IF NOT EXISTS domains
 (
-    domain      TEXT NOT NULL UNIQUE PRIMARY KEY,
-    email       TEXT NOT NULL,
-    data        TEXT NOT NULL,
-    status      VARCHAR(255) NOT NULL
+    domain       TEXT NOT NULL UNIQUE PRIMARY KEY,
+    email        TEXT NOT NULL,
+    data         TEXT NOT NULL,
+    last_updated TIMESTAMP,
+    status       VARCHAR(255) NOT NULL
 );

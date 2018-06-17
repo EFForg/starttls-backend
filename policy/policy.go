@@ -23,14 +23,14 @@ type Pinset struct {
 type TLSPolicy struct {
 	PolicyAlias   string   `json:"policy-alias,omitempty"`
 	MinTLSVersion string   `json:"min-tls-version,omitempty"`
-	Mode          string   `json:"mode"`
-	MXs           []string `json:"mxs"`
+	Mode          string   `json:"mode,omitempty"`
+	MXs           []string `json:"mxs,omitempty"`
 	Pin           string   `json:"pin,omitempty"`
 	Report        string   `json:"report,omitempty"`
 }
 
 // List is a raw representation of the policy list.
-type list struct {
+type List struct {
 	Timestamp     time.Time            `json:"timestamp"`
 	Expires       time.Time            `json:"expires"`
 	Version       string               `json:"version"`
@@ -40,9 +40,13 @@ type list struct {
 	Policies      map[string]TLSPolicy `json:"policies"`
 }
 
+func (l *List) Add(domain string, policy TLSPolicy) {
+	l.Policies[domain] = policy
+}
+
 // get retrieves the TLSPolicy for a domain, and resolves
 // aliases if they exist.
-func (l list) get(domain string) (TLSPolicy, error) {
+func (l List) get(domain string) (TLSPolicy, error) {
 	policy, ok := l.Policies[domain]
 	if !ok {
 		return TLSPolicy{}, fmt.Errorf("Policy for %s doesn't exist", domain)
@@ -60,7 +64,7 @@ func (l list) get(domain string) (TLSPolicy, error) {
 // policyURL every hour. Safe for concurrent calls to `Get`.
 type UpdatedList struct {
 	mu sync.RWMutex
-	list
+	List
 }
 
 // Get safely reads from the underlying policy list and returns a TLSPolicy for a domain
@@ -71,20 +75,20 @@ func (l UpdatedList) Get(domain string) (TLSPolicy, error) {
 }
 
 // fetchListFn returns a new policy list. It can be used to update UpdatedList
-type fetchListFn func() (list, error)
+type fetchListFn func() (List, error)
 
 // Retrieve and parse List from policyURL
-func fetchListHTTP() (list, error) {
+func FetchListHTTP() (List, error) {
 	resp, err := http.Get(policyURL)
 	if err != nil {
-		return list{}, err
+		return List{}, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
-	var policyList list
+	var policyList List
 	err = json.Unmarshal(body, &policyList)
 	if err != nil {
-		return list{}, err
+		return List{}, err
 	}
 	return policyList, nil
 }
@@ -96,7 +100,7 @@ func (l *UpdatedList) update(fetch fetchListFn) {
 		log.Printf("Error updating policy list: %s\n", err)
 	} else {
 		l.mu.Lock()
-		l.list = newList
+		l.List = newList
 		l.mu.Unlock()
 	}
 }
@@ -119,5 +123,5 @@ func makeUpdatedList(fetch fetchListFn, updateFrequency time.Duration) UpdatedLi
 
 // MakeUpdatedList wraps makeUpdatedList to use FetchListHTTP by default to update policy list
 func MakeUpdatedList() UpdatedList {
-	return makeUpdatedList(fetchListHTTP, time.Hour)
+	return makeUpdatedList(FetchListHTTP, time.Hour)
 }
