@@ -104,14 +104,14 @@ func (l *UpdatedList) update(fetch fetchListFn) {
 // makeUpdatedList constructs an UpdatedList object and launches a
 // thread to continually update it. Accepts a fetchListFn to allow
 // stubbing http request to remote policy list.
-func makeUpdatedList(fetch fetchListFn) UpdatedList {
+func makeUpdatedList(fetch fetchListFn, updateFrequency time.Duration) UpdatedList {
 	l := UpdatedList{}
 	l.update(fetch)
 
 	go func() {
 		for {
 			l.update(fetch)
-			time.Sleep(time.Hour)
+			time.Sleep(updateFrequency)
 		}
 	}()
 	return l
@@ -119,5 +119,5 @@ func makeUpdatedList(fetch fetchListFn) UpdatedList {
 
 // MakeUpdatedList wraps makeUpdatedList to use FetchListHTTP by default to update policy list
 func MakeUpdatedList() UpdatedList {
-	return makeUpdatedList(fetchListHTTP)
+	return makeUpdatedList(fetchListHTTP, time.Hour)
 }
