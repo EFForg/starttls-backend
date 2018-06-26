@@ -258,8 +258,6 @@ func checkTLSVersion(h HostnameResult) CheckResult {
 	result := CheckResult{Name: "version"}
 	versions := map[uint16]bool{
 		tls.VersionSSL30: false,
-		tls.VersionTLS10: true,
-		tls.VersionTLS11: true,
 		tls.VersionTLS12: true,
 	}
 	for version, shouldWork := range versions {
