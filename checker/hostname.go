@@ -55,6 +55,9 @@ func wildcardMatch(hostname string, pattern string) bool {
 
 // Modelled after certMatches in Appendix B of the MTA-STS draft.
 func policyMatch(certName string, policyMx string) bool {
+	// Lowercase both names for comparison
+	certName = strings.ToLower(certName)
+	policyMx = strings.ToLower(policyMx)
 	if strings.HasPrefix(certName, "*") {
 		certName = certName[1:]
 		if certName[0] != '.' { // Invalid wildcard domain

@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
+
+	"golang.org/x/net/idna"
 )
 
 // Reports an error during the domain checks.
@@ -54,13 +57,17 @@ func lookupMXWithTimeout(domain string) ([]*net.MX, error) {
 }
 
 func lookupHostnames(domain string) ([]string, error) {
-	mxs, err := lookupMXWithTimeout(domain)
+	domainASCII, err := idna.ToASCII(domain)
+	if err != nil {
+		return nil, fmt.Errorf("domain name %s couldn't be converted to ASCII", domain)
+	}
+	mxs, err := lookupMXWithTimeout(domainASCII)
 	if err != nil || len(mxs) == 0 {
 		return nil, fmt.Errorf("No MX records found")
 	}
 	hostnames := make([]string, 0)
 	for _, mx := range mxs {
-		hostnames = append(hostnames, mx.Host)
+		hostnames = append(hostnames, strings.ToLower(mx.Host))
 	}
 	return hostnames, nil
 }
