@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/smtp"
 	"strings"
-	"time"
 )
 
 // Configuration variables needed to submit emails for sending, as well as
@@ -26,15 +25,15 @@ const validationEmailSubject = "Email validation for STARTTLS Policy List submis
 const validationEmailTemplate = `
 Hey there!
 
-It looks like you requested *%s* to be added to the STARTTLS Policy List, with hostnames %s. If this was you, visit
+It looks like you requested *%[1]s* to be added to the STARTTLS Policy List, with hostnames %[2]s. If this was you, visit
 
- %s/validate?%s
+ %[3]s/validate?%[4]s
 
-to confirm! If this wasn't you, please let us know at starttls-policy@eff.org or by replying to this e-mail.
+to confirm! If this wasn't you, please let us know at starttls-policy@eff.org.
 
-Once you confirm your email address, your domain will be queued for addition on *%s*. We will continue to run validation checks (%s/policy-list#add) against your email server until then. On %s, *%s* will be added to the STARTTLS Policy List as long as it has continued to pass our tests!
+Once you confirm your email address, your domain will be queued for addition some time in the next couple of weeks. We will continue to run validation checks (%[3]s/policy-list#add) against your email server until then. *%[1]s* will be added to the STARTTLS Policy List as long as it has continued to pass our tests!
 
-Remember to read our guidelines (%s/policy-list) about the requirements your mailserver must meet, and continue to meet, in order to stay on the list. If your mailserver ceases to meet these requirements at any point and is at risk of facing deliverability issues, we will notify you through this email address.
+Remember to read our guidelines (%[3]s/policy-list) about the requirements your mailserver must meet, and continue to meet, in order to stay on the list. If your mailserver ceases to meet these requirements at any point and is at risk of facing deliverability issues, we will notify you through this email address.
 
 Thanks for helping us secure email for everyone :)
 `
@@ -78,20 +77,16 @@ func makeEmailConfigFromEnv() (emailConfig, error) {
 	return c, nil
 }
 
-func validationEmailText(domain string, hostnames []string, token string, additionDate time.Time, website string) string {
-	dateString := additionDate.String()
+func validationEmailText(domain string, hostnames []string, token string, website string) string {
 	return fmt.Sprintf(validationEmailTemplate,
-		domain, strings.Join(hostnames[:], ", "),
-		website, token,
-		dateString, website, dateString, domain,
-		website)
+		domain, strings.Join(hostnames[:], ", "), website, token)
 }
 
 // SendValidation sends a validation e-mail for the domain outlined by domainInfo.
 // The validation link is generated using a token.
 func (c emailConfig) SendValidation(domainInfo *db.DomainData, token string) error {
 	emailContent := validationEmailText(domainInfo.Name, domainInfo.MXs, token,
-		time.Now().Add(time.Hour*24*7), c.website)
+		c.website)
 	return c.sendEmail(validationEmailSubject, emailContent, domainInfo.Email)
 }
 
