@@ -77,6 +77,10 @@ func makeEmailConfigFromEnv() (emailConfig, error) {
 	return c, nil
 }
 
+func validationAddress(domainInfo *db.DomainData) string {
+	return fmt.Sprintf("postmaster@%s", domainInfo.Name)
+}
+
 func validationEmailText(domain string, contactEmail string, hostnames []string, token string, website string) string {
 	return fmt.Sprintf(validationEmailTemplate,
 		domain, strings.Join(hostnames[:], ", "), website, token, contactEmail)
@@ -87,7 +91,7 @@ func validationEmailText(domain string, contactEmail string, hostnames []string,
 func (c emailConfig) SendValidation(domainInfo *db.DomainData, token string) error {
 	emailContent := validationEmailText(domainInfo.Name, domainInfo.Email, domainInfo.MXs, token,
 		c.website)
-	return c.sendEmail(validationEmailSubject, emailContent, domainInfo.ValidationAddress())
+	return c.sendEmail(validationEmailSubject, emailContent, validationAddress(domainInfo))
 }
 
 func (c emailConfig) sendEmail(subject string, body string, address string) error {

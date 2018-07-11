@@ -183,7 +183,7 @@ func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
 	if err == nil {
 		domainData.Email = email
 	} else {
-		domainData.Email = domainData.ValidationAddress()
+		domainData.Email = validationAddress(&domainData)
 	}
 
 	for _, hostname := range r.PostForm["hostnames"] {
