@@ -17,8 +17,8 @@ import (
 // Format string for Sql timestamps.
 const sqlTimeFormat = "2006-01-02 15:04:05"
 
-// Database is a database implementation backed by postgresql.
-type Database struct {
+// SQLDatabase is a Database interface backed by postgresql.
+type SQLDatabase struct {
 	cfg  Config  // Configuration to define the DB connection.
 	conn *sql.DB // The database connection.
 }
@@ -33,16 +33,16 @@ func getConnectionString(cfg Config) string {
 }
 
 // InitSQLDatabase creates a DB connection based on information in a Config, and
-// returns a pointer the resulting Database object. If connection fails,
+// returns a pointer the resulting SQLDatabase object. If connection fails,
 // returns an error.
-func InitSQLDatabase(cfg Config) (*Database, error) {
+func InitSQLDatabase(cfg Config) (*SQLDatabase, error) {
 	connectionString := getConnectionString(cfg)
 	log.Printf("Connecting to Postgres DB ... \n")
 	conn, err := sql.Open("postgres", connectionString)
 	if err != nil {
 		return nil, err
 	}
-	return &Database{cfg: cfg, conn: conn}, nil
+	return &SQLDatabase{cfg: cfg, conn: conn}, nil
 }
 
 // TOKEN DB FUNCTIONS
@@ -56,7 +56,7 @@ func randToken() string {
 
 // UseToken sets the `used` flag on a particular email validation token to
 // true, and returns the domain that was associated with the token.
-func (db *Database) UseToken(tokenStr string) (string, error) {
+func (db *SQLDatabase) UseToken(tokenStr string) (string, error) {
 	var domain string
 	err := db.conn.QueryRow("UPDATE tokens SET used=TRUE WHERE token=$1 AND used=FALSE RETURNING domain",
 		tokenStr).Scan(&domain)
@@ -64,7 +64,7 @@ func (db *Database) UseToken(tokenStr string) (string, error) {
 }
 
 // GetTokenByDomain gets the token for a domain name.
-func (db *Database) GetTokenByDomain(domain string) (string, error) {
+func (db *SQLDatabase) GetTokenByDomain(domain string) (string, error) {
 	var token string
 	err := db.conn.QueryRow("SELECT token FROM tokens WHERE domain=$1", domain).Scan(&token)
 	if err != nil {
@@ -75,7 +75,7 @@ func (db *Database) GetTokenByDomain(domain string) (string, error) {
 
 // PutToken generates and inserts a token into the database for a particular
 // domain, and returns the resulting token row.
-func (db *Database) PutToken(domain string) (TokenData, error) {
+func (db *SQLDatabase) PutToken(domain string) (TokenData, error) {
 	tokenData := TokenData{
 		Domain:  domain,
 		Token:   randToken(),
@@ -94,7 +94,7 @@ func (db *Database) PutToken(domain string) (TokenData, error) {
 // SCAN DB FUNCTIONS
 
 // PutScan inserts a new scan for a particular domain into the database.
-func (db *Database) PutScan(scanData ScanData) error {
+func (db *SQLDatabase) PutScan(scanData ScanData) error {
 	byteArray, err := json.Marshal(scanData.Data)
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ SELECT domain, scandata, timestamp FROM scans
 
 // GetLatestScan retrieves the most recent scan performed on a particular email
 // domain.
-func (db Database) GetLatestScan(domain string) (ScanData, error) {
+func (db SQLDatabase) GetLatestScan(domain string) (ScanData, error) {
 	var rawScanData []byte
 	result := ScanData{}
 	err := db.conn.QueryRow(mostRecentQuery, domain).Scan(
@@ -125,7 +125,7 @@ func (db Database) GetLatestScan(domain string) (ScanData, error) {
 }
 
 // GetAllScans retrieves all the scans performed for a particular domain.
-func (db Database) GetAllScans(domain string) ([]ScanData, error) {
+func (db SQLDatabase) GetAllScans(domain string) ([]ScanData, error) {
 	rows, err := db.conn.Query(
 		"SELECT domain, scandata, timestamp FROM scans WHERE domain=$1", domain)
 	if err != nil {
@@ -151,7 +151,7 @@ func (db Database) GetAllScans(domain string) ([]ScanData, error) {
 // not yet exist in the database, we initialize it with StateUnvalidated.
 // Subsequent puts with the same domain updates the row with the information in
 // the object provided.
-func (db *Database) PutDomain(domainData DomainData) error {
+func (db *SQLDatabase) PutDomain(domainData DomainData) error {
 	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status) VALUES($1, $2, $3, $4) ON CONFLICT (domain) DO UPDATE SET status=$5",
 		domainData.Name, domainData.Email, strings.Join(domainData.MXs[:], ","),
 		StateUnvalidated, domainData.State)
@@ -160,7 +160,7 @@ func (db *Database) PutDomain(domainData DomainData) error {
 
 // GetDomain retrieves the status and information associated with a particular
 // mailserver domain.
-func (db Database) GetDomain(domain string) (DomainData, error) {
+func (db SQLDatabase) GetDomain(domain string) (DomainData, error) {
 	data := DomainData{}
 	var rawMXs string
 	err := db.conn.QueryRow("SELECT domain, email, data, status FROM domains WHERE domain=$1",
@@ -171,7 +171,7 @@ func (db Database) GetDomain(domain string) (DomainData, error) {
 }
 
 // GetDomains retrieves all the domains which match a particular state.
-func (db Database) GetDomains(state DomainState) ([]DomainData, error) {
+func (db SQLDatabase) GetDomains(state DomainState) ([]DomainData, error) {
 	rows, err := db.conn.Query(
 		"SELECT domain, email, status FROM domains WHERE status=$1", state)
 	if err != nil {
@@ -189,7 +189,7 @@ func (db Database) GetDomains(state DomainState) ([]DomainData, error) {
 	return domains, nil
 }
 
-func tryExec(database Database, commands []string) error {
+func tryExec(database SQLDatabase, commands []string) error {
 	for _, command := range commands {
 		if _, err := database.conn.Exec(command); err != nil {
 			return fmt.Errorf("The following command failed:\n%s\nWith error:\n%v",
@@ -200,7 +200,7 @@ func tryExec(database Database, commands []string) error {
 }
 
 // ClearTables nukes all the tables. ** Should only be used during testing **
-func (db Database) ClearTables() error {
+func (db SQLDatabase) ClearTables() error {
 	return tryExec(db, []string{
 		fmt.Sprintf("DELETE FROM %s", db.cfg.DbDomainTable),
 		fmt.Sprintf("DELETE FROM %s", db.cfg.DbScanTable),

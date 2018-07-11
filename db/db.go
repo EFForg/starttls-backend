@@ -49,6 +49,30 @@ type TokenData struct {
 	Used    bool      `json:"used"`    // Whether this token was used.
 }
 
+// Database interface: These are the things that the Database should be able to do.
+// Slightly more limited than CRUD for all the schemas.
+type Database interface {
+	// Puts new scandata for domain
+	PutScan(ScanData) error
+	// Retrieves most recent scandata for domain
+	GetLatestScan(string) (ScanData, error)
+	// Retrieves all scandata for domain
+	GetAllScans(string) ([]ScanData, error)
+	// Upserts domain state.
+	PutDomain(DomainData) error
+	// Retrieves state of a domain
+	GetDomain(string) (DomainData, error)
+	// Retrieves all domains in a particular state.
+	GetDomains(DomainState) ([]DomainData, error)
+	// Gets the token for a domain
+	GetTokenByDomain(string) (string, error)
+	// Creates a token in the db
+	PutToken(string) (TokenData, error)
+	// Uses a token in the db
+	UseToken(string) (string, error)
+	ClearTables() error
+}
+
 // Config is a configuration struct for a Database.
 type Config struct {
 	Port          string

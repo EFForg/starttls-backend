@@ -36,7 +36,7 @@ type checkPerformer func(API, string) (checker.DomainResult, error)
 // Any POST request accepts either URL query parameters or data value parameters,
 // and prefers the latter if both are present.
 type API struct {
-	Database    *db.Database
+	Database    db.Database
 	CheckDomain checkPerformer
 	List        PolicyList
 	DontScan    map[string]bool
