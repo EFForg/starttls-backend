@@ -72,7 +72,7 @@ func makeEmailConfigFromEnv() (emailConfig, error) {
 	} else if strings.Contains(auths, "CRAM-MD5") {
 		c.auth = smtp.CRAMMD5Auth(c.username, c.password)
 	} else {
-		return c, fmt.Errorf("%s SMTP server doesn't support PLAIN or CRAM-MD5 authentication")
+		return c, fmt.Errorf("SMTP server doesn't support PLAIN or CRAM-MD5 authentication")
 	}
 	return c, nil
 }
