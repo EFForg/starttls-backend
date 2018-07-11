@@ -25,7 +25,7 @@ const validationEmailSubject = "Email validation for STARTTLS Policy List submis
 const validationEmailTemplate = `
 Hey there!
 
-It looks like you requested *%[1]s* to be added to the STARTTLS Policy List, with hostnames %[2]s. If this was you, visit
+It looks like you requested *%[1]s* to be added to the STARTTLS Policy List, with hostnames %[2]s and contact email %[5]s. If this was you, visit
 
  %[3]s/validate?%[4]s
 
@@ -77,17 +77,17 @@ func makeEmailConfigFromEnv() (emailConfig, error) {
 	return c, nil
 }
 
-func validationEmailText(domain string, hostnames []string, token string, website string) string {
+func validationEmailText(domain string, contactEmail string, hostnames []string, token string, website string) string {
 	return fmt.Sprintf(validationEmailTemplate,
-		domain, strings.Join(hostnames[:], ", "), website, token)
+		domain, strings.Join(hostnames[:], ", "), website, token, contactEmail)
 }
 
 // SendValidation sends a validation e-mail for the domain outlined by domainInfo.
 // The validation link is generated using a token.
 func (c emailConfig) SendValidation(domainInfo *db.DomainData, token string) error {
-	emailContent := validationEmailText(domainInfo.Name, domainInfo.MXs, token,
+	emailContent := validationEmailText(domainInfo.Name, domainInfo.Email, domainInfo.MXs, token,
 		c.website)
-	return c.sendEmail(validationEmailSubject, emailContent, domainInfo.Email)
+	return c.sendEmail(validationEmailSubject, emailContent, domainInfo.ValidationAddress())
 }
 
 func (c emailConfig) sendEmail(subject string, body string, address string) error {

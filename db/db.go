@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -39,6 +40,10 @@ type DomainData struct {
 	Email string      `json:"-"`      // Contact e-mail for Domain
 	MXs   []string    `json:"mxs"`    // MXs that are valid for this domain
 	State DomainState `json:"state"`
+}
+
+func (d DomainData) ValidationAddress() string {
+	return fmt.Sprintf("postmaster@%s", d.Name)
 }
 
 // TokenData stores the state of an e-mail verification token.
