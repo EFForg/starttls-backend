@@ -16,6 +16,7 @@ import (
 	"github.com/EFForg/starttls-check/checker"
 	"github.com/EFForg/starttls-scanner/db"
 	"github.com/EFForg/starttls-scanner/policy"
+	"github.com/joho/godotenv"
 )
 
 // Workflow tests against REST API.
@@ -47,20 +48,21 @@ func (e mockEmailer) SendValidation(domainInfo *db.DomainData, token string) err
 
 // Load env. vars, initialize DB hook, and tests API
 func TestMain(m *testing.M) {
+	godotenv.Load()
 	cfg, err := db.LoadEnvironmentVariables()
 	if err != nil {
 		log.Fatal(err)
 	}
-	// Note: we can use either MemDatabase or SQLDatabase here, should not make a difference.
-	// db, err := db.InitSQLDatabase(cfg)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	log.Println(cfg)
+	sqldb, err := db.InitSQLDatabase(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
 	fakeList := map[string]bool{
 		"eff.org": true,
 	}
 	api = &API{
-		Database:    db.InitMemDatabase(cfg),
+		Database:    sqldb,
 		CheckDomain: mockCheckPerform("testequal"),
 		List:        mockList{domains: fakeList},
 		Emailer:     mockEmailer{},
