@@ -19,7 +19,7 @@ func initTestDb() *db.SQLDatabase {
 	os.Setenv("PRIV_KEY", "./certs/key.pem")
 	os.Setenv("PUBLIC_KEY", "./certs/cert.pem")
 	cfg, err := db.LoadEnvironmentVariables()
-	cfg.DbName = fmt.Sprintf("%s_dev", cfg.DbName)
+	// cfg.DbName = fmt.Sprintf("%s_dev", cfg.DbName)
 	if err != nil {
 		log.Fatal(err)
 	}
