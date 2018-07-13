@@ -26,8 +26,8 @@ docker-compose up
 ## Testing
 ```
 # Service tests
-go test -v
+docker-compose exec app go test -v
 
 # Database tests
-go test ./db -v
+docker-compose exec app go test ./db -v
 ```
