@@ -96,7 +96,7 @@ var configDefaults = map[string]string{
 	"TEST_DB_HOST":     "localhost",
 	"TEST_DB_NAME":     "starttls_test",
 	"TEST_DB_USERNAME": "postgres",
-	"TEST_DB_PASSWORD": "postgres",
+	"TEST_DB_PASSWORD": "",
 	"DB_TOKEN_TABLE":   "tokens",
 	"DB_DOMAIN_TABLE":  "domains",
 	"DB_SCAN_TABLE":    "scans",
