@@ -19,7 +19,7 @@ services:
     app:
         build: .
         volumes:
-          - .:/go/src/starttls-scanner
+          - .:/go/src/github.com/EFForg/starttls-scanner
         ports:
           - 8080:8080
         depends_on:
