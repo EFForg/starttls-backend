@@ -1,7 +1,6 @@
 package db_test
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"testing"
