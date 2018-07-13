@@ -29,6 +29,7 @@ func getConnectionString(cfg Config) string {
 		url.PathEscape(cfg.DbPass),
 		url.PathEscape(cfg.DbHost),
 		url.PathEscape(cfg.DbName))
+	log.Println(connectionString)
 	return connectionString
 }
 
