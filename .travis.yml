@@ -9,13 +9,13 @@ services:
 env:
   - TEST_DB_NAME=starttls_test
 
-before_script:
-  - psql -c 'create database starttls_test;' -U postgres
-  - psql starttls_test < db/scripts/init_db.sql
-
 install:
   - go get -u github.com/golang/lint/golint
   - go get ./...
+
+before_script:
+  - psql -c 'create database starttls_test;' -U postgres
+  - psql starttls_test < db/scripts/init_tables.sql
 
 script:
   - golint -set_exit_status ./...

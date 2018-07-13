@@ -9,7 +9,7 @@ cd $GOPATH/github.com/EFForg/starttls-scanner
 `cp .env.example .env`
 ```
 3. Edit `.env` with your postgres credentials and any other changes. You can also store this in the environment.
-4. Ensure `postgres` is running, then run `db/scripts/init_db.sql` in the appropriate postgres DBs in order to initialize your development and test databases.
+4. Ensure `postgres` is running, then run `db/scripts/init_tables.sql` in the appropriate postgres DBs in order to initialize your development and test databases.
 5. Build the scanner and start serving requests:
 ```
 go build
