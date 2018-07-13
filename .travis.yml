@@ -7,14 +7,15 @@ services:
   - postgresql
 
 env:
-  - TEST_DB_NAME=starttls_test TEST_DB_PASSWORD=""
+  - TEST_DB_NAME=starttls_test
 
 install:
   - go get -u github.com/golang/lint/golint
   - go get ./...
 
 before_script:
-  - psql -c 'create database starttls_test;' -U postgres
+  - psql -c 'CREATE DATABASE starttls_test;' -U postgres
+  - psql -c "ALTER USER postgres WITH PASSWORD 'postgres';" -U postgres
   - psql starttls_test < db/scripts/init_tables.sql
 
 script:
