@@ -3,8 +3,8 @@ language: go
 go:
   - "1.8"
 
-services:
-  - postgresql
+addons:
+  postgresql: "9.5"
 
 env:
   - TEST_DB_NAME=starttls_test
