@@ -53,7 +53,6 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println(cfg)
 	sqldb, err := db.InitSQLDatabase(cfg)
 	if err != nil {
 		log.Fatal(err)
