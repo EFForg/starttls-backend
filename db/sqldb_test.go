@@ -8,6 +8,7 @@ import (
 
 	"github.com/EFForg/starttls-check/checker"
 	"github.com/EFForg/starttls-scanner/db"
+	"github.com/joho/godotenv"
 )
 
 // Global database object for tests.
@@ -29,6 +30,7 @@ func initTestDb() *db.SQLDatabase {
 }
 
 func TestMain(m *testing.M) {
+	godotenv.Load("../.env")
 	database = initTestDb()
 	code := m.Run()
 	err := database.ClearTables()
