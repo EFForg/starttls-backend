@@ -60,7 +60,7 @@ func policyMatch(certName string, policyMx string) bool {
 	policyMx = strings.ToLower(policyMx)
 	if strings.HasPrefix(certName, "*") {
 		certName = certName[1:]
-		if certName[0] != '.' { // Invalid wildcard domain
+		if !strings.HasPrefix(certName, ".") { // Invalid wildcard domain
 			return false
 		}
 	}
