@@ -24,7 +24,7 @@ import (
 
 func validPort(port string) (string, error) {
 	if _, err := strconv.Atoi(port); err != nil {
-		return "", fmt.Errorf("Given portstring %s is invalid", port)
+		return "", fmt.Errorf("portstring %s is invalid", port)
 	}
 	return fmt.Sprintf(":%s", port), nil
 }

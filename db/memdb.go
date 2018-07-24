@@ -38,20 +38,20 @@ func (db *MemDatabase) GetTokenByDomain(domain string) (string, error) {
 			return token, nil
 		}
 	}
-	return "", fmt.Errorf("Couldn't find an entry for this domain")
+	return "", fmt.Errorf("no token found for domain %s", domain)
 }
 
 // UseToken uses the e-mail token specified by tokenStr.
 func (db *MemDatabase) UseToken(tokenStr string) (string, error) {
 	token, ok := db.tokens[tokenStr]
 	if !ok {
-		return "", fmt.Errorf("This token doesn't exist")
+		return "", fmt.Errorf("token doesn't exist")
 	}
 	if token.Used {
-		return "", fmt.Errorf("This token has already been used")
+		return "", fmt.Errorf("token has already been used")
 	}
 	if token.Expires.Before(time.Now()) {
-		return "", fmt.Errorf("This token has expired")
+		return "", fmt.Errorf("token has expired")
 	}
 	db.tokens[tokenStr] = TokenData{
 		Domain:  token.Domain,
@@ -92,7 +92,7 @@ func (db *MemDatabase) PutScan(scanData ScanData) error {
 func (db MemDatabase) GetLatestScan(domain string) (ScanData, error) {
 	val, ok := db.scans[domain]
 	if !ok {
-		return ScanData{}, fmt.Errorf("No scans conducted for domain %s", domain)
+		return ScanData{}, fmt.Errorf("no scans found for domain %s", domain)
 	}
 	return val[len(val)-1], nil
 }
@@ -101,7 +101,7 @@ func (db MemDatabase) GetLatestScan(domain string) (ScanData, error) {
 func (db MemDatabase) GetAllScans(domain string) ([]ScanData, error) {
 	val, ok := db.scans[domain]
 	if !ok {
-		return nil, fmt.Errorf("No scans conducted for domain %s", domain)
+		return nil, fmt.Errorf("no scans found for domain %s", domain)
 	}
 	return val, nil
 }
