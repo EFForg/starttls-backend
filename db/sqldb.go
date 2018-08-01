@@ -192,7 +192,7 @@ func (db SQLDatabase) GetDomains(state DomainState) ([]DomainData, error) {
 func tryExec(database SQLDatabase, commands []string) error {
 	for _, command := range commands {
 		if _, err := database.conn.Exec(command); err != nil {
-			return fmt.Errorf("The following command failed:\n%s\nWith error:\n%v",
+			return fmt.Errorf("command failed: %s\nwith error: %v",
 				command, err.Error())
 		}
 	}

@@ -6,7 +6,7 @@ import (
 )
 
 func TestValidationEmailText(t *testing.T) {
-	content := validationEmailText("example.com", []string{"mx.example.com, .mx.example.com"}, "abcd", "https://fake.starttls-everywhere.website")
+	content := validationEmailText("example.com", "contact@example.com", []string{"mx.example.com, .mx.example.com"}, "abcd", "https://fake.starttls-everywhere.website")
 	if !strings.Contains(content, "https://fake.starttls-everywhere.website/validate?abcd") {
 		t.Errorf("E-mail formatted incorrectly.")
 	}

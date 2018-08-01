@@ -180,25 +180,26 @@ const MaxHostnames = 8
 func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
 	domainData := db.DomainData{Name: domain, State: db.StateUnvalidated}
 	email, err := getParam("email", r)
-	if err != nil {
-		return domainData, err
+	if err == nil {
+		domainData.Email = email
+	} else {
+		domainData.Email = validationAddress(&domainData)
 	}
-	domainData.Email = email
 
 	for _, hostname := range r.PostForm["hostnames"] {
 		if len(hostname) == 0 {
 			continue
 		}
 		if !validDomainName(strings.TrimPrefix(hostname, ".")) {
-			return domainData, fmt.Errorf("Hostname %s is invalid", hostname)
+			return domainData, fmt.Errorf("hostname %s is invalid", hostname)
 		}
 		domainData.MXs = append(domainData.MXs, hostname)
 	}
 	if len(domainData.MXs) == 0 {
-		return domainData, fmt.Errorf("No hostnames supplied for domain's TLS policy")
+		return domainData, fmt.Errorf("no MX hostnames supplied for domain %s", domain)
 	}
 	if len(domainData.MXs) > MaxHostnames {
-		return domainData, fmt.Errorf("No more than 8 MX hostnames are permitted")
+		return domainData, fmt.Errorf("no more than 8 MX hostnames are permitted")
 	}
 	return domainData, nil
 }
@@ -206,9 +207,9 @@ func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
 // Queue is the handler for /api/queue
 //   POST /api/queue?domain=<domain>
 //        domain: Mail domain to queue a TLS policy for.
-//        email: Contact email associated with domain, to be verified.
-//        hostname_<n>: MX hostnames to put into this domain's TLS policy. n up to 8.
+//        hostnames: List of MX hostnames to put into this domain's TLS policy. Up to 8.
 //        Sets db.DomainData object as response.
+//        email (optional): Contact email associated with domain.
 //   GET  /api/queue?domain=<domain>
 //        Sets db.DomainData object as response.
 func (api API) Queue(r *http.Request) APIResponse {

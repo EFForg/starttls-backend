@@ -45,12 +45,12 @@ type list struct {
 func (l list) get(domain string) (TLSPolicy, error) {
 	policy, ok := l.Policies[domain]
 	if !ok {
-		return TLSPolicy{}, fmt.Errorf("Policy for %s doesn't exist", domain)
+		return TLSPolicy{}, fmt.Errorf("policy for domain %s doesn't exist", domain)
 	}
 	if len(policy.PolicyAlias) > 0 {
 		policy, ok = l.PolicyAliases[policy.PolicyAlias]
 		if !ok {
-			return TLSPolicy{}, fmt.Errorf("Policy alias for %s doesn't exist", domain)
+			return TLSPolicy{}, fmt.Errorf("policy alias for domain %s doesn't exist", domain)
 		}
 	}
 	return policy, nil
