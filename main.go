@@ -16,7 +16,7 @@ import (
 	"github.com/EFForg/starttls-scanner/policy"
 	"github.com/getsentry/raven-go"
 	"github.com/gorilla/handlers"
-	_ "github.com/joho/godotenv/autoload"
+	"github.com/joho/godotenv"
 	"github.com/ulule/limiter"
 	"github.com/ulule/limiter/drivers/middleware/stdlib"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -130,6 +130,7 @@ func loadDontScan() map[string]bool {
 }
 
 func main() {
+	godotenv.Load()
 	raven.SetDSN(os.Getenv("SENTRY_URL"))
 
 	cfg, err := db.LoadEnvironmentVariables()

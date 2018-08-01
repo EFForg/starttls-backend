@@ -11,7 +11,7 @@ services:
     postgres_test:
         build: db/
         env_file:
-          - .env
+          - .env.test
         environment:
           POSTGRES_DB: $TEST_DB_NAME
           POSTGRES_USER: $TEST_DB_USERNAME

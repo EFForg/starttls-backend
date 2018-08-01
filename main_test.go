@@ -16,7 +16,7 @@ import (
 	"github.com/EFForg/starttls-check/checker"
 	"github.com/EFForg/starttls-scanner/db"
 	"github.com/EFForg/starttls-scanner/policy"
-	_ "github.com/joho/godotenv/autoload"
+	"github.com/joho/godotenv"
 )
 
 // Workflow tests against REST API.
@@ -48,6 +48,7 @@ func (e mockEmailer) SendValidation(domainInfo *db.DomainData, token string) err
 
 // Load env. vars, initialize DB hook, and tests API
 func TestMain(m *testing.M) {
+	godotenv.Load(".env.test")
 	cfg, err := db.LoadEnvironmentVariables()
 	if err != nil {
 		log.Fatal(err)

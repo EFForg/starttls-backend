@@ -88,24 +88,26 @@ type Config struct {
 
 // Default configuration values. Can be overwritten by env vars of the same name.
 var configDefaults = map[string]string{
-	"PORT":             "8080",
-	"DB_HOST":          "localhost",
-	"DB_NAME":          "starttls",
-	"DB_USERNAME":      "postgres",
-	"DB_PASSWORD":      "postgres",
-	"TEST_DB_HOST":     "localhost",
-	"TEST_DB_NAME":     "starttls_test",
-	"TEST_DB_USERNAME": "postgres",
-	"TEST_DB_PASSWORD": "postgres",
-	"DB_TOKEN_TABLE":   "tokens",
-	"DB_DOMAIN_TABLE":  "domains",
-	"DB_SCAN_TABLE":    "scans",
+	"PORT":            "8080",
+	"DB_HOST":         "localhost",
+	"DB_NAME":         "starttls",
+	"DB_USERNAME":     "postgres",
+	"DB_PASSWORD":     "postgres",
+	"TEST_DB_NAME":    "starttls_test",
+	"DB_TOKEN_TABLE":  "tokens",
+	"DB_DOMAIN_TABLE": "domains",
+	"DB_SCAN_TABLE":   "scans",
 }
 
 func getEnvOrDefault(varName string) string {
 	envVar := os.Getenv(varName)
 	if len(envVar) == 0 {
-		envVar = configDefaults[varName]
+		if flag.Lookup("test.v") != nil && varName == "DB_NAME" {
+			// Use a different default db name when testing so we don't accidentally wipe the default db
+			envVar = configDefaults["TEST_DB_NAME"]
+		} else {
+			envVar = configDefaults[varName]
+		}
 	}
 	return envVar
 }
@@ -118,17 +120,10 @@ func LoadEnvironmentVariables() (Config, error) {
 		DbTokenTable:  getEnvOrDefault("DB_TOKEN_TABLE"),
 		DbDomainTable: getEnvOrDefault("DB_DOMAIN_TABLE"),
 		DbScanTable:   getEnvOrDefault("DB_SCAN_TABLE"),
-	}
-	if flag.Lookup("test.v") != nil {
-		config.DbHost = getEnvOrDefault("TEST_DB_HOST")
-		config.DbName = getEnvOrDefault("TEST_DB_NAME")
-		config.DbUsername = getEnvOrDefault("TEST_DB_USERNAME")
-		config.DbPass = getEnvOrDefault("TEST_DB_PASSWORD")
-	} else {
-		config.DbHost = getEnvOrDefault("DB_HOST")
-		config.DbName = getEnvOrDefault("DB_NAME")
-		config.DbUsername = getEnvOrDefault("DB_USERNAME")
-		config.DbPass = getEnvOrDefault("DB_PASSWORD")
+		DbHost:        getEnvOrDefault("DB_HOST"),
+		DbName:        getEnvOrDefault("DB_NAME"),
+		DbUsername:    getEnvOrDefault("DB_USERNAME"),
+		DbPass:        getEnvOrDefault("DB_PASSWORD"),
 	}
 	return config, nil
 }

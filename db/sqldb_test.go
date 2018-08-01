@@ -30,7 +30,7 @@ func initTestDb() *db.SQLDatabase {
 }
 
 func TestMain(m *testing.M) {
-	godotenv.Load("../.env")
+	godotenv.Load("../.env.test")
 	database = initTestDb()
 	code := m.Run()
 	err := database.ClearTables()
@@ -191,6 +191,6 @@ func TestPutTokenTwice(t *testing.T) {
 	}
 	domain, err := database.UseToken(data.Token)
 	if domain == data.Domain {
-		t.Errorf("UseToken should not have succeeded with old token!\n", domain, data.Domain)
+		t.Errorf("UseToken should not have succeeded with old token!\n")
 	}
 }
