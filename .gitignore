@@ -1,3 +1,4 @@
 .env
 .env.test
 starttls-scanner
+domain_blacklist.txt

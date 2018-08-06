@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -22,6 +23,13 @@ func validDomainName(s string) bool {
 		return false
 	}
 	return ok
+}
+
+func validPort(port string) (string, error) {
+	if _, err := strconv.Atoi(port); err != nil {
+		return "", fmt.Errorf("Given portstring %s is invalid", port)
+	}
+	return fmt.Sprintf(":%s", port), nil
 }
 
 // Errors composites multiple errors.

@@ -2,59 +2,20 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/EFForg/starttls-scanner/db"
 	"github.com/EFForg/starttls-scanner/policy"
+
 	"github.com/getsentry/raven-go"
-	"github.com/gorilla/handlers"
-	"github.com/joho/godotenv"
-	"github.com/ulule/limiter"
-	"github.com/ulule/limiter/drivers/middleware/stdlib"
-	"github.com/ulule/limiter/drivers/store/memory"
+	_ "github.com/joho/godotenv/autoload"
 )
-
-func validPort(port string) (string, error) {
-	if _, err := strconv.Atoi(port); err != nil {
-		return "", fmt.Errorf("portstring %s is invalid", port)
-	}
-	return fmt.Sprintf(":%s", port), nil
-}
-
-func throttle(period time.Duration, limit int64, f http.Handler) http.Handler {
-	rateLimitStore := memory.NewStore()
-	rate := limiter.Rate{
-		Period: period,
-		Limit:  limit,
-	}
-	rateLimiter := stdlib.NewMiddleware(limiter.New(rateLimitStore, rate),
-		stdlib.WithForwardHeader(true))
-	return rateLimiter.Handler(f)
-}
-
-func recoveryHandler(f http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		defer func() {
-			if err, ok := recover().(error); ok {
-				rvalStr := fmt.Sprint(err)
-				packet := raven.NewPacket(rvalStr, raven.NewException(err.(error), raven.GetOrNewStacktrace(err.(error), 2, 3, nil)), raven.NewHttp(r))
-				raven.Capture(packet, nil)
-				w.WriteHeader(http.StatusInternalServerError)
-			}
-		}()
-
-		f.ServeHTTP(w, r)
-	})
-}
 
 func pingHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
@@ -65,16 +26,11 @@ func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
 	mux.HandleFunc("/api/scan", apiWrapper(api.Scan))
 	// Throttle the queue endpoint more aggressively so we don't send junk e-mail.
 	mux.Handle("/api/queue",
-		throttle(time.Hour, 3, http.HandlerFunc(apiWrapper(api.Queue))))
+		throttleHandler(time.Hour, 3, http.HandlerFunc(apiWrapper(api.Queue))))
 	mux.HandleFunc("/api/validate", apiWrapper(api.Validate))
 	mux.HandleFunc("/api/ping", pingHandler)
 
-	originsOk := handlers.AllowedOrigins([]string{os.Getenv("ALLOWED_ORIGINS")})
-
-	handler := recoveryHandler(
-		throttle(time.Minute, 10, handlers.CORS(originsOk)(mux)),
-	)
-	return handlers.LoggingHandler(os.Stdout, handler)
+	return middleware(mux)
 }
 
 // ServePublicEndpoints serves all public HTTP endpoints.
@@ -130,7 +86,6 @@ func loadDontScan() map[string]bool {
 }
 
 func main() {
-	godotenv.Load()
 	raven.SetDSN(os.Getenv("SENTRY_URL"))
 
 	cfg, err := db.LoadEnvironmentVariables()
