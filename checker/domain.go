@@ -17,6 +17,7 @@ func (d DomainResult) reportError(err error) DomainResult {
 	return d
 }
 
+// DomainStatus indicates the overall status of a single domain.
 type DomainStatus int32
 
 // In order of precedence.
