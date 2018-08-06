@@ -3,11 +3,21 @@ language: go
 go:
   - "1.8"
 
+addons:
+  postgresql: "9.5"
+
+env:
+  - TEST_DB_NAME=starttls_test
+
 install:
   - go get -u github.com/golang/lint/golint
   - go get ./...
 
+before_script:
+  - psql -c 'CREATE DATABASE starttls_test;' -U postgres
+  - psql -c "ALTER USER postgres WITH PASSWORD 'postgres';" -U postgres
+  - psql starttls_test < db/scripts/init_tables.sql
+
 script:
   - golint -set_exit_status ./...
-  - go test -v .
-  - go test -v ./policy
+  - go test -v ./...

@@ -1,7 +1,6 @@
 package db_test
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/EFForg/starttls-check/checker"
 	"github.com/EFForg/starttls-scanner/db"
+	"github.com/joho/godotenv"
 )
 
 // Global database object for tests.
@@ -19,7 +19,6 @@ func initTestDb() *db.SQLDatabase {
 	os.Setenv("PRIV_KEY", "./certs/key.pem")
 	os.Setenv("PUBLIC_KEY", "./certs/cert.pem")
 	cfg, err := db.LoadEnvironmentVariables()
-	cfg.DbName = fmt.Sprintf("%s_dev", cfg.DbName)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -31,6 +30,7 @@ func initTestDb() *db.SQLDatabase {
 }
 
 func TestMain(m *testing.M) {
+	godotenv.Overload("../.env.test")
 	database = initTestDb()
 	code := m.Run()
 	err := database.ClearTables()
@@ -191,6 +191,6 @@ func TestPutTokenTwice(t *testing.T) {
 	}
 	domain, err := database.UseToken(data.Token)
 	if domain == data.Domain {
-		t.Errorf("UseToken should not have succeeded with old token!\n", domain, data.Domain)
+		t.Errorf("UseToken should not have succeeded with old token!\n")
 	}
 }

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"flag"
 	"os"
 	"time"
 
@@ -92,6 +93,7 @@ var configDefaults = map[string]string{
 	"DB_NAME":         "starttls",
 	"DB_USERNAME":     "postgres",
 	"DB_PASSWORD":     "postgres",
+	"TEST_DB_NAME":    "starttls_test",
 	"DB_TOKEN_TABLE":  "tokens",
 	"DB_DOMAIN_TABLE": "domains",
 	"DB_SCAN_TABLE":   "scans",
@@ -108,14 +110,19 @@ func getEnvOrDefault(varName string) string {
 // LoadEnvironmentVariables loads relevant environment variables into a
 // Config object.
 func LoadEnvironmentVariables() (Config, error) {
-	return Config{
+	config := Config{
 		Port:          getEnvOrDefault("PORT"),
+		DbTokenTable:  getEnvOrDefault("DB_TOKEN_TABLE"),
+		DbDomainTable: getEnvOrDefault("DB_DOMAIN_TABLE"),
+		DbScanTable:   getEnvOrDefault("DB_SCAN_TABLE"),
 		DbHost:        getEnvOrDefault("DB_HOST"),
 		DbName:        getEnvOrDefault("DB_NAME"),
 		DbUsername:    getEnvOrDefault("DB_USERNAME"),
 		DbPass:        getEnvOrDefault("DB_PASSWORD"),
-		DbTokenTable:  getEnvOrDefault("DB_TOKEN_TABLE"),
-		DbDomainTable: getEnvOrDefault("DB_DOMAIN_TABLE"),
-		DbScanTable:   getEnvOrDefault("DB_SCAN_TABLE"),
-	}, nil
+	}
+	if flag.Lookup("test.v") != nil {
+		// Avoid accidentally wiping the default db during tests.
+		config.DbName = getEnvOrDefault("TEST_DB_NAME")
+	}
+	return config, nil
 }

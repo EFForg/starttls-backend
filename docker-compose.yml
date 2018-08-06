@@ -8,17 +8,22 @@ services:
           POSTGRES_DB: $DB_NAME
           POSTGRES_USER: $DB_USERNAME
           POSTGRES_PASSWORD: $DB_PASSWORD
-        ports:
-          - "5432:5432"
+    postgres_test:
+        build: db/
+        env_file:
+          - .env.test
+        environment:
+          POSTGRES_DB: $TEST_DB_NAME
+          POSTGRES_USER: $TEST_DB_USERNAME
+          POSTGRES_PASSWORD: $TEST_DB_PASSWORD
     app:
         build: .
         volumes:
-          - .:/go/src/starttls-scanner
+          - .:/go/src/github.com/EFForg/starttls-scanner
         ports:
           - 8080:8080
         depends_on:
           - postgres
-        links:
-          - postgres
+          - postgres_test
         env_file:
           - .env
