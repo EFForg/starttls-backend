@@ -1,13 +1,14 @@
-package main
+package checker
 
 import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/EFForg/starttls-check/checker"
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"github.com/EFForg/starttls-check/checker"
 )
 
 // Expects domains to be delimited by newlines.
