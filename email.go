@@ -4,7 +4,9 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"net/smtp"
 	"strings"
 
@@ -124,9 +126,9 @@ type snsMessage struct {
 	} `json:"complaint"`
 }
 
-func parseComplaintJSON(messageJSON string) (snsMessage, error) {
+func parseComplaintJSON(messageJSON []byte) (snsMessage, error) {
 	var wrapper snsWrapper
-	if err := json.Unmarshal([]byte(messageJSON), &wrapper); err != nil {
+	if err := json.Unmarshal(messageJSON, &wrapper); err != nil {
 		return snsMessage{}, fmt.Errorf("failed to load complaint wrapper: %v", err)
 	}
 
@@ -136,4 +138,17 @@ func parseComplaintJSON(messageJSON string) (snsMessage, error) {
 		return snsMessage{}, fmt.Errorf("failed to load complaint: %v", err)
 	}
 	return complaint, nil
+}
+
+func handleSESNotification(w http.ResponseWriter, r *http.Request) {
+	// raise ActiveRecord::RecordNotFound unless params["amazon_authorize_key"] == Rails.application.secrets.amazon_authorize_key
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		// Log to sentry and return
+	}
+	complaint, err := parseComplaintJSON(body)
+	if err != nil {
+		// Log to sentry and return
+	}
+	log.Println(complaint)
 }

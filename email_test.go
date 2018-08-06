@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -34,7 +36,7 @@ func TestRequireEnvConfig(t *testing.T) {
 }
 
 func TestParseComplaintJSON(t *testing.T) {
-	message, err := parseComplaintJSON(complaintJSON)
+	message, err := parseComplaintJSON([]byte(complaintJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,6 +48,16 @@ func TestParseComplaintJSON(t *testing.T) {
 			t.Error("Failed to parse email address from recipient")
 		}
 	}
+}
+
+func TestSESComplaint(t *testing.T) {
+	defer teardown()
+
+	resp, err := http.Post(server.URL+"/sns", "application/json", strings.NewReader(complaintJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	log.Println(resp)
 }
 
 const complaintJSON = `{
