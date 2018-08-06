@@ -189,6 +189,26 @@ func (db SQLDatabase) GetDomains(state DomainState) ([]DomainData, error) {
 	return domains, nil
 }
 
+// EMAIL BLACKLIST DB FUNCTIONS
+
+// Adds a bounce or complaint notification to the email blacklist.
+func (db SQLDatabase) PutBlacklistedEmail(email string, reason string, timestamp string) error {
+	_, err := db.conn.Exec("INSERT INTO blacklisted_emails(email, reason, timestamp) VALUES($1, $2, $3)",
+		email, reason, timestamp)
+	return err
+}
+
+// Returns true iff we've blacklisted the passed email address for sending.
+func (db SQLDatabase) IsBlacklistedEmail(email string) (bool, error) {
+	var count int
+	row := db.conn.QueryRow("SELECT COUNT(*) FROM blacklisted_emails")
+	err := row.Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 func tryExec(database SQLDatabase, commands []string) error {
 	for _, command := range commands {
 		if _, err := database.conn.Exec(command); err != nil {
@@ -205,6 +225,7 @@ func (db SQLDatabase) ClearTables() error {
 		fmt.Sprintf("DELETE FROM %s", db.cfg.DbDomainTable),
 		fmt.Sprintf("DELETE FROM %s", db.cfg.DbScanTable),
 		fmt.Sprintf("DELETE FROM %s", db.cfg.DbTokenTable),
+		fmt.Sprintf("DELETE FROM %s", "blacklisted_emails"),
 		fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1", db.cfg.DbScanTable),
 	})
 }

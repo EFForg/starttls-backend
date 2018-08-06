@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 	"strings"
 	"testing"
@@ -41,11 +40,11 @@ func TestParseComplaintJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(message.Complaint.ComplainedRecipients) == 0 {
-		t.Error("Failed to parse recipients from complaint")
+		t.Error("failed to parse recipients from complaint")
 	}
 	for _, recipient := range message.Complaint.ComplainedRecipients {
 		if len(recipient.EmailAddress) == 0 {
-			t.Error("Failed to parse email address from recipient")
+			t.Error("failed to parse email address from recipient")
 		}
 	}
 }
@@ -53,11 +52,18 @@ func TestParseComplaintJSON(t *testing.T) {
 func TestSESComplaint(t *testing.T) {
 	defer teardown()
 
-	resp, err := http.Post(server.URL+"/sns", "application/json", strings.NewReader(complaintJSON))
+	_, err := http.Post(server.URL+"/sns", "application/json", strings.NewReader(complaintJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Println(resp)
+
+	blacklisted, err := api.Database.IsBlacklistedEmail("complaint@simulator.amazonses.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !blacklisted {
+		t.Error("failed to blacklist complaint email")
+	}
 }
 
 const complaintJSON = `{

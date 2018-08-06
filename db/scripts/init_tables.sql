@@ -23,3 +23,12 @@ CREATE TABLE IF NOT EXISTS domains
     data        TEXT NOT NULL,
     status      VARCHAR(255) NOT NULL
 );
+
+
+CREATE TABLE IF NOT EXISTS blacklisted_emails
+(
+    id          SERIAL PRIMARY KEY,
+    email       TEXT NOT NULL,
+    reason      TEXT NOT NULL,
+    timestamp   TIMESTAMP
+);

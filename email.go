@@ -101,6 +101,13 @@ func (c emailConfig) SendValidation(domainInfo *db.DomainData, token string) err
 }
 
 func (c emailConfig) sendEmail(subject string, body string, address string) error {
+	blacklisted, err := api.Database.IsBlacklistedEmail(address)
+	if err != nil {
+		return err
+	}
+	if blacklisted {
+		return fmt.Errorf("address %s is blacklisted", address)
+	}
 	message := fmt.Sprintf("From: %s\nTo: %s\nSubject: %s\n\n%s",
 		c.sender, address, subject, body)
 	return smtp.SendMail(fmt.Sprintf("%s:%s", c.submissionHostname, c.port),
@@ -150,5 +157,11 @@ func handleSESNotification(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Log to sentry and return
 	}
-	log.Println(complaint)
+
+	for _, recipient := range complaint.Complaint.ComplainedRecipients {
+		err = api.Database.PutBlacklistedEmail(recipient.EmailAddress, complaint.NotificationType, complaint.Complaint.Timestamp)
+		if err != nil {
+			// Log to sentry
+		}
+	}
 }
