@@ -2,11 +2,13 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
-	"github.com/EFForg/starttls-scanner/db"
 	"log"
 	"net/smtp"
 	"strings"
+
+	"github.com/EFForg/starttls-scanner/db"
 )
 
 // Configuration variables needed to submit emails for sending, as well as
@@ -102,4 +104,36 @@ func (c emailConfig) sendEmail(subject string, body string, address string) erro
 	return smtp.SendMail(fmt.Sprintf("%s:%s", c.submissionHostname, c.port),
 		c.auth,
 		c.sender, []string{address}, []byte(message))
+}
+
+type snsWrapper struct {
+	Type      string
+	MessageID string
+	Message   string
+	Timestamp string
+}
+
+type snsMessage struct {
+	NotificationType string `json:"notificationType"`
+	Complaint        struct {
+		ComplainedRecipients []struct {
+			EmailAddress string `json:"emailAddress"`
+		} `json:"complainedRecipients"`
+		ComplaintFeedbackType string `json:"complaintFeedbackType"`
+		Timestamp             string `json:"timestamp"`
+	} `json:"complaint"`
+}
+
+func parseComplaintJSON(messageJSON string) (snsMessage, error) {
+	var wrapper snsWrapper
+	if err := json.Unmarshal([]byte(messageJSON), &wrapper); err != nil {
+		return snsMessage{}, fmt.Errorf("failed to load complaint wrapper: %v", err)
+	}
+
+	// Notification body is string encoded, so we have to unmarshall twice.
+	var complaint snsMessage
+	if err := json.Unmarshal([]byte(wrapper.Message), &complaint); err != nil {
+		return snsMessage{}, fmt.Errorf("failed to load complaint: %v", err)
+	}
+	return complaint, nil
 }
