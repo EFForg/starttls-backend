@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/EFForg/starttls-scanner/db"
-	"github.com/EFForg/starttls-scanner/policy"
+	"github.com/EFForg/starttls-backend/db"
+	"github.com/EFForg/starttls-backend/policy"
 
 	"github.com/getsentry/raven-go"
 	_ "github.com/joho/godotenv/autoload"

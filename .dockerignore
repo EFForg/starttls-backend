@@ -11,4 +11,4 @@ Dockerfile
 .gitignore
 
 # Ignore compiled scanner
-starttls-scanner
+starttls-backend

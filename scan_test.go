@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/EFForg/starttls-scanner/db"
+	"github.com/EFForg/starttls-backend/db"
 )
 
 // Tests basic scanning workflow.
