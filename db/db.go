@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/EFForg/starttls-check/checker"
+	"github.com/EFForg/starttls-backend/checker"
 )
 
 ///////////////////////////////////////

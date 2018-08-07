@@ -10,9 +10,9 @@ import (
 
 	"golang.org/x/net/idna"
 
+	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/db"
 	"github.com/EFForg/starttls-backend/policy"
-	"github.com/EFForg/starttls-check/checker"
 	"github.com/getsentry/raven-go"
 )
 

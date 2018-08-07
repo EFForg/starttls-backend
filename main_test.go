@@ -8,9 +8,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/db"
 	"github.com/EFForg/starttls-backend/policy"
-	"github.com/EFForg/starttls-check/checker"
 	"github.com/joho/godotenv"
 )
 
