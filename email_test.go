@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 )
@@ -52,7 +53,8 @@ func TestParseComplaintJSON(t *testing.T) {
 func TestSESComplaint(t *testing.T) {
 	defer teardown()
 
-	_, err := http.Post(server.URL+"/sns", "application/json", strings.NewReader(complaintJSON))
+	_, err := http.Post(server.URL+"/sns?amazon_authorize_key="+os.Getenv("AMAZON_AUTHORIZE_KEY"), "application/json", strings.NewReader(complaintJSON))
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,6 +65,23 @@ func TestSESComplaint(t *testing.T) {
 	}
 	if !blacklisted {
 		t.Error("failed to blacklist complaint email")
+	}
+}
+
+func TestIgnoreSESComplaintWithoutKey(t *testing.T) {
+	defer teardown()
+
+	_, err := http.Post(server.URL+"/sns?amazon_authorize_key=nope", "application/json", strings.NewReader(complaintJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	blacklisted, err := api.Database.IsBlacklistedEmail("complaint@simulator.amazonses.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if blacklisted {
+		t.Error("blacklisted notification with incorrect sns key")
 	}
 }
 

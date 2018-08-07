@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/smtp"
+	"os"
 	"strings"
 
 	"github.com/EFForg/starttls-scanner/db"
@@ -148,7 +149,11 @@ func parseComplaintJSON(messageJSON []byte) (snsMessage, error) {
 }
 
 func handleSESNotification(w http.ResponseWriter, r *http.Request) {
-	// raise ActiveRecord::RecordNotFound unless params["amazon_authorize_key"] == Rails.application.secrets.amazon_authorize_key
+	keyParam := r.URL.Query()["amazon_authorize_key"]
+	if len(keyParam) == 0 || keyParam[0] != os.Getenv("AMAZON_AUTHORIZE_KEY") {
+		return
+	}
+
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		// Log to sentry and return
