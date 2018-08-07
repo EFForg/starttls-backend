@@ -53,10 +53,13 @@ func TestParseComplaintJSON(t *testing.T) {
 func TestSESComplaint(t *testing.T) {
 	defer teardown()
 
-	_, err := http.Post(server.URL+"/sns?amazon_authorize_key="+os.Getenv("AMAZON_AUTHORIZE_KEY"), "application/json", strings.NewReader(complaintJSON))
-
+	resp, err := http.Post(server.URL+"/sns?amazon_authorize_key="+os.Getenv("AMAZON_AUTHORIZE_KEY"),
+		"application/json", strings.NewReader(complaintJSON))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("SES complaint without key should return 200, got %d", resp.StatusCode)
 	}
 
 	blacklisted, err := api.Database.IsBlacklistedEmail("complaint@simulator.amazonses.com")
@@ -71,9 +74,13 @@ func TestSESComplaint(t *testing.T) {
 func TestIgnoreSESComplaintWithoutKey(t *testing.T) {
 	defer teardown()
 
-	_, err := http.Post(server.URL+"/sns?amazon_authorize_key=nope", "application/json", strings.NewReader(complaintJSON))
+	resp, err := http.Post(server.URL+"/sns?amazon_authorize_key=nope", "application/json",
+		strings.NewReader(complaintJSON))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("SES complaint without key should return 401, got %d", resp.StatusCode)
 	}
 
 	blacklisted, err := api.Database.IsBlacklistedEmail("complaint@simulator.amazonses.com")

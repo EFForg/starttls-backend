@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/EFForg/starttls-scanner/db"
+	raven "github.com/getsentry/raven-go"
 )
 
 // Configuration variables needed to submit emails for sending, as well as
@@ -151,22 +152,32 @@ func parseComplaintJSON(messageJSON []byte) (snsMessage, error) {
 func handleSESNotification(w http.ResponseWriter, r *http.Request) {
 	keyParam := r.URL.Query()["amazon_authorize_key"]
 	if len(keyParam) == 0 || keyParam[0] != os.Getenv("AMAZON_AUTHORIZE_KEY") {
+		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		// Log to sentry and return
+		raven.CaptureError(err, nil)
+		return
 	}
+
 	complaint, err := parseComplaintJSON(body)
 	if err != nil {
-		// Log to sentry and return
+		w.WriteHeader(http.StatusInternalServerError)
+		raven.CaptureError(err, nil)
+		return
 	}
 
 	for _, recipient := range complaint.Complaint.ComplainedRecipients {
+		tags := map[string]string{"email": recipient.EmailAddress}
+		raven.CaptureMessage("Received SES complaint notification", tags)
+
 		err = api.Database.PutBlacklistedEmail(recipient.EmailAddress, complaint.NotificationType, complaint.Complaint.Timestamp)
 		if err != nil {
-			// Log to sentry
+			raven.CaptureError(err, tags)
 		}
 	}
+
+	w.WriteHeader(http.StatusOK)
 }
