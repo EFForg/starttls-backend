@@ -3,10 +3,11 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/EFForg/starttls-scanner/db"
 	"log"
 	"net/smtp"
 	"strings"
+
+	"github.com/EFForg/starttls-backend/db"
 )
 
 // Configuration variables needed to submit emails for sending, as well as

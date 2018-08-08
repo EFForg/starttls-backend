@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/EFForg/starttls-check/checker"
-	"github.com/EFForg/starttls-scanner/db"
+	"github.com/EFForg/starttls-backend/checker"
+	"github.com/EFForg/starttls-backend/db"
 	"github.com/joho/godotenv"
 )
 

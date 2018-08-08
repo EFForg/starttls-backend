@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/EFForg/starttls-check/checker"
+	"github.com/EFForg/starttls-backend/checker"
 )
 
 // Expects domains to be delimited by newlines.

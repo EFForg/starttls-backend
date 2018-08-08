@@ -1,11 +1,11 @@
-# starttls-scanner
+# starttls-backend
 
 ## Setup
 1. Install `go` and `postgres`.
 2. Download the project and copy the configuration file:
 ```
-go get github.com/EFForg/starttls-scanner
-cd $GOPATH/github.com/EFForg/starttls-scanner
+go get github.com/EFForg/starttls-backend
+cd $GOPATH/github.com/EFForg/starttls-backend
 `cp .env.example .env`
 `cp .env.test.example .env.test`
 ```
@@ -14,7 +14,7 @@ cd $GOPATH/github.com/EFForg/starttls-scanner
 5. Build the scanner and start serving requests:
 ```
 go build
-./starttls-scanner
+./starttls-backend
 ```
 
 ### Via Docker

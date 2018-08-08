@@ -3,15 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/idna"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/EFForg/starttls-check/checker"
-	"github.com/EFForg/starttls-scanner/db"
-	"github.com/EFForg/starttls-scanner/policy"
+	"golang.org/x/net/idna"
+
+	"github.com/EFForg/starttls-backend/checker"
+	"github.com/EFForg/starttls-backend/db"
+	"github.com/EFForg/starttls-backend/policy"
 	"github.com/getsentry/raven-go"
 )
 

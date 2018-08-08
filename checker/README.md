@@ -18,13 +18,13 @@ For each hostname found via a MX lookup, we check:
 As a library
 
 ```
-go get github.com/efforg/starttls-scanner/checker
+go get github.com/efforg/starttls-backend/checker
 ```
 
 or if you want to use it as a bin command
 
 ```
-go get github.com/efforg/starttls-scanner/checker/cmd/starttls-check
+go get github.com/efforg/starttls-backend/checker/cmd/starttls-check
 ```
 
 NOTE: many ISPs block outbound port 25 to mitigate botnet e-mail spam. If you are on a residential IP, you might not be able to run this tool!
