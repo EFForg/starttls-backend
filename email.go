@@ -125,6 +125,8 @@ type blacklistRequest struct {
 	}
 }
 
+// UnmarshallJSON wrangles the JSON posted by AWS SNS into something easier to access
+// and generalized across notification types.
 func (n *blacklistRequest) UnmarshalJSON(b []byte) error {
 	var wrapper struct {
 		Type      string
@@ -175,6 +177,9 @@ func (n *blacklistRequest) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// handleSESNotification handles AWS SES bounces and complaints submitted to a webhook
+// via AWS SNS (Simple Notification Service).
+// The SNS webwook is configured to include a secret API key stored in the environment.
 func handleSESNotification(w http.ResponseWriter, r *http.Request) {
 	keyParam := r.URL.Query()["amazon_authorize_key"]
 	if len(keyParam) == 0 || keyParam[0] != os.Getenv("AMAZON_AUTHORIZE_KEY") {
