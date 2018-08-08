@@ -117,36 +117,62 @@ func (c emailConfig) sendEmail(subject string, body string, address string) erro
 		c.sender, []string{address}, []byte(message))
 }
 
-type snsWrapper struct {
-	Type      string
-	MessageID string
-	Message   string
-	Timestamp string
+type blacklistRequest struct {
+	reason     string
+	timestamp  string
+	recipients []struct {
+		EmailAddress string `json:"emailAddress"`
+	}
 }
 
-type snsMessage struct {
-	NotificationType string `json:"notificationType"`
-	Complaint        struct {
-		ComplainedRecipients []struct {
-			EmailAddress string `json:"emailAddress"`
-		} `json:"complainedRecipients"`
-		ComplaintFeedbackType string `json:"complaintFeedbackType"`
-		Timestamp             string `json:"timestamp"`
-	} `json:"complaint"`
-}
-
-func parseComplaintJSON(messageJSON []byte) (snsMessage, error) {
-	var wrapper snsWrapper
-	if err := json.Unmarshal(messageJSON, &wrapper); err != nil {
-		return snsMessage{}, fmt.Errorf("failed to load complaint wrapper: %v", err)
+func (n *blacklistRequest) UnmarshalJSON(b []byte) error {
+	var wrapper struct {
+		Type      string
+		MessageID string
+		Message   string
+		Timestamp string
+	}
+	if err := json.Unmarshal(b, &wrapper); err != nil {
+		return fmt.Errorf("failed to load notification wrapper: %v", err)
 	}
 
-	// Notification body is string encoded, so we have to unmarshall twice.
-	var complaint snsMessage
-	if err := json.Unmarshal([]byte(wrapper.Message), &complaint); err != nil {
-		return snsMessage{}, fmt.Errorf("failed to load complaint: %v", err)
+	var msg struct {
+		NotificationType string `json:"notificationType"`
+		Complaint        struct {
+			ComplainedRecipients []struct {
+				EmailAddress string `json:"emailAddress"`
+			} `json:"complainedRecipients"`
+			Timestamp string `json:"timestamp"`
+		} `json:"complaint"`
+		Bounce struct {
+			BouncedRecipients []struct {
+				EmailAddress string `json:"emailAddress"`
+			} `json:"bouncedRecipients"`
+			Timestamp string `json:"timestamp"`
+		} `json:"bounce"`
 	}
-	return complaint, nil
+	if err := json.Unmarshal([]byte(wrapper.Message), &msg); err != nil {
+		return fmt.Errorf("failed to load notification message: %v", err)
+	}
+
+	switch msg.NotificationType {
+	case "Complaint":
+		*n = blacklistRequest{
+			reason:     msg.NotificationType,
+			timestamp:  msg.Complaint.Timestamp,
+			recipients: msg.Complaint.ComplainedRecipients,
+		}
+	case "Bounce":
+		*n = blacklistRequest{
+			reason:     msg.NotificationType,
+			timestamp:  msg.Bounce.Timestamp,
+			recipients: msg.Bounce.BouncedRecipients,
+		}
+	default:
+		return fmt.Errorf("SES notification did not match expected format")
+	}
+
+	return nil
 }
 
 func handleSESNotification(w http.ResponseWriter, r *http.Request) {
@@ -162,18 +188,19 @@ func handleSESNotification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	complaint, err := parseComplaintJSON(body)
+	data := &blacklistRequest{}
+	err = json.Unmarshal(body, data)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		raven.CaptureError(err, nil)
 		return
 	}
 
-	for _, recipient := range complaint.Complaint.ComplainedRecipients {
+	for _, recipient := range data.recipients {
 		tags := map[string]string{"email": recipient.EmailAddress}
 		raven.CaptureMessage("Received SES complaint notification", tags)
 
-		err = api.Database.PutBlacklistedEmail(recipient.EmailAddress, complaint.NotificationType, complaint.Complaint.Timestamp)
+		err = api.Database.PutBlacklistedEmail(recipient.EmailAddress, data.reason, data.timestamp)
 		if err != nil {
 			raven.CaptureError(err, tags)
 		}
