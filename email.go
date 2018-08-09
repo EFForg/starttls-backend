@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/EFForg/starttls-scanner/db"
+	"github.com/EFForg/starttls-backend/db"
 	raven "github.com/getsentry/raven-go"
 )
 

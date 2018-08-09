@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/EFForg/starttls-scanner/db"
+	"github.com/EFForg/starttls-backend/db"
 )
 
 func validQueueData(scan bool) url.Values {

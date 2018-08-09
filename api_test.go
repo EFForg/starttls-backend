@@ -3,8 +3,8 @@ package main
 import (
 	"testing"
 
-	"github.com/EFForg/starttls-check/checker"
-	"github.com/EFForg/starttls-scanner/db"
+	"github.com/EFForg/starttls-backend/checker"
+	"github.com/EFForg/starttls-backend/db"
 )
 
 func TestPolicyCheck(t *testing.T) {
