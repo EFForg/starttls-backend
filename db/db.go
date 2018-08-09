@@ -50,7 +50,7 @@ type TokenData struct {
 	Used    bool      `json:"used"`    // Whether this token was used.
 }
 
-//BounceData stores the emails from which we've recieved bounce or complaint notifications.
+// EmailBlacklistData stores the emails from which we've recieved bounce or complaint notifications.
 type EmailBlacklistData struct {
 	Email     string    // Email to blacklist.
 	Timestamp time.Time // When the bounce or complaint occured.
