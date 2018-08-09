@@ -30,7 +30,7 @@ func TestRequireMissingEnvPanics(t *testing.T) {
 }
 
 func TestRequireEnvConfig(t *testing.T) {
-	_, err := makeEmailConfigFromEnv()
+	_, err := makeEmailConfigFromEnv(api.Database)
 	if err == nil {
 		t.Errorf("should have received multiple error from unset env vars")
 	}

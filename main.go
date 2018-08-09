@@ -23,7 +23,7 @@ func pingHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
-	mux.HandleFunc("/sns", handleSESNotification)
+	mux.HandleFunc("/sns", handleSESNotification(api.Database))
 
 	mux.HandleFunc("/api/scan", apiWrapper(api.Scan))
 	// Throttle the queue endpoint more aggressively so we don't send junk e-mail.
@@ -98,7 +98,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	emailConfig, err := makeEmailConfigFromEnv()
+	emailConfig, err := makeEmailConfigFromEnv(db)
 	if err != nil {
 		log.Fatal(err)
 	}

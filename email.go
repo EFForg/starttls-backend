@@ -25,6 +25,7 @@ type emailConfig struct {
 	port               string
 	sender             string
 	website            string // Needed to generate email template text.
+	database           db.Database
 }
 
 const validationEmailSubject = "Email validation for STARTTLS Policy List submission"
@@ -46,7 +47,7 @@ We also recommend signing up for the STARTTLS Everywhere mailing list at https:/
 Thanks for helping us secure email for everyone :)
 `
 
-func makeEmailConfigFromEnv() (emailConfig, error) {
+func makeEmailConfigFromEnv(database db.Database) (emailConfig, error) {
 	// create config
 	varErrs := Errors{}
 	c := emailConfig{
@@ -56,6 +57,7 @@ func makeEmailConfigFromEnv() (emailConfig, error) {
 		port:               requireEnv("SMTP_PORT", &varErrs),
 		sender:             requireEnv("SMTP_FROM_ADDRESS", &varErrs),
 		website:            requireEnv("FRONTEND_WEBSITE_LINK", &varErrs),
+		database:           database,
 	}
 	if len(varErrs) > 0 {
 		return c, varErrs
@@ -103,7 +105,7 @@ func (c emailConfig) SendValidation(domainInfo *db.DomainData, token string) err
 }
 
 func (c emailConfig) sendEmail(subject string, body string, address string) error {
-	blacklisted, err := api.Database.IsBlacklistedEmail(address)
+	blacklisted, err := c.database.IsBlacklistedEmail(address)
 	if err != nil {
 		return err
 	}
@@ -127,7 +129,7 @@ type blacklistRequest struct {
 
 // UnmarshallJSON wrangles the JSON posted by AWS SNS into something easier to access
 // and generalized across notification types.
-func (n *blacklistRequest) UnmarshalJSON(b []byte) error {
+func (r *blacklistRequest) UnmarshalJSON(b []byte) error {
 	var wrapper struct {
 		Type      string
 		MessageID string
@@ -159,13 +161,13 @@ func (n *blacklistRequest) UnmarshalJSON(b []byte) error {
 
 	switch msg.NotificationType {
 	case "Complaint":
-		*n = blacklistRequest{
+		*r = blacklistRequest{
 			reason:     msg.NotificationType,
 			timestamp:  msg.Complaint.Timestamp,
 			recipients: msg.Complaint.ComplainedRecipients,
 		}
 	case "Bounce":
-		*n = blacklistRequest{
+		*r = blacklistRequest{
 			reason:     msg.NotificationType,
 			timestamp:  msg.Bounce.Timestamp,
 			recipients: msg.Bounce.BouncedRecipients,
@@ -180,36 +182,38 @@ func (n *blacklistRequest) UnmarshalJSON(b []byte) error {
 // handleSESNotification handles AWS SES bounces and complaints submitted to a webhook
 // via AWS SNS (Simple Notification Service).
 // The SNS webwook is configured to include a secret API key stored in the environment.
-func handleSESNotification(w http.ResponseWriter, r *http.Request) {
-	keyParam := r.URL.Query()["amazon_authorize_key"]
-	if len(keyParam) == 0 || keyParam[0] != os.Getenv("AMAZON_AUTHORIZE_KEY") {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		raven.CaptureError(err, nil)
-		return
-	}
-
-	data := &blacklistRequest{}
-	err = json.Unmarshal(body, data)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		raven.CaptureError(err, nil)
-		return
-	}
-
-	for _, recipient := range data.recipients {
-		tags := map[string]string{"email": recipient.EmailAddress}
-		raven.CaptureMessage("Received SES complaint notification", tags)
-
-		err = api.Database.PutBlacklistedEmail(recipient.EmailAddress, data.reason, data.timestamp)
-		if err != nil {
-			raven.CaptureError(err, tags)
+func handleSESNotification(database db.Database) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		keyParam := r.URL.Query()["amazon_authorize_key"]
+		if len(keyParam) == 0 || keyParam[0] != os.Getenv("AMAZON_AUTHORIZE_KEY") {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
 		}
-	}
 
-	w.WriteHeader(http.StatusOK)
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			raven.CaptureError(err, nil)
+			return
+		}
+
+		data := &blacklistRequest{}
+		err = json.Unmarshal(body, data)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			raven.CaptureError(err, nil)
+			return
+		}
+
+		for _, recipient := range data.recipients {
+			tags := map[string]string{"email": recipient.EmailAddress}
+			raven.CaptureMessage("Received SES complaint notification", tags)
+
+			err = database.PutBlacklistedEmail(recipient.EmailAddress, data.reason, data.timestamp)
+			if err != nil {
+				raven.CaptureError(err, tags)
+			}
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}
 }
