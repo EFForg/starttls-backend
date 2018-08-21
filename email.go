@@ -131,15 +131,14 @@ type blacklistRequest struct {
 // and generalized across notification types.
 func (r *blacklistRequest) UnmarshalJSON(b []byte) error {
 	var wrapper struct {
-		Type      string
-		MessageID string
-		Message   string
-		Timestamp string
+		Message string
 	}
 	if err := json.Unmarshal(b, &wrapper); err != nil {
 		return fmt.Errorf("failed to load notification wrapper: %v", err)
 	}
 
+	// We need to unmarshall a second time because Message is posted as a JSON-encoded string.
+	// See email_test.go for examples.
 	var msg struct {
 		NotificationType string `json:"notificationType"`
 		Complaint        struct {
