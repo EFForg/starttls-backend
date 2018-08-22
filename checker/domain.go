@@ -22,12 +22,13 @@ type DomainStatus int32
 
 // In order of precedence.
 const (
-	DomainSuccess           DomainStatus = 0
-	DomainWarning           DomainStatus = 1
-	DomainFailure           DomainStatus = 2
-	DomainError             DomainStatus = 3
-	DomainNoSTARTTLSFailure DomainStatus = 4
-	DomainCouldNotConnect   DomainStatus = 5
+	DomainSuccess            DomainStatus = 0
+	DomainWarning            DomainStatus = 1
+	DomainFailure            DomainStatus = 2
+	DomainError              DomainStatus = 3
+	DomainNoSTARTTLSFailure  DomainStatus = 4
+	DomainCouldNotConnect    DomainStatus = 5
+	DomainBadHostnameFailure DomainStatus = 6
 )
 
 // DomainResult wraps all the results for a particular mail domain.
@@ -82,7 +83,7 @@ func lookupHostnames(domain string) ([]string, error) {
 // checks on the highest priority mailservers succeed.
 //
 //   `domain` is the mail domain to perform the lookup on.
-//   `mxHostnames` is a list of expected hostnames for certificate validation.
+//   `mxHostnames` is the list of expected hostnames.
 func CheckDomain(domain string, mxHostnames []string) DomainResult {
 	// 1. Look up hostnames
 	// 2. Perform and aggregate checks from those hostnames.
@@ -95,7 +96,7 @@ func CheckDomain(domain string, mxHostnames []string) DomainResult {
 	checkedHostnames := make([]string, 0)
 	result.HostnameResults = make(map[string]HostnameResult)
 	for _, hostname := range hostnames {
-		result.HostnameResults[hostname] = CheckHostname(domain, hostname, mxHostnames)
+		result.HostnameResults[hostname] = CheckHostname(domain, hostname)
 		if result.HostnameResults[hostname].couldConnect() {
 			checkedHostnames = append(checkedHostnames, hostname)
 		}
@@ -115,8 +116,14 @@ func CheckDomain(domain string, mxHostnames []string) DomainResult {
 			result.Status = DomainNoSTARTTLSFailure
 			return result
 		}
+		// Any of the connected hostnames don't have a match?
+		if mxHostnames != nil && !hasValidName(mxHostnames, hostname) {
+			result.Status = DomainBadHostnameFailure
+			return result
+		}
 		result.Status = DomainStatus(
-			SetStatus(CheckStatus(result.Status), CheckStatus(result.HostnameResults[hostname].Status)))
+			SetStatus(CheckStatus(result.Status),
+				CheckStatus(result.HostnameResults[hostname].Status)))
 	}
 	return result
 }
