@@ -13,9 +13,9 @@ services:
         env_file:
           - .env.test
         environment:
-          POSTGRES_DB: $TEST_DB_NAME
-          POSTGRES_USER: $TEST_DB_USERNAME
-          POSTGRES_PASSWORD: $TEST_DB_PASSWORD
+          POSTGRES_DB: starttls_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
     app:
         build: .
         volumes:
