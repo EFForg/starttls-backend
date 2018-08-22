@@ -180,7 +180,7 @@ func (r *blacklistRequest) UnmarshalJSON(b []byte) error {
 
 // handleSESNotification handles AWS SES bounces and complaints submitted to a webhook
 // via AWS SNS (Simple Notification Service).
-// The SNS webwook is configured to include a secret API key stored in the environment.
+// The SNS webhook is configured to include a secret API key stored in the environment.
 func handleSESNotification(database db.Database) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		keyParam := r.URL.Query()["amazon_authorize_key"]
