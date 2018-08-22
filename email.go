@@ -119,62 +119,58 @@ func (c emailConfig) sendEmail(subject string, body string, address string) erro
 		c.sender, []string{address}, []byte(message))
 }
 
+type Recipients []struct {
+	EmailAddress string `json:"emailAddress"`
+}
+
 type blacklistRequest struct {
 	reason     string
 	timestamp  string
-	recipients []struct {
-		EmailAddress string `json:"emailAddress"`
-	}
+	recipients Recipients
 }
 
 // UnmarshallJSON wrangles the JSON posted by AWS SNS into something easier to access
 // and generalized across notification types.
 func (r *blacklistRequest) UnmarshalJSON(b []byte) error {
+	// We need to start by unmarshalling Message into a string because the field contains stringified JSON.
+	// See email_test.go for examples.
 	var wrapper struct {
-		Message string
+		Message   string
+		Timestamp string
 	}
 	if err := json.Unmarshal(b, &wrapper); err != nil {
 		return fmt.Errorf("failed to load notification wrapper: %v", err)
 	}
 
-	// We need to unmarshall a second time because Message is posted as a JSON-encoded string.
-	// See email_test.go for examples.
-	var msg struct {
-		NotificationType string `json:"notificationType"`
-		Complaint        struct {
-			ComplainedRecipients []struct {
-				EmailAddress string `json:"emailAddress"`
-			} `json:"complainedRecipients"`
-			Timestamp string `json:"timestamp"`
-		} `json:"complaint"`
-		Bounce struct {
-			BouncedRecipients []struct {
-				EmailAddress string `json:"emailAddress"`
-			} `json:"bouncedRecipients"`
-			Timestamp string `json:"timestamp"`
-		} `json:"bounce"`
+	var recipients Recipients
+
+	type Complaint struct {
+		*Recipients `json:"complainedRecipients"`
 	}
+
+	type Bounce struct {
+		*Recipients `json:"bouncedRecipients"`
+	}
+
+	// Only one of Complaint or Bounce will contain data, so we can reuse &recipients.
+	msg := struct {
+		NotificationType string `json:"notificationType"`
+		Complaint        `json:"complaint"`
+		Bounce           `json:"bounce"`
+	}{
+		Complaint: Complaint{Recipients: &recipients},
+		Bounce:    Bounce{Recipients: &recipients},
+	}
+
 	if err := json.Unmarshal([]byte(wrapper.Message), &msg); err != nil {
 		return fmt.Errorf("failed to load notification message: %v", err)
 	}
 
-	switch msg.NotificationType {
-	case "Complaint":
-		*r = blacklistRequest{
-			reason:     msg.NotificationType,
-			timestamp:  msg.Complaint.Timestamp,
-			recipients: msg.Complaint.ComplainedRecipients,
-		}
-	case "Bounce":
-		*r = blacklistRequest{
-			reason:     msg.NotificationType,
-			timestamp:  msg.Bounce.Timestamp,
-			recipients: msg.Bounce.BouncedRecipients,
-		}
-	default:
-		return fmt.Errorf("SES notification did not match expected format")
+	*r = blacklistRequest{
+		timestamp:  wrapper.Timestamp,
+		reason:     msg.NotificationType,
+		recipients: recipients,
 	}
-
 	return nil
 }
 
