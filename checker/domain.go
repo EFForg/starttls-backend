@@ -62,6 +62,9 @@ type DomainResult struct {
 	Status DomainStatus `json:"status"`
 	// Results of this check, on each hostname.
 	HostnameResults map[string]HostnameResult `json:"results"`
+	// The list of hostnames which will impact the Status of this result.
+	// It discards mailboxes that we can't connect to.
+	PreferredHostnames []string `json:"preferred_hostnames"`
 	// Expected MX hostnames supplied by the caller of CheckDomain.
 	MxHostnames []string `json:"mx_hostnames,omitempty"`
 	// Extra global results
@@ -145,9 +148,11 @@ func performCheck(query domainCheckQuery) DomainResult {
 			checkedHostnames = append(checkedHostnames, hostname)
 		}
 	}
+	result.PreferredHostnames = checkedHostnames
+
 	// Derive Domain code from Hostname results.
-	// We couldn't connect to any of those hostnames.
 	if len(checkedHostnames) == 0 {
+		// We couldn't connect to any of those hostnames.
 		return result.setStatus(DomainCouldNotConnect)
 	}
 	for _, hostname := range checkedHostnames {
