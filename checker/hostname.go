@@ -66,12 +66,18 @@ func policyMatch(certName string, policyMx string) bool {
 		wildcardMatch(policyMx, certName)
 }
 
+func withoutPort(url string) string {
+	return url[0:strings.LastIndex(url, ":")]
+}
+
 // Checks certificate names against a list of expected MX patterns.
 // The expected MX patterns are in the format described by MTA-STS,
 // and validation is done according to this RFC as well.
 func hasValidName(names []string, hostname string) bool {
 	// If FQDN, might end with '.'; strip it!
 	hostname = strings.TrimSuffix(hostname, ".")
+	// If URL, might include port #; strip it!
+	hostname = withoutPort(hostname)
 	for _, name := range names {
 		if policyMatch(name, hostname) {
 			return true
