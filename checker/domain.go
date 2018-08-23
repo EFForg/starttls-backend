@@ -31,6 +31,27 @@ const (
 	DomainBadHostnameFailure DomainStatus = 6
 )
 
+// This interface allows us to mock the implementation
+// of the actual checker.
+type domainCheckQuery interface {
+	// Performs an MX lookup to resolve the hostnames for this domain.
+	lookupHostnames() ([]string, error)
+	// Performs a subcheck on the given hostname.
+	checkHostname(string) HostnameResult
+	// Returns the FQDN that we're checking.
+	getDomain() string
+	// Returns the hostname patterns that we expect.
+	getExpectedHostnames() []string
+}
+
+// DomainQuery wraps the parameters we need to perform a domain check.
+type DomainQuery struct {
+	// Domain being checked.
+	Domain string
+	// Expected hostnames in MX records for Domain
+	ExpectedHostnames []string
+}
+
 // DomainResult wraps all the results for a particular mail domain.
 type DomainResult struct {
 	// Domain being checked against.
@@ -41,13 +62,27 @@ type DomainResult struct {
 	Status DomainStatus `json:"status"`
 	// Results of this check, on each hostname.
 	HostnameResults map[string]HostnameResult `json:"results"`
-	// The list of hostnames which impact the Status of this result.
-	// Determined by the hostnames with the lowest MX priority.
-	PreferredHostnames []string `json:"preferred_hostnames"`
 	// Expected MX hostnames supplied by the caller of CheckDomain.
 	MxHostnames []string `json:"mx_hostnames,omitempty"`
 	// Extra global results
 	ExtraResults map[string]CheckResult `json:"extra_results,omitempty"`
+}
+
+func (d DomainQuery) getDomain() string {
+	return d.Domain
+}
+
+func (d DomainQuery) getExpectedHostnames() []string {
+	return d.ExpectedHostnames
+}
+
+func (d DomainQuery) checkHostname(hostname string) HostnameResult {
+	return CheckHostname(d.Domain, hostname)
+}
+
+func (d DomainResult) setStatus(status DomainStatus) DomainResult {
+	d.Status = DomainStatus(SetStatus(CheckStatus(d.Status), CheckStatus(status)))
+	return d
 }
 
 func lookupMXWithTimeout(domain string) ([]*net.MX, error) {
@@ -58,10 +93,10 @@ func lookupMXWithTimeout(domain string) ([]*net.MX, error) {
 	return r.LookupMX(ctx, domain)
 }
 
-func lookupHostnames(domain string) ([]string, error) {
-	domainASCII, err := idna.ToASCII(domain)
+func (d DomainQuery) lookupHostnames() ([]string, error) {
+	domainASCII, err := idna.ToASCII(d.Domain)
 	if err != nil {
-		return nil, fmt.Errorf("domain name %s couldn't be converted to ASCII", domain)
+		return nil, fmt.Errorf("domain name %s couldn't be converted to ASCII", d.Domain)
 	}
 	mxs, err := lookupMXWithTimeout(domainASCII)
 	if err != nil || len(mxs) == 0 {
@@ -84,46 +119,48 @@ func lookupHostnames(domain string) ([]string, error) {
 //
 //   `domain` is the mail domain to perform the lookup on.
 //   `mxHostnames` is the list of expected hostnames.
+//     If `mxHostnames` is nil, we don't validate the DNS lookup.
 func CheckDomain(domain string, mxHostnames []string) DomainResult {
+	return performCheck(&DomainQuery{Domain: domain, ExpectedHostnames: mxHostnames})
+}
+
+func performCheck(query domainCheckQuery) DomainResult {
+	result := DomainResult{
+		Domain:          query.getDomain(),
+		MxHostnames:     query.getExpectedHostnames(),
+		HostnameResults: make(map[string]HostnameResult),
+	}
 	// 1. Look up hostnames
 	// 2. Perform and aggregate checks from those hostnames.
 	// 3. Set a summary message.
-	result := DomainResult{Domain: domain, MxHostnames: mxHostnames}
-	hostnames, err := lookupHostnames(domain)
+	hostnames, err := query.lookupHostnames()
 	if err != nil {
 		return result.reportError(err)
 	}
 	checkedHostnames := make([]string, 0)
-	result.HostnameResults = make(map[string]HostnameResult)
 	for _, hostname := range hostnames {
-		result.HostnameResults[hostname] = CheckHostname(domain, hostname)
-		if result.HostnameResults[hostname].couldConnect() {
+		hostnameResult := query.checkHostname(hostname)
+		result.HostnameResults[hostname] = hostnameResult
+		if hostnameResult.couldConnect() {
 			checkedHostnames = append(checkedHostnames, hostname)
 		}
 	}
-	result.PreferredHostnames = checkedHostnames
-
 	// Derive Domain code from Hostname results.
 	// We couldn't connect to any of those hostnames.
 	if len(checkedHostnames) == 0 {
-		result.Status = DomainCouldNotConnect
-		return result
+		return result.setStatus(DomainCouldNotConnect)
 	}
 	for _, hostname := range checkedHostnames {
 		hostnameResult := result.HostnameResults[hostname]
 		// Any of the connected hostnames don't support STARTTLS.
 		if !hostnameResult.couldSTARTTLS() {
-			result.Status = DomainNoSTARTTLSFailure
-			return result
+			return result.setStatus(DomainNoSTARTTLSFailure)
 		}
 		// Any of the connected hostnames don't have a match?
-		if mxHostnames != nil && !hasValidName(mxHostnames, hostname) {
-			result.Status = DomainBadHostnameFailure
-			return result
+		if query.getExpectedHostnames() != nil && !hasValidName(query.getExpectedHostnames(), hostname) {
+			return result.setStatus(DomainBadHostnameFailure)
 		}
-		result.Status = DomainStatus(
-			SetStatus(CheckStatus(result.Status),
-				CheckStatus(result.HostnameResults[hostname].Status)))
+		result = result.setStatus(DomainStatus(hostnameResult.Status))
 	}
 	return result
 }

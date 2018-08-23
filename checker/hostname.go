@@ -67,7 +67,10 @@ func policyMatch(certName string, policyMx string) bool {
 }
 
 func withoutPort(url string) string {
-	return url[0:strings.LastIndex(url, ":")]
+	if strings.Contains(url, ":") {
+		return url[0:strings.LastIndex(url, ":")]
+	}
+	return url
 }
 
 // Checks certificate names against a list of expected MX patterns.
