@@ -236,6 +236,7 @@ func (db SQLDatabase) HostnamesForDomain(domain string) ([]string, error) {
 	return data.MXs, nil
 }
 
+// GetName retrieves a readable name for this data store (for use in error messages)
 func (db SQLDatabase) GetName() string {
 	return "SQL Database"
 }

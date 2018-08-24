@@ -3,6 +3,7 @@ package validator
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
@@ -38,17 +39,18 @@ func validateRegularly(v DomainPolicyStore, interval time.Duration,
 		<-time.After(interval)
 		domains, err := v.DomainsToValidate()
 		if err != nil {
-			// log error and skip this check.
+			log.Printf("[%s validator] Could not retrieve domains: %v", v.GetName(), err)
+			continue
 		}
 		for _, domain := range domains {
 			hostnames, err := v.HostnamesForDomain(domain)
 			if err != nil {
-				// log error and skip this check.
+				log.Printf("[%s validator] Could not retrieve policy for domain %s: %v", v.GetName(), domain, err)
+				continue
 			}
 			result := check(domain, hostnames)
 			if result.Status != 0 && report != nil {
 				report(v.GetName(), domain, result)
-				// and log to DB?
 			}
 		}
 	}
