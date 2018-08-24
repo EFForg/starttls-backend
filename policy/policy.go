@@ -82,6 +82,10 @@ func (l UpdatedList) HostnamesForDomain(domain string) ([]string, error) {
 	return policy.MXs, nil
 }
 
+func (l UpdatedList) GetName() string {
+	return "Policy List"
+}
+
 // Get safely reads from the underlying policy list and returns a TLSPolicy for a domain
 func (l UpdatedList) Get(domain string) (TLSPolicy, error) {
 	l.mu.RLock()

@@ -1,23 +1,42 @@
 package validator
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
+	"github.com/getsentry/raven-go"
 )
 
-var checkPerformer = checker.CheckDomain
-
-type Validatable interface {
+// DomainPolicyStore is an interface for any back-end that
+// stores a map of domains to its "policy" (in this case, just the
+// expected hostnames).
+type DomainPolicyStore interface {
+	GetName() string
 	DomainsToValidate() ([]string, error)
 	HostnamesForDomain(string) ([]string, error)
 }
 
-func ValidateRegularly(v Validatable, interval time.Duration) {
+func reportToSentry(name string, domain string, result checker.DomainResult) {
+	payload, _ := json.Marshal(result)
+	raven.CaptureError(fmt.Errorf(string(payload)),
+		map[string]string{
+			"validatorName": name,
+			"status":        fmt.Sprintf("%d", result.Status),
+		})
+}
+
+type checkPerformer func(string, []string) checker.DomainResult
+type reportFailure func(string, string, checker.DomainResult)
+
+// Helper function that's agnostic to how checks are performed how to
+// report failures. The two callbacks should only be used as test hooks.
+func validateRegularly(v DomainPolicyStore, interval time.Duration,
+	check checkPerformer, report reportFailure) {
 	for {
 		<-time.After(interval)
 		domains, err := v.DomainsToValidate()
-		failed := make(map[string]checker.DomainResult)
 		if err != nil {
 			// log error and skip this check.
 		}
@@ -26,11 +45,18 @@ func ValidateRegularly(v Validatable, interval time.Duration) {
 			if err != nil {
 				// log error and skip this check.
 			}
-			result := checkPerformer(domain, hostnames)
-			if result.Status != 0 {
-				failed[domain] = result
+			result := check(domain, hostnames)
+			if result.Status != 0 && report != nil {
+				report(v.GetName(), domain, result)
+				// and log to DB?
 			}
 		}
-		// Async log these to sentry.
 	}
+}
+
+// ValidateRegularly regularly runs checker.CheckDomain against a Domain-
+// Hostname map. Interval specifies the interval to wait between each run.
+// Failures are reported to Sentry.
+func ValidateRegularly(v DomainPolicyStore, interval time.Duration) {
+	validateRegularly(v, interval, checker.CheckDomain, reportToSentry)
 }

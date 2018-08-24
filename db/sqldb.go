@@ -235,3 +235,7 @@ func (db SQLDatabase) HostnamesForDomain(domain string) ([]string, error) {
 	}
 	return data.MXs, nil
 }
+
+func (db SQLDatabase) GetName() string {
+	return "SQL Database"
+}
