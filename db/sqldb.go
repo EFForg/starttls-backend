@@ -167,6 +167,9 @@ func (db SQLDatabase) GetDomain(domain string) (DomainData, error) {
 		domain).Scan(
 		&data.Name, &data.Email, &rawMXs, &data.State)
 	data.MXs = strings.Split(rawMXs, ",")
+	if len(rawMXs) == 0 {
+		data.MXs = []string{}
+	}
 	return data, err
 }
 
@@ -209,6 +212,8 @@ func (db SQLDatabase) ClearTables() error {
 	})
 }
 
+// DomainsToValidate [interface Validator] retrieves domains from the
+// DB whose policies should be validated.
 func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 	domains := []string{}
 	data, err := db.GetDomains(StateQueued)
@@ -221,6 +226,8 @@ func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 	return domains, nil
 }
 
+// HostnamesForDomain [interface Validator] retrieves the hostname policy for
+// a particular domain.
 func (db SQLDatabase) HostnamesForDomain(domain string) ([]string, error) {
 	data, err := db.GetDomain(domain)
 	if err != nil {
