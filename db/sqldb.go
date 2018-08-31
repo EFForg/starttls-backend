@@ -154,9 +154,9 @@ func (db SQLDatabase) GetAllScans(domain string) ([]ScanData, error) {
 func (db *SQLDatabase) PutDomain(domainData DomainData) error {
 	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status) "+
 		"VALUES($1, $2, $3, $4) "+
-		"ON CONFLICT (domain) DO UPDATE SET status=$5, last_updated=$6",
+		"ON CONFLICT (domain) DO UPDATE SET status=$5",
 		domainData.Name, domainData.Email, strings.Join(domainData.MXs[:], ","),
-		StateUnvalidated, domainData.State, time.Now())
+		StateUnvalidated, domainData.State)
 	return err
 }
 

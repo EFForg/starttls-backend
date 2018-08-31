@@ -23,14 +23,13 @@ CREATE TABLE IF NOT EXISTS domains
     domain       TEXT NOT NULL UNIQUE PRIMARY KEY,
     email        TEXT NOT NULL,
     data         TEXT NOT NULL,
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status       VARCHAR(255) NOT NULL
 );
 
 -- Schema change: add "last_updated" timestamp column if it doesn't exist.
 
-ALTER TABLE domains ADD COLUMN IF NOT EXISTS last_update ADD COLUMN
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE domains ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
 -- Create trigger to ensure last_updated is updated every time
 -- the corresponding row changes.
@@ -38,11 +37,18 @@ ALTER TABLE domains ADD COLUMN IF NOT EXISTS last_update ADD COLUMN
 CREATE OR REPLACE FUNCTION update_changetimestamp_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.last_update = now();
-    RETURN NEW;
+    IF row(NEW.*) IS DISTINCT FROM row(OLD.*) THEN
+        NEW.last_updated = now();
+        RETURN NEW;
+    ELSE
+        RETURN OLD;
+    END IF;
 END;
-$$ language 'plpgsql'
+$$ language 'plpgsql';
+
+DROP TRIGGER IF EXISTS update_change_timestamp ON domains;
 
 CREATE TRIGGER update_change_timestamp BEFORE UPDATE
-ON domains FOR EACH ROW EXECUTE PROCEDURE
-update_changetimestamp_column();
+    ON domains FOR EACH ROW EXECUTE PROCEDURE
+    update_changetimestamp_column();
+
