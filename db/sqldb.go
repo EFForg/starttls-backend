@@ -152,9 +152,11 @@ func (db SQLDatabase) GetAllScans(domain string) ([]ScanData, error) {
 // Subsequent puts with the same domain updates the row with the information in
 // the object provided.
 func (db *SQLDatabase) PutDomain(domainData DomainData) error {
-	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status) VALUES($1, $2, $3, $4) ON CONFLICT (domain) DO UPDATE SET status=$5",
+	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status) "+
+		"VALUES($1, $2, $3, $4) "+
+		"ON CONFLICT (domain) DO UPDATE SET status=$5, last_updated=$6",
 		domainData.Name, domainData.Email, strings.Join(domainData.MXs[:], ","),
-		StateUnvalidated, domainData.State)
+		StateUnvalidated, domainData.State, time.Now())
 	return err
 }
 
@@ -163,9 +165,9 @@ func (db *SQLDatabase) PutDomain(domainData DomainData) error {
 func (db SQLDatabase) GetDomain(domain string) (DomainData, error) {
 	data := DomainData{}
 	var rawMXs string
-	err := db.conn.QueryRow("SELECT domain, email, data, status FROM domains WHERE domain=$1",
+	err := db.conn.QueryRow("SELECT domain, email, data, status, last_updated FROM domains WHERE domain=$1",
 		domain).Scan(
-		&data.Name, &data.Email, &rawMXs, &data.State)
+		&data.Name, &data.Email, &rawMXs, &data.State, &data.LastUpdated)
 	data.MXs = strings.Split(rawMXs, ",")
 	return data, err
 }
@@ -173,7 +175,7 @@ func (db SQLDatabase) GetDomain(domain string) (DomainData, error) {
 // GetDomains retrieves all the domains which match a particular state.
 func (db SQLDatabase) GetDomains(state DomainState) ([]DomainData, error) {
 	rows, err := db.conn.Query(
-		"SELECT domain, email, status FROM domains WHERE status=$1", state)
+		"SELECT domain, email, data, status, last_updated FROM domains WHERE status=$1", state)
 	if err != nil {
 		return nil, err
 	}
@@ -181,9 +183,11 @@ func (db SQLDatabase) GetDomains(state DomainState) ([]DomainData, error) {
 	domains := []DomainData{}
 	for rows.Next() {
 		var domain DomainData
-		if err := rows.Scan(&domain.Name, &domain.Email, &domain.State); err != nil {
+		var rawMXs string
+		if err := rows.Scan(&domain.Name, &domain.Email, &rawMXs, &domain.State, &domain.LastUpdated); err != nil {
 			return nil, err
 		}
+		domain.MXs = strings.Split(rawMXs, ",")
 		domains = append(domains, domain)
 	}
 	return domains, nil
