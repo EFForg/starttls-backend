@@ -194,3 +194,47 @@ func TestPutTokenTwice(t *testing.T) {
 		t.Errorf("UseToken should not have succeeded with old token!\n")
 	}
 }
+
+func TestDomainsToValidate(t *testing.T) {
+	database.ClearTables()
+	queuedMap := map[string]bool{
+		"a": false, "b": true, "c": false, "d": true,
+	}
+	for domain, queued := range queuedMap {
+		if queued {
+			database.PutDomain(db.DomainData{Name: domain, State: db.StateQueued})
+		} else {
+			database.PutDomain(db.DomainData{Name: domain})
+		}
+	}
+	result, err := database.DomainsToValidate()
+	if err != nil {
+		t.Fatalf("DomainsToValidate failed: %v\n", err)
+	}
+	for _, domain := range result {
+		if !queuedMap[domain] {
+			t.Errorf("Did not expect %s to be returned", domain)
+		}
+	}
+}
+
+func TestHostnamesForDomain(t *testing.T) {
+	database.ClearTables()
+	database.PutDomain(db.DomainData{Name: "x", MXs: []string{"x.com", "y.org"}})
+	database.PutDomain(db.DomainData{Name: "y"})
+	result, err := database.HostnamesForDomain("x")
+	if err != nil {
+		t.Fatalf("HostnamesForDomain failed: %v\n", err)
+	}
+	if len(result) != 2 || result[0] != "x.com" || result[1] != "y.org" {
+		t.Errorf("Expected two hostnames, x.com and y.org\n")
+	}
+	result, err = database.HostnamesForDomain("y")
+	if err != nil {
+		t.Fatalf("HostnamesForDomain failed: %v\n", err)
+	}
+	if len(result) > 0 {
+		t.Errorf("Expected no hostnames to be returned, got %s\n", result[0])
+	}
+
+}

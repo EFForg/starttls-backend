@@ -12,6 +12,7 @@ import (
 
 	"github.com/EFForg/starttls-backend/db"
 	"github.com/EFForg/starttls-backend/policy"
+	"github.com/EFForg/starttls-backend/validator"
 
 	"github.com/getsentry/raven-go"
 	_ "github.com/joho/godotenv/autoload"
@@ -100,12 +101,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	list := policy.MakeUpdatedList()
 	api := API{
 		Database:    db,
 		CheckDomain: defaultCheck,
-		List:        policy.MakeUpdatedList(),
+		List:        list,
 		DontScan:    loadDontScan(),
 		Emailer:     emailConfig,
 	}
 	ServePublicEndpoints(&api, &cfg)
+	go validator.ValidateRegularly(list, 24*time.Hour)
+	go validator.ValidateRegularly(db, 24*time.Hour)
 }

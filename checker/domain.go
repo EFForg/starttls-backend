@@ -71,6 +71,12 @@ type DomainResult struct {
 	ExtraResults map[string]CheckResult `json:"extra_results,omitempty"`
 }
 
+// Class satisfies raven's Interface interface.
+// https://github.com/getsentry/raven-go/issues/125
+func (d DomainResult) Class() string {
+	return "extra"
+}
+
 type tlsChecker struct{}
 
 func (*tlsChecker) checkHostname(domain string, hostname string) HostnameResult {

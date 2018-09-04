@@ -167,6 +167,9 @@ func (db SQLDatabase) GetDomain(domain string) (DomainData, error) {
 		domain).Scan(
 		&data.Name, &data.Email, &rawMXs, &data.State)
 	data.MXs = strings.Split(rawMXs, ",")
+	if len(rawMXs) == 0 {
+		data.MXs = []string{}
+	}
 	return data, err
 }
 
@@ -207,4 +210,33 @@ func (db SQLDatabase) ClearTables() error {
 		fmt.Sprintf("DELETE FROM %s", db.cfg.DbTokenTable),
 		fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1", db.cfg.DbScanTable),
 	})
+}
+
+// DomainsToValidate [interface Validator] retrieves domains from the
+// DB whose policies should be validated.
+func (db SQLDatabase) DomainsToValidate() ([]string, error) {
+	domains := []string{}
+	data, err := db.GetDomains(StateQueued)
+	if err != nil {
+		return domains, err
+	}
+	for _, domainInfo := range data {
+		domains = append(domains, domainInfo.Name)
+	}
+	return domains, nil
+}
+
+// HostnamesForDomain [interface Validator] retrieves the hostname policy for
+// a particular domain.
+func (db SQLDatabase) HostnamesForDomain(domain string) ([]string, error) {
+	data, err := db.GetDomain(domain)
+	if err != nil {
+		return []string{}, err
+	}
+	return data.MXs, nil
+}
+
+// GetName retrieves a readable name for this data store (for use in error messages)
+func (db SQLDatabase) GetName() string {
+	return "SQL Database"
 }
