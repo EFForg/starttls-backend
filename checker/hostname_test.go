@@ -53,7 +53,7 @@ func TestPolicyMatch(t *testing.T) {
 }
 
 func TestNoConnection(t *testing.T) {
-	result := CheckHostname("", "example.com", nil)
+	result := CheckHostname("", "example.com")
 
 	expected := HostnameResult{
 		Status: 3,
@@ -68,7 +68,7 @@ func TestNoTLS(t *testing.T) {
 	ln := smtpListenAndServe(t, &tls.Config{})
 	defer ln.Close()
 
-	result := CheckHostname("", ln.Addr().String(), nil)
+	result := CheckHostname("", ln.Addr().String())
 
 	expected := HostnameResult{
 		Status: 2,
@@ -88,7 +88,7 @@ func TestSelfSigned(t *testing.T) {
 	ln := smtpListenAndServe(t, &tls.Config{Certificates: []tls.Certificate{cert}})
 	defer ln.Close()
 
-	result := CheckHostname("", ln.Addr().String(), nil)
+	result := CheckHostname("", ln.Addr().String())
 
 	expected := HostnameResult{
 		Status: 2,
@@ -114,7 +114,7 @@ func TestNoTLS12(t *testing.T) {
 	})
 	defer ln.Close()
 
-	result := CheckHostname("", ln.Addr().String(), nil)
+	result := CheckHostname("", ln.Addr().String())
 
 	expected := HostnameResult{
 		Status: 2,
@@ -142,13 +142,50 @@ func TestSuccessWithFakeCA(t *testing.T) {
 		certRoots = nil
 	}()
 
-	result := CheckHostname("", ln.Addr().String(), nil)
+	// Our test cert happens to be valid for hostname "localhost",
+	// so here we replace the loopback address with "localhost" while
+	// conserving the port number.
+	addrParts := strings.Split(ln.Addr().String(), ":")
+	port := addrParts[len(addrParts)-1]
+	result := CheckHostname("", "localhost:"+port)
 	expected := HostnameResult{
 		Status: 0,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
 			"starttls":     {"starttls", 0, nil},
 			"certificate":  {"certificate", 0, nil},
+			"version":      {"version", 0, nil},
+		},
+	}
+	compareStatuses(t, expected, result)
+}
+
+func TestFailureWithBadHostname(t *testing.T) {
+	cert, err := tls.X509KeyPair([]byte(certString), []byte(key))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln := smtpListenAndServe(t, &tls.Config{Certificates: []tls.Certificate{cert}})
+	defer ln.Close()
+
+	certRoots, _ = x509.SystemCertPool()
+	certRoots.AppendCertsFromPEM([]byte(certStringHostnameMismatch))
+	defer func() {
+		certRoots = nil
+	}()
+
+	// Our test cert happens to be valid for hostname "localhost",
+	// so here we replace the loopback address with "localhost" while
+	// conserving the port number.
+	addrParts := strings.Split(ln.Addr().String(), ":")
+	port := addrParts[len(addrParts)-1]
+	result := CheckHostname("", "localhost:"+port)
+	expected := HostnameResult{
+		Status: 2,
+		Checks: map[string]CheckResult{
+			"connectivity": {"connectivity", 0, nil},
+			"starttls":     {"starttls", 0, nil},
+			"certificate":  {"certificate", 2, nil},
 			"version":      {"version", 0, nil},
 		},
 	}
@@ -182,7 +219,7 @@ func TestAdvertisedCiphers(t *testing.T) {
 
 	ln := smtpListenAndServe(t, tlsConfig)
 	defer ln.Close()
-	CheckHostname("", ln.Addr().String(), nil)
+	CheckHostname("", ln.Addr().String())
 
 	// Partial list of ciphers we want to support
 	expectedCipherSuites := []struct {
@@ -235,7 +272,7 @@ func smtpListenAndServe(t *testing.T, tlsConfig *tls.Config) net.Listener {
 	}
 	srv.TLSConfig = tlsConfig
 
-	ln, err := net.Listen("tcp", ":0")
+	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,11 +291,28 @@ func smtpListenAndServe(t *testing.T, tlsConfig *tls.Config) net.Listener {
 
 func noopHandler(_ net.Addr, _ string, _ []string, _ []byte) {}
 
-// Commands to generate the self-signed certificate below:
+// Commands to generate the self-signed certificates below:
 //	openssl req -new -key server.key -out server.csr
 //	openssl x509 -req -in server.csr -signkey server.key -out server.crt
+// certString was created with a CN of "localhost"; certStringHostnameMismatch
+// has an empty/no CN.
 
 const certString = `-----BEGIN CERTIFICATE-----
+MIICKTCCAZICCQDPUsAOcVJx1jANBgkqhkiG9w0BAQsFADBZMQswCQYDVQQGEwJB
+VTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50ZXJuZXQgV2lkZ2l0
+cyBQdHkgTHRkMRIwEAYDVQQDDAlsb2NhbGhvc3QwHhcNMTgwODIzMTkxOTA5WhcN
+MTgwOTIyMTkxOTA5WjBZMQswCQYDVQQGEwJBVTETMBEGA1UECAwKU29tZS1TdGF0
+ZTEhMB8GA1UECgwYSW50ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMRIwEAYDVQQDDAls
+b2NhbGhvc3QwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBALsGFO2tmSAPtDR8
+YccGXhNGsQU7YqY33cxVl1OhvZLefBawVSho/0nHhaxDQX4zA/acpNLnYu9MKo/I
+P1UWn1dLnYy2rpzKUr5ROQoBCdJW7XiDl1LSABsz3XjPE7U0Wn/0LiIKLSpopbM8
+IYsIgSiqRvv4eVhB6QGQkdHdPOrdAgMBAAEwDQYJKoZIhvcNAQELBQADgYEAPnEv
+WWNtNYJJmTQAzVUmYmuVQB1Fff9k8Cw1lrkQotmc8G/LVICeaec84Bcr1hYc7LJ4
+SBp7ymERslpEeZCrFiAG/hMB+icCpPdbbAkjVW3/Yo2/SgKhak7iZvszme1NraZm
+BlzuYy3PFsuUU45cRIPBsoygZ498JwrVn9/WeAM=
+-----END CERTIFICATE-----`
+
+const certStringHostnameMismatch = `-----BEGIN CERTIFICATE-----
 MIIBkDCB+gIJAP/G75+MvzSQMA0GCSqGSIb3DQEBBQUAMA0xCzAJBgNVBAYTAlVT
 MB4XDTE4MDcyNjE2NDM0MloXDTE4MDgyNTE2NDM0MlowDTELMAkGA1UEBhMCVVMw
 gZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBALsGFO2tmSAPtDR8YccGXhNGsQU7
