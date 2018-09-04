@@ -43,14 +43,14 @@ var hostnameResults = map[string]HostnameResult{
 type mockLookup struct{}
 type mockChecker struct{}
 
-func (*mockLookup) lookup(domain string) ([]string, error) {
+func (*mockLookup) lookupHostname(domain string) ([]string, error) {
 	if domain == "error" {
 		return nil, fmt.Errorf("No MX records found")
 	}
 	return mxLookup[domain], nil
 }
 
-func (*mockChecker) check(domain string, hostname string) HostnameResult {
+func (*mockChecker) checkHostname(domain string, hostname string) HostnameResult {
 	if result, ok := hostnameResults[hostname]; ok {
 		return result
 	}

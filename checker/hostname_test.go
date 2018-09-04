@@ -145,8 +145,9 @@ func TestSuccessWithFakeCA(t *testing.T) {
 	// Our test cert happens to be valid for hostname "localhost",
 	// so here we replace the loopback address with "localhost" while
 	// conserving the port number.
-	port := strings.TrimPrefix(ln.Addr().String(), "127.0.0.1")
-	result := CheckHostname("", "localhost"+port)
+	addrParts := strings.Split(ln.Addr().String(), ":")
+	port := addrParts[len(addrParts)-1]
+	result := CheckHostname("", "localhost:"+port)
 	expected := HostnameResult{
 		Status: 0,
 		Checks: map[string]CheckResult{
@@ -176,8 +177,9 @@ func TestFailureWithBadHostname(t *testing.T) {
 	// Our test cert happens to be valid for hostname "localhost",
 	// so here we replace the loopback address with "localhost" while
 	// conserving the port number.
-	port := strings.TrimPrefix(ln.Addr().String(), "127.0.0.1")
-	result := CheckHostname("", "localhost"+port)
+	addrParts := strings.Split(ln.Addr().String(), ":")
+	port := addrParts[len(addrParts)-1]
+	result := CheckHostname("", "localhost:"+port)
 	expected := HostnameResult{
 		Status: 2,
 		Checks: map[string]CheckResult{

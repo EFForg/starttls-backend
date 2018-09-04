@@ -44,12 +44,12 @@ type DomainQuery struct {
 
 // Looks up what hostnames are correlated with a particular domain.
 type hostnameLookup interface {
-	lookup(string) ([]string, error)
+	lookupHostname(string) ([]string, error)
 }
 
 // Performs a series of checks on a particular domain, hostname combo.
 type hostnameChecker interface {
-	check(string, string) HostnameResult
+	checkHostname(string, string) HostnameResult
 }
 
 // DomainResult wraps all the results for a particular mail domain.
@@ -73,7 +73,7 @@ type DomainResult struct {
 
 type tlsChecker struct{}
 
-func (*tlsChecker) check(domain string, hostname string) HostnameResult {
+func (*tlsChecker) checkHostname(domain string, hostname string) HostnameResult {
 	return CheckHostname(domain, hostname)
 }
 
@@ -92,7 +92,7 @@ func lookupMXWithTimeout(domain string) ([]*net.MX, error) {
 
 type dnsLookup struct{}
 
-func (*dnsLookup) lookup(domain string) ([]string, error) {
+func (*dnsLookup) lookupHostname(domain string) ([]string, error) {
 	domainASCII, err := idna.ToASCII(domain)
 	if err != nil {
 		return nil, fmt.Errorf("domain name %s couldn't be converted to ASCII", domain)
@@ -137,13 +137,13 @@ func performCheck(query DomainQuery) DomainResult {
 	// 1. Look up hostnames
 	// 2. Perform and aggregate checks from those hostnames.
 	// 3. Set a summary message.
-	hostnames, err := query.hostnameLookup.lookup(query.Domain)
+	hostnames, err := query.lookupHostname(query.Domain)
 	if err != nil {
 		return result.reportError(err)
 	}
 	checkedHostnames := make([]string, 0)
 	for _, hostname := range hostnames {
-		hostnameResult := query.hostnameChecker.check(query.Domain, hostname)
+		hostnameResult := query.checkHostname(query.Domain, hostname)
 		result.HostnameResults[hostname] = hostnameResult
 		if hostnameResult.couldConnect() {
 			checkedHostnames = append(checkedHostnames, hostname)
