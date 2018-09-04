@@ -1,7 +1,6 @@
 package validator
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -20,12 +19,13 @@ type DomainPolicyStore interface {
 }
 
 func reportToSentry(name string, domain string, result checker.DomainResult) {
-	payload, _ := json.Marshal(result)
-	raven.CaptureError(fmt.Errorf(string(payload)),
+	raven.CaptureMessageAndWait("Validation failed for previously validated domain",
 		map[string]string{
 			"validatorName": name,
+			"domain":        result.Domain,
 			"status":        fmt.Sprintf("%d", result.Status),
-		})
+		},
+		result)
 }
 
 type checkPerformer func(string, []string) checker.DomainResult

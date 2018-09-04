@@ -49,6 +49,12 @@ type DomainResult struct {
 	ExtraResults map[string]CheckResult `json:"extra_results,omitempty"`
 }
 
+// Class satisfies raven's Interface interface.
+// https://github.com/getsentry/raven-go/issues/125
+func (d DomainResult) Class() string {
+	return "extra"
+}
+
 func lookupMXWithTimeout(domain string) ([]*net.MX, error) {
 	const timeout = 2 * time.Second
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
