@@ -1,14 +1,47 @@
 package checker
 
 import (
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
+	"math/big"
 	"net"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mhale/smtpd"
 )
+
+func TestMain(m *testing.M) {
+	certString = createCert(key, "localhost")
+	certStringHostnameMismatch = createCert(key, "you_give_love_a_bad_name")
+	code := m.Run()
+	os.Exit(code)
+}
+
+// Code follows pattern from crypto/tls/generate_cert.go
+// to generate a cert from a PEM-encoded RSA private key.
+func createCert(keyData string, commonName string) string {
+	// 1. Convert privkey from PEM to DER.
+	block, _ := pem.Decode([]byte(key))
+	privKey, _ := x509.ParsePKCS1PrivateKey(block.Bytes)
+	// 2. Generate cert with private key.
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(0),
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(time.Minute),
+		IsCA:         true,
+		DNSNames:     []string{commonName},
+	}
+	certDER, _ := x509.CreateCertificate(rand.Reader, &template, &template, &(privKey.PublicKey), privKey)
+	// 3. Convert cert to PEM format (for consumption by crypto/tls)
+	b := pem.Block{Type: "CERTIFICATE", Bytes: certDER}
+	certPEM := pem.EncodeToMemory(&b)
+	return string(certPEM)
+}
 
 func TestPolicyMatch(t *testing.T) {
 	var tests = []struct {
@@ -291,38 +324,8 @@ func smtpListenAndServe(t *testing.T, tlsConfig *tls.Config) net.Listener {
 
 func noopHandler(_ net.Addr, _ string, _ []string, _ []byte) {}
 
-// Commands to generate the self-signed certificates below:
-//	openssl req -new -key server.key -out server.csr
-//	openssl x509 -req -in server.csr -signkey server.key -out server.crt
-// certString was created with a CN of "localhost"; certStringHostnameMismatch
-// has an empty/no CN.
-
-const certString = `-----BEGIN CERTIFICATE-----
-MIICKTCCAZICCQDPUsAOcVJx1jANBgkqhkiG9w0BAQsFADBZMQswCQYDVQQGEwJB
-VTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50ZXJuZXQgV2lkZ2l0
-cyBQdHkgTHRkMRIwEAYDVQQDDAlsb2NhbGhvc3QwHhcNMTgwODIzMTkxOTA5WhcN
-MTgwOTIyMTkxOTA5WjBZMQswCQYDVQQGEwJBVTETMBEGA1UECAwKU29tZS1TdGF0
-ZTEhMB8GA1UECgwYSW50ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMRIwEAYDVQQDDAls
-b2NhbGhvc3QwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBALsGFO2tmSAPtDR8
-YccGXhNGsQU7YqY33cxVl1OhvZLefBawVSho/0nHhaxDQX4zA/acpNLnYu9MKo/I
-P1UWn1dLnYy2rpzKUr5ROQoBCdJW7XiDl1LSABsz3XjPE7U0Wn/0LiIKLSpopbM8
-IYsIgSiqRvv4eVhB6QGQkdHdPOrdAgMBAAEwDQYJKoZIhvcNAQELBQADgYEAPnEv
-WWNtNYJJmTQAzVUmYmuVQB1Fff9k8Cw1lrkQotmc8G/LVICeaec84Bcr1hYc7LJ4
-SBp7ymERslpEeZCrFiAG/hMB+icCpPdbbAkjVW3/Yo2/SgKhak7iZvszme1NraZm
-BlzuYy3PFsuUU45cRIPBsoygZ498JwrVn9/WeAM=
------END CERTIFICATE-----`
-
-const certStringHostnameMismatch = `-----BEGIN CERTIFICATE-----
-MIIBkDCB+gIJAP/G75+MvzSQMA0GCSqGSIb3DQEBBQUAMA0xCzAJBgNVBAYTAlVT
-MB4XDTE4MDcyNjE2NDM0MloXDTE4MDgyNTE2NDM0MlowDTELMAkGA1UEBhMCVVMw
-gZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGBALsGFO2tmSAPtDR8YccGXhNGsQU7
-YqY33cxVl1OhvZLefBawVSho/0nHhaxDQX4zA/acpNLnYu9MKo/IP1UWn1dLnYy2
-rpzKUr5ROQoBCdJW7XiDl1LSABsz3XjPE7U0Wn/0LiIKLSpopbM8IYsIgSiqRvv4
-eVhB6QGQkdHdPOrdAgMBAAEwDQYJKoZIhvcNAQEFBQADgYEAIbh+2deYaUdQ2w9Z
-h/HDykuWhf452E/QGx2ltiEB4hj/ggxn5Hho0W5+nAjc3HRa16B0UvmyBSxSFG47
-8E0+wATR37GHenDLtTgIAEv3Ax7ojTsSYI7ssm+USkhd8GfeCzNWYGO4KAUuWS1r
-CFPY0q3dB4ltPdEVfgGNZYTRqIU=
------END CERTIFICATE-----`
+var certString string
+var certStringHostnameMismatch string
 
 const key = `-----BEGIN RSA PRIVATE KEY-----
 MIICXQIBAAKBgQC7BhTtrZkgD7Q0fGHHBl4TRrEFO2KmN93MVZdTob2S3nwWsFUo
