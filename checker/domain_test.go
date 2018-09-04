@@ -38,22 +38,19 @@ var hostnameResults = map[string]HostnameResult{
 	},
 }
 
-// Mock query object that also fulfills the DomainQuery interface.
-type mockQuery struct {
-	Domain            string
-	ExpectedHostnames []string
-}
+// Mock implementation for lookup and checker
 
-// Mock implementation for mockQuery.
+type mockLookup struct{}
+type mockChecker struct{}
 
-func (q mockQuery) lookupHostnames() ([]string, error) {
-	if q.Domain == "error" {
+func (*mockLookup) lookup(domain string) ([]string, error) {
+	if domain == "error" {
 		return nil, fmt.Errorf("No MX records found")
 	}
-	return mxLookup[q.Domain], nil
+	return mxLookup[domain], nil
 }
 
-func (q mockQuery) checkHostname(hostname string) HostnameResult {
+func (*mockChecker) check(domain string, hostname string) HostnameResult {
 	if result, ok := hostnameResults[hostname]; ok {
 		return result
 	}
@@ -63,14 +60,6 @@ func (q mockQuery) checkHostname(hostname string) HostnameResult {
 		"starttls":     {"starttls", 0, nil},
 		"certificate":  {"certificate", 0, nil},
 		"version":      {"version", 0, nil}}}
-}
-
-func (q mockQuery) getDomain() string {
-	return q.Domain
-}
-
-func (q mockQuery) getExpectedHostnames() []string {
-	return q.ExpectedHostnames
 }
 
 // Test helpers.
@@ -97,7 +86,12 @@ func performTests(t *testing.T, tests []domainTestCase) {
 		if test.expectedHostnames == nil {
 			test.expectedHostnames = mxLookup[test.domain]
 		}
-		got := performCheck(mockQuery{Domain: test.domain, ExpectedHostnames: test.expectedHostnames}).Status
+		got := performCheck(DomainQuery{
+			Domain:            test.domain,
+			ExpectedHostnames: test.expectedHostnames,
+			hostnameLookup:    &mockLookup{},
+			hostnameChecker:   &mockChecker{},
+		}).Status
 		test.check(t, got)
 	}
 }

@@ -142,10 +142,11 @@ func TestSuccessWithFakeCA(t *testing.T) {
 		certRoots = nil
 	}()
 
-	addrParts := strings.Split(ln.Addr().String(), ":")
-	port := addrParts[len(addrParts)-1]
-
-	result := CheckHostname("", strings.Join([]string{"localhost", port}, ":"))
+	// Our test cert happens to be valid for hostname "localhost",
+	// so here we replace the loopback address with "localhost" while
+	// conserving the port number.
+	port := strings.TrimPrefix(ln.Addr().String(), "127.0.0.1")
+	result := CheckHostname("", "localhost"+port)
 	expected := HostnameResult{
 		Status: 0,
 		Checks: map[string]CheckResult{
@@ -172,10 +173,11 @@ func TestFailureWithBadHostname(t *testing.T) {
 		certRoots = nil
 	}()
 
-	addrParts := strings.Split(ln.Addr().String(), ":")
-	port := addrParts[len(addrParts)-1]
-
-	result := CheckHostname("", strings.Join([]string{"localhost", port}, ":"))
+	// Our test cert happens to be valid for hostname "localhost",
+	// so here we replace the loopback address with "localhost" while
+	// conserving the port number.
+	port := strings.TrimPrefix(ln.Addr().String(), "127.0.0.1")
+	result := CheckHostname("", "localhost"+port)
 	expected := HostnameResult{
 		Status: 2,
 		Checks: map[string]CheckResult{
@@ -268,7 +270,7 @@ func smtpListenAndServe(t *testing.T, tlsConfig *tls.Config) net.Listener {
 	}
 	srv.TLSConfig = tlsConfig
 
-	ln, err := net.Listen("tcp", ":0")
+	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}
