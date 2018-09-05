@@ -55,10 +55,7 @@ func (api API) GetList(r *http.Request) APIResponse {
 
 // SyncList manually syncs the list state into the database state.
 func (api API) SyncList(r *http.Request) APIResponse {
-	list, err := policy.FetchListHTTP()
-	if err != nil {
-		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
-	}
+	list := api.List.Raw()
 	queued, err := api.Database.GetDomains(db.StateQueued)
 	if err != nil {
 		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
