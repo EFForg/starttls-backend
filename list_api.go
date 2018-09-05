@@ -33,12 +33,9 @@ func getNumberParam(r *http.Request, paramName string, defaultNumber int) int {
 func (api API) GetList(r *http.Request) APIResponse {
 	expire_weeks := getNumberParam(r, "expire_weeks", 2)
 	queued_weeks := getNumberParam(r, "queued_weeks", 1)
-	list, err := policy.FetchListHTTP()
+	list := api.List.Raw()
 	list.Timestamp = time.Now()
 	list.Expires = list.Timestamp.Add(time.Hour * 24 * 7 * time.Duration(expire_weeks))
-	if err != nil {
-		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
-	}
 	queued, err := api.Database.GetDomains(db.StateQueued)
 	if err != nil {
 		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
