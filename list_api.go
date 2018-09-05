@@ -31,16 +31,16 @@ func getNumberParam(r *http.Request, paramName string, defaultNumber int) int {
 //       queued_weeks: for at least how many weeks should domains on the resulting list
 //                     have been queued? if unset or invalid, defaults to 1.
 func (api API) GetList(r *http.Request) APIResponse {
-	expire_weeks := getNumberParam(r, "expire_weeks", 2)
-	queued_weeks := getNumberParam(r, "queued_weeks", 1)
+	expireWeeks := getNumberParam(r, "expire_weeks", 2)
+	queuedWeeks := getNumberParam(r, "queued_weeks", 1)
 	list := api.List.Raw()
 	list.Timestamp = time.Now()
-	list.Expires = list.Timestamp.Add(time.Hour * 24 * 7 * time.Duration(expire_weeks))
+	list.Expires = list.Timestamp.Add(time.Hour * 24 * 7 * time.Duration(expireWeeks))
 	queued, err := api.Database.GetDomains(db.StateQueued)
 	if err != nil {
 		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 	}
-	cutoffTime := time.Now().Add(-time.Hour * 24 * 7 * time.Duration(queued_weeks))
+	cutoffTime := time.Now().Add(-time.Hour * 24 * 7 * time.Duration(queuedWeeks))
 	for _, domainData := range queued {
 		if domainData.LastUpdated.After(cutoffTime) {
 			continue

@@ -40,6 +40,7 @@ type List struct {
 	Policies      map[string]TLSPolicy `json:"policies"`
 }
 
+// Add adds a particular domain's policy to the list.
 func (l *List) Add(domain string, policy TLSPolicy) {
 	l.Policies[domain] = policy
 }
@@ -101,6 +102,7 @@ func (l UpdatedList) Get(domain string) (TLSPolicy, error) {
 	return l.get(domain)
 }
 
+// Raw returns a raw List struct, copied from the underlying one
 func (l UpdatedList) Raw() List {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
