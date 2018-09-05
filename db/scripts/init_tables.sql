@@ -27,6 +27,15 @@ CREATE TABLE IF NOT EXISTS domains
     status       VARCHAR(255) NOT NULL
 );
 
+
+CREATE TABLE IF NOT EXISTS blacklisted_emails
+(
+    id          SERIAL PRIMARY KEY,
+    email       TEXT NOT NULL,
+    reason      TEXT NOT NULL,
+    timestamp   TIMESTAMP
+);
+
 -- Schema change: add "last_updated" timestamp column if it doesn't exist.
 
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP;

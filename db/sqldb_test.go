@@ -272,3 +272,31 @@ func TestHostnamesForDomain(t *testing.T) {
 		t.Errorf("Expected no hostnames to be returned, got %s\n", result[0])
 	}
 }
+
+func TestPutAndIsBlacklistedEmail(t *testing.T) {
+	defer database.ClearTables()
+
+	// Add an e-mail address to the blacklist.
+	err := database.PutBlacklistedEmail("fail@example.com", "bounce", "2017-07-21T18:47:13.498Z")
+	if err != nil {
+		t.Errorf("PutBlacklistedEmail failed: %v\n", err)
+	}
+
+	// Check that the email address was blacklisted.
+	blacklisted, err := database.IsBlacklistedEmail("fail@example.com")
+	if err != nil {
+		t.Errorf("IsBlacklistedEmail failed: %v\n", err)
+	}
+	if !blacklisted {
+		t.Errorf("fail@example.com should be blacklisted, but wasn't")
+	}
+
+	// Check that an un-added email address is not blacklisted.
+	blacklisted, err = database.IsBlacklistedEmail("good@example.com")
+	if err != nil {
+		t.Errorf("IsBlacklistedEmail failed: %v\n", err)
+	}
+	if blacklisted {
+		t.Errorf("good@example.com should not be blacklisted, but was")
+	}
+}
