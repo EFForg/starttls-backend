@@ -195,6 +195,41 @@ func TestPutTokenTwice(t *testing.T) {
 	}
 }
 
+func TestLastUpdatedFieldUpdates(t *testing.T) {
+	database.ClearTables()
+	data := db.DomainData{
+		Name:  "testing.com",
+		Email: "admin@testing.com",
+		State: db.StateUnvalidated,
+	}
+	database.PutDomain(data)
+	retrievedData, _ := database.GetDomain(data.Name)
+	lastUpdated := retrievedData.LastUpdated
+	data.State = db.StateQueued
+	database.PutDomain(db.DomainData{Name: data.Name, Email: "new fone who dis"})
+	retrievedData, _ = database.GetDomain(data.Name)
+	if lastUpdated.Equal(retrievedData.LastUpdated) {
+		t.Errorf("Expected last_updated to be updated on change: %v", lastUpdated)
+	}
+}
+
+func TestLastUpdatedFieldDoesntUpdate(t *testing.T) {
+	database.ClearTables()
+	data := db.DomainData{
+		Name:  "testing.com",
+		Email: "admin@testing.com",
+		State: db.StateUnvalidated,
+	}
+	database.PutDomain(data)
+	retrievedData, _ := database.GetDomain(data.Name)
+	lastUpdated := retrievedData.LastUpdated
+	database.PutDomain(data)
+	retrievedData, _ = database.GetDomain(data.Name)
+	if !lastUpdated.Equal(retrievedData.LastUpdated) {
+		t.Errorf("Expected last_updated to stay the same if no changes were made")
+	}
+}
+
 func TestDomainsToValidate(t *testing.T) {
 	database.ClearTables()
 	queuedMap := map[string]bool{
@@ -236,5 +271,4 @@ func TestHostnamesForDomain(t *testing.T) {
 	if len(result) > 0 {
 		t.Errorf("Expected no hostnames to be returned, got %s\n", result[0])
 	}
-
 }
