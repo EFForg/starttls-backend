@@ -12,11 +12,10 @@ import (
 
 // HostnameResult wraps the results of a security check against a particular hostname.
 type HostnameResult struct {
-	Domain      string                 `json:"domain"`
-	Hostname    string                 `json:"hostname"`
-	MxHostnames []string               `json:"mx_hostnames,omitempty"`
-	Status      CheckStatus            `json:"status"`
-	Checks      map[string]CheckResult `json:"checks"`
+	Domain   string                 `json:"domain"`
+	Hostname string                 `json:"hostname"`
+	Status   CheckStatus            `json:"status"`
+	Checks   map[string]CheckResult `json:"checks"`
 }
 
 // Returns result of specifiedcheck.
@@ -67,15 +66,24 @@ func policyMatch(certName string, policyMx string) bool {
 		wildcardMatch(policyMx, certName)
 }
 
+func withoutPort(url string) string {
+	if strings.Contains(url, ":") {
+		return url[0:strings.LastIndex(url, ":")]
+	}
+	return url
+}
+
 // Checks certificate names against a list of expected MX patterns.
 // The expected MX patterns are in the format described by MTA-STS,
 // and validation is done according to this RFC as well.
-func hasValidName(certNames []string, mxs []string) bool {
-	for _, mx := range mxs {
-		for _, certName := range certNames {
-			if policyMatch(certName, mx) {
-				return true
-			}
+func hasValidName(names []string, hostname string) bool {
+	// If FQDN, might end with '.'; strip it!
+	hostname = strings.TrimSuffix(hostname, ".")
+	// If URL, might include port #; strip it!
+	hostname = withoutPort(hostname)
+	for _, name := range names {
+		if policyMatch(name, hostname) {
+			return true
 		}
 	}
 	return false
@@ -163,18 +171,15 @@ var certRoots *x509.CertPool
 
 // Checks that the certificate presented is valid for a particular hostname, unexpired,
 // and chains to a trusted root.
-func checkCert(client *smtp.Client, domain, hostname string, mxHostnames []string) CheckResult {
+func checkCert(client *smtp.Client, domain, hostname string) CheckResult {
 	result := CheckResult{Name: "certificate"}
 	state, ok := client.TLSConnectionState()
 	if !ok {
 		return result.Error("TLS not initiated properly.")
 	}
 	cert := state.PeerCertificates[0]
-	if len(mxHostnames) == 0 {
-		mxHostnames = defaultValidMX(domain, hostname)
-	}
-	if !hasValidName(getNamesFromCert(cert), mxHostnames) {
-		result = result.Failure("Name in cert doesn't match any MX hostnames.")
+	if !hasValidName(getNamesFromCert(cert), hostname) {
+		result = result.Failure("Name in cert doesn't match hostname.")
 	}
 	err := verifyCertChain(state)
 	if err != nil {
@@ -251,15 +256,12 @@ func (h *HostnameResult) addCheck(checkResult CheckResult) {
 // CheckHostname performs a series of checks against a hostname for an email domain.
 // `domain` is the mail domain that this server serves email for.
 // `hostname` is the hostname for this server.
-// `mxHostnames` is a list of MX patterns that `hostname` (and the associated TLS certificate)
-//     can be valid for. If this is nil, then defaults to [`domain`, `hostname`].
-func CheckHostname(domain string, hostname string, mxHostnames []string) HostnameResult {
+func CheckHostname(domain string, hostname string) HostnameResult {
 	result := HostnameResult{
-		Status:      Success,
-		Domain:      domain,
-		Hostname:    hostname,
-		MxHostnames: mxHostnames,
-		Checks:      make(map[string]CheckResult),
+		Status:   Success,
+		Domain:   domain,
+		Hostname: hostname,
+		Checks:   make(map[string]CheckResult),
 	}
 
 	// Connect to the SMTP server and use that connection to perform as many checks as possible.
@@ -276,7 +278,7 @@ func CheckHostname(domain string, hostname string, mxHostnames []string) Hostnam
 	if result.Status != Success {
 		return result
 	}
-	result.addCheck(checkCert(client, domain, hostname, mxHostnames))
+	result.addCheck(checkCert(client, domain, hostname))
 	// result.addCheck(checkTLSCipher(hostname))
 
 	// Creates a new connection to check for SSLv2/3 support because we can't call starttls twice.

@@ -63,6 +63,33 @@ type UpdatedList struct {
 	list
 }
 
+// DomainsToValidate [interface Validator] retrieves domains from the
+// DB whose policies should be validated.
+func (l UpdatedList) DomainsToValidate() ([]string, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	domains := []string{}
+	for domain := range l.Policies {
+		domains = append(domains, domain)
+	}
+	return domains, nil
+}
+
+// HostnamesForDomain [interface Validator] retrieves the hostname policy for
+// a particular domain.
+func (l UpdatedList) HostnamesForDomain(domain string) ([]string, error) {
+	policy, err := l.Get(domain)
+	if err != nil {
+		return []string{}, err
+	}
+	return policy.MXs, nil
+}
+
+// GetName retrieves a readable name for this data store (for use in error messages)
+func (l UpdatedList) GetName() string {
+	return "Policy List"
+}
+
 // Get safely reads from the underlying policy list and returns a TLSPolicy for a domain
 func (l UpdatedList) Get(domain string) (TLSPolicy, error) {
 	l.mu.RLock()

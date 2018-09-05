@@ -1,14 +1,47 @@
 package checker
 
 import (
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
+	"math/big"
 	"net"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mhale/smtpd"
 )
+
+func TestMain(m *testing.M) {
+	certString = createCert(key, "localhost")
+	certStringHostnameMismatch = createCert(key, "you_give_love_a_bad_name")
+	code := m.Run()
+	os.Exit(code)
+}
+
+// Code follows pattern from crypto/tls/generate_cert.go
+// to generate a cert from a PEM-encoded RSA private key.
+func createCert(keyData string, commonName string) string {
+	// 1. Convert privkey from PEM to DER.
+	block, _ := pem.Decode([]byte(key))
+	privKey, _ := x509.ParsePKCS1PrivateKey(block.Bytes)
+	// 2. Generate cert with private key.
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(0),
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(time.Minute),
+		IsCA:         true,
+		DNSNames:     []string{commonName},
+	}
+	certDER, _ := x509.CreateCertificate(rand.Reader, &template, &template, &(privKey.PublicKey), privKey)
+	// 3. Convert cert to PEM format (for consumption by crypto/tls)
+	b := pem.Block{Type: "CERTIFICATE", Bytes: certDER}
+	certPEM := pem.EncodeToMemory(&b)
+	return string(certPEM)
+}
 
 func TestPolicyMatch(t *testing.T) {
 	var tests = []struct {
@@ -53,7 +86,7 @@ func TestPolicyMatch(t *testing.T) {
 }
 
 func TestNoConnection(t *testing.T) {
-	result := CheckHostname("", "example.com", nil)
+	result := CheckHostname("", "example.com")
 
 	expected := HostnameResult{
 		Status: 3,
@@ -68,7 +101,7 @@ func TestNoTLS(t *testing.T) {
 	ln := smtpListenAndServe(t, &tls.Config{})
 	defer ln.Close()
 
-	result := CheckHostname("", ln.Addr().String(), nil)
+	result := CheckHostname("", ln.Addr().String())
 
 	expected := HostnameResult{
 		Status: 2,
@@ -88,7 +121,7 @@ func TestSelfSigned(t *testing.T) {
 	ln := smtpListenAndServe(t, &tls.Config{Certificates: []tls.Certificate{cert}})
 	defer ln.Close()
 
-	result := CheckHostname("", ln.Addr().String(), nil)
+	result := CheckHostname("", ln.Addr().String())
 
 	expected := HostnameResult{
 		Status: 2,
@@ -114,7 +147,7 @@ func TestNoTLS12(t *testing.T) {
 	})
 	defer ln.Close()
 
-	result := CheckHostname("", ln.Addr().String(), nil)
+	result := CheckHostname("", ln.Addr().String())
 
 	expected := HostnameResult{
 		Status: 2,
@@ -142,13 +175,50 @@ func TestSuccessWithFakeCA(t *testing.T) {
 		certRoots = nil
 	}()
 
-	result := CheckHostname("", ln.Addr().String(), nil)
+	// Our test cert happens to be valid for hostname "localhost",
+	// so here we replace the loopback address with "localhost" while
+	// conserving the port number.
+	addrParts := strings.Split(ln.Addr().String(), ":")
+	port := addrParts[len(addrParts)-1]
+	result := CheckHostname("", "localhost:"+port)
 	expected := HostnameResult{
 		Status: 0,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
 			"starttls":     {"starttls", 0, nil},
 			"certificate":  {"certificate", 0, nil},
+			"version":      {"version", 0, nil},
+		},
+	}
+	compareStatuses(t, expected, result)
+}
+
+func TestFailureWithBadHostname(t *testing.T) {
+	cert, err := tls.X509KeyPair([]byte(certString), []byte(key))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln := smtpListenAndServe(t, &tls.Config{Certificates: []tls.Certificate{cert}})
+	defer ln.Close()
+
+	certRoots, _ = x509.SystemCertPool()
+	certRoots.AppendCertsFromPEM([]byte(certStringHostnameMismatch))
+	defer func() {
+		certRoots = nil
+	}()
+
+	// Our test cert happens to be valid for hostname "localhost",
+	// so here we replace the loopback address with "localhost" while
+	// conserving the port number.
+	addrParts := strings.Split(ln.Addr().String(), ":")
+	port := addrParts[len(addrParts)-1]
+	result := CheckHostname("", "localhost:"+port)
+	expected := HostnameResult{
+		Status: 2,
+		Checks: map[string]CheckResult{
+			"connectivity": {"connectivity", 0, nil},
+			"starttls":     {"starttls", 0, nil},
+			"certificate":  {"certificate", 2, nil},
 			"version":      {"version", 0, nil},
 		},
 	}
@@ -182,7 +252,7 @@ func TestAdvertisedCiphers(t *testing.T) {
 
 	ln := smtpListenAndServe(t, tlsConfig)
 	defer ln.Close()
-	CheckHostname("", ln.Addr().String(), nil)
+	CheckHostname("", ln.Addr().String())
 
 	// Partial list of ciphers we want to support
 	expectedCipherSuites := []struct {
@@ -235,7 +305,7 @@ func smtpListenAndServe(t *testing.T, tlsConfig *tls.Config) net.Listener {
 	}
 	srv.TLSConfig = tlsConfig
 
-	ln, err := net.Listen("tcp", ":0")
+	ln, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,23 +324,8 @@ func smtpListenAndServe(t *testing.T, tlsConfig *tls.Config) net.Listener {
 
 func noopHandler(_ net.Addr, _ string, _ []string, _ []byte) {}
 
-// Commands to generate the self-signed certificate below:
-//	openssl req -new -key server.key -out server.csr
-//	openssl x509 -req -in server.csr -signkey server.key -out server.crt
-
-const certString = `-----BEGIN CERTIFICATE-----
-MIICATCCAWoCCQCNKF6Bc5u+PzANBgkqhkiG9w0BAQsFADBFMQswCQYDVQQGEwJB
-VTETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50ZXJuZXQgV2lkZ2l0
-cyBQdHkgTHRkMB4XDTE4MDkwNDAxMzY0N1oXDTE4MTAwNDAxMzY0N1owRTELMAkG
-A1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoMGEludGVybmV0
-IFdpZGdpdHMgUHR5IEx0ZDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAuwYU
-7a2ZIA+0NHxhxwZeE0axBTtipjfdzFWXU6G9kt58FrBVKGj/SceFrENBfjMD9pyk
-0udi70wqj8g/VRafV0udjLaunMpSvlE5CgEJ0lbteIOXUtIAGzPdeM8TtTRaf/Qu
-IgotKmilszwhiwiBKKpG+/h5WEHpAZCR0d086t0CAwEAATANBgkqhkiG9w0BAQsF
-AAOBgQA8XIht9512uQvd8ETSH6go7/TeM8f6wD3a7TwXf9UY0PEHe2TbEq7ucAA/
-RH8Co41L9dL1W31attoPx4XBMh2ZkEy1q7datR7pNEfZmgenrDhTUbLo9Fh0aiEF
-XH1ZS72nl8Lr2pMoMPjWYcYBTQxT3DaLEab7HPKiQ6UKLNLoCA==
------END CERTIFICATE-----`
+var certString string
+var certStringHostnameMismatch string
 
 const key = `-----BEGIN RSA PRIVATE KEY-----
 MIICXQIBAAKBgQC7BhTtrZkgD7Q0fGHHBl4TRrEFO2KmN93MVZdTob2S3nwWsFUo
