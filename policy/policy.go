@@ -197,5 +197,5 @@ func makeUpdatedList(fetch fetchListFn, updateFrequency time.Duration) UpdatedLi
 
 // MakeUpdatedList wraps makeUpdatedList to use FetchListHTTP by default to update policy list
 func MakeUpdatedList() UpdatedList {
-	return makeUpdatedList(FetchListHTTP, time.Hour)
+	return makeUpdatedList(fetchListHTTP, time.Hour)
 }
