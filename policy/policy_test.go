@@ -73,7 +73,7 @@ func TestDomainsToValidate(t *testing.T) {
 	list := makeUpdatedList(func() (list, error) { return updatedList, nil }, time.Second)
 	domains, _ := list.DomainsToValidate()
 	if !reflect.DeepEqual([]string{"eff.org", "example.com"}, domains) {
-		t.Errorf("Expected eff.org and example.com to be returned")
+		t.Errorf("Expected eff.org and example.com to be returned, got %s instead.", domains)
 	}
 }
 
