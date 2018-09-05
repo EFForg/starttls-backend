@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/db"
@@ -28,6 +29,23 @@ func mockCheckPerform(message string) func(API, string) (checker.DomainResult, e
 // Mock PolicyList
 type mockList struct {
 	domains map[string]bool
+}
+
+func (l mockList) Raw() policy.List {
+	list := policy.List{
+		Timestamp:     time.Now(),
+		Expires:       time.Now().Add(time.Minute),
+		Version:       "",
+		Author:        "",
+		Pinsets:       make(map[string]policy.Pinset),
+		PolicyAliases: make(map[string]policy.TLSPolicy),
+		Policies:      make(map[string]policy.TLSPolicy),
+	}
+	for domain := range l.domains {
+		list.Policies[domain] =
+			policy.TLSPolicy{Mode: "enforce", MXs: []string{"mx.fake.com"}}
+	}
+	return list
 }
 
 func (l mockList) Get(domain string) (policy.TLSPolicy, error) {

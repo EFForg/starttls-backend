@@ -101,11 +101,58 @@ func (l UpdatedList) Get(domain string) (TLSPolicy, error) {
 	return l.get(domain)
 }
 
+func (l UpdatedList) Raw() List {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	list := List{
+		Timestamp:     l.Timestamp,
+		Expires:       l.Expires,
+		Version:       l.Version,
+		Author:        l.Author,
+		Pinsets:       make(map[string]Pinset),
+		PolicyAliases: make(map[string]TLSPolicy),
+		Policies:      make(map[string]TLSPolicy),
+	}
+	for pinName, pinset := range l.Pinsets {
+		list.Pinsets[pinName] = pinset.clone()
+	}
+	for alias, policy := range l.PolicyAliases {
+		list.PolicyAliases[alias] = policy.clone()
+	}
+	for domain, policy := range l.Policies {
+		list.Policies[domain] = policy.clone()
+	}
+	return list
+}
+
+func (p Pinset) clone() Pinset {
+	pinset := Pinset{StaticSPKIHashes: make([]string, 0)}
+	for _, hash := range p.StaticSPKIHashes {
+		pinset.StaticSPKIHashes = append(pinset.StaticSPKIHashes, hash)
+	}
+	return pinset
+}
+
+func (p TLSPolicy) clone() TLSPolicy {
+	policy := TLSPolicy{
+		PolicyAlias:   p.PolicyAlias,
+		MinTLSVersion: p.MinTLSVersion,
+		Mode:          p.Mode,
+		Pin:           p.Pin,
+		Report:        p.Report,
+		MXs:           make([]string, 0),
+	}
+	for _, mx := range p.MXs {
+		policy.MXs = append(policy.MXs, mx)
+	}
+	return policy
+}
+
 // fetchListFn returns a new policy list. It can be used to update UpdatedList
 type fetchListFn func() (List, error)
 
 // Retrieve and parse List from policyURL
-func FetchListHTTP() (List, error) {
+func fetchListHTTP() (List, error) {
 	resp, err := http.Get(policyURL)
 	if err != nil {
 		return List{}, err

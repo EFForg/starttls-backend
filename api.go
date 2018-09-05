@@ -49,6 +49,7 @@ type API struct {
 // for a particular domain.
 type PolicyList interface {
 	Get(string) (policy.TLSPolicy, error)
+	Raw() policy.List
 }
 
 // EmailSender interface wraps a back-end that can send e-mails.
