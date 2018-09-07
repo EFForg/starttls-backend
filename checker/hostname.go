@@ -104,7 +104,7 @@ func smtpDialWithTimeout(hostname string) (*smtp.Client, error) {
 	if _, _, err := net.SplitHostPort(hostname); err != nil {
 		hostname += ":25"
 	}
-	conn, err := net.DialTimeout("tcp", hostname, time.Second)
+	conn, err := net.DialTimeout("tcp", hostname, time.Second*5)
 	if err != nil {
 		return nil, err
 	}
