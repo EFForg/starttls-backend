@@ -31,6 +31,25 @@ func queueDomain(domain string) {
 		Name: domain, State: db.StateQueued})
 }
 
+func expectDomainState(t *testing.T, domain string, expectedState db.DomainState) {
+	resp, _ := http.Get(server.URL + "/api/queue?domain=" + domain)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected domain get to succeed")
+	}
+	domainBody, _ := ioutil.ReadAll(resp.Body)
+	domainData := db.DomainData{}
+	err := json.Unmarshal(domainBody, &APIResponse{Response: &domainData})
+	if err != nil {
+		t.Fatalf("returned invalid JSON object:%v\n", string(domainBody))
+	}
+	if domainData.Name != domain {
+		t.Errorf("should have retrieved info for %s,  not %s\n", domain, domainData.Name)
+	}
+	if domainData.State != expectedState {
+		t.Errorf("expected state to be StateAdded, got %v\n", domainData.State)
+	}
+}
+
 func TestGetListWithQueuedDomainsAdded(t *testing.T) {
 	defer teardown()
 	queueDomain("example.com")
@@ -86,22 +105,7 @@ func TestFailDomain(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected domain update to succeed")
 	}
-	resp, _ = http.Get(server.URL + "/api/queue?domain=example.com")
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected domain get to succeed")
-	}
-	domainBody, _ := ioutil.ReadAll(resp.Body)
-	domainData := db.DomainData{}
-	err := json.Unmarshal(domainBody, &APIResponse{Response: &domainData})
-	if err != nil {
-		t.Fatalf("returned invalid JSON object:%v\n", string(domainBody))
-	}
-	if domainData.Name != "example.com" {
-		t.Errorf("should have retrieved info for example.com, not %s\n", domainData.Name)
-	}
-	if domainData.State != db.StateFailed {
-		t.Errorf("expected state to be StateFailed, got %v\n", domainData.State)
-	}
+	expectDomainState(t, "example.com", db.StateFailed)
 }
 
 func TestFailDomainNoGets(t *testing.T) {
@@ -110,4 +114,23 @@ func TestFailDomainNoGets(t *testing.T) {
 	if resp.StatusCode != http.StatusMethodNotAllowed {
 		t.Errorf("expected 4** Method Not Allowed since /auth/fail only accepts POSTs")
 	}
+}
+
+func TestSyncListNoGets(t *testing.T) {
+	defer teardown()
+	resp, _ := http.Get(server.URL + "/auth/promote")
+	if resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("expected 4** Method Not Allowed since /auth/promote only accepts POSTs")
+	}
+}
+
+func TestSyncList(t *testing.T) {
+	queueDomain("example.com")
+	queueDomain("eff.org")
+	resp, _ := http.PostForm(server.URL+"/auth/promote", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected promote to succeed")
+	}
+	expectDomainState(t, "eff.org", db.StateAdded)
+	expectDomainState(t, "example.com", db.StateQueued)
 }

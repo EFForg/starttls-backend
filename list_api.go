@@ -53,7 +53,11 @@ func (api API) GetList(r *http.Request) APIResponse {
 	return APIResponse{StatusCode: http.StatusOK, Response: list}
 }
 
-// POST /auth/fail?domain=<domain>
+// FailDomain demotes any domain in the database to the "failed" state.
+//
+// POST /auth/fail
+//      domain: Domain name to demote to "failed" state
+//      reason: Human-text reasoning for why domain was demoted and how it failed
 func (api API) FailDomain(r *http.Request) APIResponse {
 	if r.Method != http.MethodPost {
 		return APIResponse{StatusCode: http.StatusMethodNotAllowed,
@@ -72,6 +76,30 @@ func (api API) FailDomain(r *http.Request) APIResponse {
 	})
 	if err != nil {
 		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
+	}
+	return APIResponse{StatusCode: http.StatusOK}
+}
+
+// PromoteListedDomains promotes any queued domain that is already on the policy list to
+// the "added" state.
+//
+// POST /auth/promote
+func (api API) PromoteListedDomains(r *http.Request) APIResponse {
+	if r.Method != http.MethodPost {
+		return APIResponse{StatusCode: http.StatusMethodNotAllowed,
+			Message: "/auth/promote only accepts POST requests"}
+	}
+	queued, err := api.Database.GetDomains(db.StateQueued)
+	if err != nil {
+		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
+	}
+	for _, domainData := range queued {
+		if _, err := api.List.Get(domainData.Name); err == nil {
+			api.Database.PutDomain(db.DomainData{
+				Name:  domainData.Name,
+				State: db.StateAdded,
+			})
+		}
 	}
 	return APIResponse{StatusCode: http.StatusOK}
 }
