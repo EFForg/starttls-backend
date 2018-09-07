@@ -30,25 +30,32 @@ func getNumberParam(r *http.Request, paramName string, defaultNumber int) int {
 //                     or invalid, defaults to 2. If set to 0, expires immediately.
 //       queued_weeks: for at least how many weeks should domains on the resulting list
 //                     have been queued? if unset or invalid, defaults to 1.
+//       EXTRA PARAM FOR MANUAL VALIDATION:
+//       filename:     What filename to read the CSVs from
 func (api API) GetList(r *http.Request) APIResponse {
 	expireWeeks := getNumberParam(r, "expire_weeks", 2)
-	queuedWeeks := getNumberParam(r, "queued_weeks", 1)
-	list := api.List.Raw()
+	// queuedWeeks := getNumberParam(r, "queued_weeks", 1)
+	filename, _ := getParam("filename", r)
+	list := policy.List{Policies: make(map[string]policy.TLSPolicy)}
 	list.Timestamp = time.Now()
 	list.Expires = list.Timestamp.Add(time.Hour * 24 * 7 * time.Duration(expireWeeks))
-	queued, err := api.Database.GetDomains(db.StateQueued)
+
+	queued, err := readFromCSV(filename)
+	// queued, err := api.Database.GetDomains(db.StateQueued)
 	if err != nil {
 		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 	}
-	cutoffTime := time.Now().Add(-time.Hour * 24 * 7 * time.Duration(queuedWeeks))
+	// cutoffTime := time.Now().Add(-time.Hour * 24 * 7 * time.Duration(queuedWeeks))
 	for _, domainData := range queued {
-		if domainData.LastUpdated.After(cutoffTime) {
-			continue
+		// if domainData.LastUpdated.After(cutoffTime) {
+		// 	continue
+		// }
+		if _, err = api.List.Get(domainData.Name); err != nil {
+			list.Add(domainData.Name, policy.TLSPolicy{
+				Mode: "testing",
+				MXs:  domainData.MXs,
+			})
 		}
-		list.Add(domainData.Name, policy.TLSPolicy{
-			Mode: "enforce",
-			MXs:  domainData.MXs,
-		})
 	}
 	return APIResponse{StatusCode: http.StatusOK, Response: list}
 }
