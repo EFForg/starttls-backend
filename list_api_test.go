@@ -24,11 +24,11 @@ func TestGetListBasic(t *testing.T) {
 
 func queueDomain(domain string) {
 	api.Database.PutDomain(db.DomainData{
-		Name:  "example.com",
+		Name:  domain,
 		Email: "postmaster@example.com",
 		MXs:   []string{"a.b.c"}})
 	api.Database.PutDomain(db.DomainData{
-		Name: "example.com", State: db.StateQueued})
+		Name: domain, State: db.StateQueued})
 }
 
 func TestGetListWithQueuedDomainsAdded(t *testing.T) {
@@ -68,5 +68,46 @@ func TestGetListExpiryTime(t *testing.T) {
 	}
 	if list.Expires.After(upperBound) {
 		t.Errorf("list expires too late")
+	}
+}
+
+func TestFailDomainFailsIfDomainDoesntExist(t *testing.T) {
+	defer teardown()
+	resp, _ := http.PostForm(server.URL+"/auth/fail?domain=example.com", nil)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected 4** bad request from requesting to fail not queued domain: %v", resp)
+	}
+}
+
+func TestFailDomain(t *testing.T) {
+	defer teardown()
+	queueDomain("example.com")
+	resp, _ := http.PostForm(server.URL+"/auth/fail?domain=example.com", nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected domain update to succeed")
+	}
+	resp, _ = http.Get(server.URL + "/api/queue?domain=example.com")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected domain get to succeed")
+	}
+	domainBody, _ := ioutil.ReadAll(resp.Body)
+	domainData := db.DomainData{}
+	err := json.Unmarshal(domainBody, &APIResponse{Response: &domainData})
+	if err != nil {
+		t.Fatalf("returned invalid JSON object:%v\n", string(domainBody))
+	}
+	if domainData.Name != "example.com" {
+		t.Errorf("should have retrieved info for example.com, not %s\n", domainData.Name)
+	}
+	if domainData.State != db.StateFailed {
+		t.Errorf("expected state to be StateFailed, got %v\n", domainData.State)
+	}
+}
+
+func TestFailDomainNoGets(t *testing.T) {
+	defer teardown()
+	resp, _ := http.Get(server.URL + "/auth/fail?domain=example.com")
+	if resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("expected 4** Method Not Allowed since /auth/fail only accepts POSTs")
 	}
 }

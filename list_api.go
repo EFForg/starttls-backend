@@ -52,3 +52,26 @@ func (api API) GetList(r *http.Request) APIResponse {
 	}
 	return APIResponse{StatusCode: http.StatusOK, Response: list}
 }
+
+// POST /auth/fail?domain=<domain>
+func (api API) FailDomain(r *http.Request) APIResponse {
+	if r.Method != http.MethodPost {
+		return APIResponse{StatusCode: http.StatusMethodNotAllowed,
+			Message: "/auth/fail only accepts POST requests"}
+	}
+	domain, err := getParam("domain", r)
+	if err != nil {
+		return APIResponse{StatusCode: http.StatusBadRequest, Message: "parameter domain is required"}
+	}
+	if _, err := api.Database.GetDomain(domain); err != nil {
+		return APIResponse{StatusCode: http.StatusBadRequest, Message: "domain " + domain + " not in database"}
+	}
+	err = api.Database.PutDomain(db.DomainData{
+		Name:  domain,
+		State: db.StateFailed,
+	})
+	if err != nil {
+		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
+	}
+	return APIResponse{StatusCode: http.StatusOK}
+}
