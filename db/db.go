@@ -51,6 +51,13 @@ type TokenData struct {
 	Used    bool      `json:"used"`    // Whether this token was used.
 }
 
+// EmailBlacklistData stores the emails from which we've recieved bounce or complaint notifications.
+type EmailBlacklistData struct {
+	Email     string    // Email to blacklist.
+	Timestamp time.Time // When the bounce or complaint occured.
+	Reason    string    // eg. "bounce" or "complaint"
+}
+
 // Database interface: These are the things that the Database should be able to do.
 // Slightly more limited than CRUD for all the schemas.
 type Database interface {
@@ -72,6 +79,10 @@ type Database interface {
 	PutToken(string) (TokenData, error)
 	// Uses a token in the db
 	UseToken(string) (string, error)
+	// Adds a bounce or complaint notification to the email blacklist.
+	PutBlacklistedEmail(email string, reason string, timestamp string) error
+	// Returns true if we've blacklisted an email.
+	IsBlacklistedEmail(string) (bool, error)
 	ClearTables() error
 }
 
