@@ -9,38 +9,38 @@ import (
 	"time"
 )
 
-type MapOrder []string
+type mapOrder []string
 
-func (o *MapOrder) UnmarshalJSON(data []byte) error {
+func (o *mapOrder) UnmarshalJSON(data []byte) error {
 	*o = retrieveKeyOrderingFromMarshaledMap(bytes.NewReader(data))
 	return nil
 }
 
 type listOrder struct {
-	PinsetOrder      MapOrder `json:"pinsets"`
-	PolicyAliasOrder MapOrder `json:"policy-aliases"`
-	PolicyOrder      MapOrder `json:"policies"`
+	PinsetOrder      mapOrder `json:"pinsets"`
+	PolicyAliasOrder mapOrder `json:"policy-aliases"`
+	PolicyOrder      mapOrder `json:"policies"`
 }
 
 // Like a list, but also stores metadata about orderings :)
-type OrderedList struct {
+type orderedList struct {
 	list
 	listOrder
 }
 
-type OrderedPinsetMap struct {
+type orderedPinsetMap struct {
 	data map[string]Pinset
-	MapOrder
+	mapOrder
 }
 
-type OrderedPolicyMap struct {
+type orderedPolicyMap struct {
 	data map[string]TLSPolicy
-	MapOrder
+	mapOrder
 }
 
-func (m OrderedPolicyMap) MarshalJSON() ([]byte, error) {
+func (m orderedPolicyMap) MarshalJSON() ([]byte, error) {
 	data := "{"
-	for _, key := range m.MapOrder {
+	for _, key := range m.mapOrder {
 		value, err := json.Marshal(m.data[key])
 		if err != nil {
 			return nil, err
@@ -50,9 +50,9 @@ func (m OrderedPolicyMap) MarshalJSON() ([]byte, error) {
 	return []byte(data[:len(data)-1] + "}"), nil
 }
 
-func (m OrderedPinsetMap) MarshalJSON() ([]byte, error) {
+func (m orderedPinsetMap) MarshalJSON() ([]byte, error) {
 	data := "{"
-	for _, key := range m.MapOrder {
+	for _, key := range m.mapOrder {
 		value, err := json.Marshal(m.data[key])
 		if err != nil {
 			return nil, err
@@ -64,23 +64,23 @@ func (m OrderedPinsetMap) MarshalJSON() ([]byte, error) {
 }
 
 // MarshalJSON [interface json.Marshaler]
-func (l OrderedList) MarshalJSON() ([]byte, error) {
+func (l orderedList) MarshalJSON() ([]byte, error) {
 	marshalMe := struct {
 		Timestamp     time.Time        `json:"timestamp"`
 		Expires       time.Time        `json:"expires"`
 		Version       string           `json:"version,omitempty"`
 		Author        string           `json:"author,omitempty"`
-		Pinsets       OrderedPinsetMap `json:"pinsets"`
-		PolicyAliases OrderedPolicyMap `json:"policy-aliases"`
-		Policies      OrderedPolicyMap `json:"policies"`
+		Pinsets       orderedPinsetMap `json:"pinsets"`
+		PolicyAliases orderedPolicyMap `json:"policy-aliases"`
+		Policies      orderedPolicyMap `json:"policies"`
 	}{
 		Timestamp:     l.Timestamp,
 		Expires:       l.Expires,
 		Version:       l.Version,
 		Author:        l.Author,
-		Pinsets:       OrderedPinsetMap{l.Pinsets, l.PinsetOrder},
-		PolicyAliases: OrderedPolicyMap{l.PolicyAliases, l.PolicyAliasOrder},
-		Policies:      OrderedPolicyMap{l.Policies, l.PolicyOrder},
+		Pinsets:       orderedPinsetMap{l.Pinsets, l.PinsetOrder},
+		PolicyAliases: orderedPolicyMap{l.PolicyAliases, l.PolicyAliasOrder},
+		Policies:      orderedPolicyMap{l.Policies, l.PolicyOrder},
 	}
 	return json.Marshal(marshalMe)
 }
@@ -112,9 +112,9 @@ func retrieveKeyOrderingFromMarshaledMap(buffer io.Reader) []string {
 		switch t.(type) {
 		case json.Delim:
 			if t == json.Delim('{') {
-				level += 1
+				level++
 			} else if t == json.Delim('}') {
-				level -= 1
+				level--
 			}
 		case string:
 			if level == 1 && !previousWasKey {
@@ -132,7 +132,7 @@ func retrieveKeyOrderingFromMarshaledMap(buffer io.Reader) []string {
 }
 
 // UnmarshalJSON [interface json.Unmarshaler]
-func (l *OrderedList) UnmarshalJSON(data []byte) error {
+func (l *orderedList) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &(l.list)); err != nil {
 		return err
 	}

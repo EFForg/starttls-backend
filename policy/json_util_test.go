@@ -35,13 +35,13 @@ func TestRetrieveKeyOrderingEmpty(t *testing.T) {
 }
 
 func TestUnmarshalOrderedList(t *testing.T) {
-	l := OrderedList{}
+	l := orderedList{}
 	data := []byte("{\"a\":2, \"pinsets\": {\"x\":{}, \"a\":{}}, \"policies\":{\"c\":{},\"b\":{},\"a\":{}}, \"b\":3}")
 	err := json.Unmarshal(data, &l)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	expected := MapOrder([]string{"x", "a"})
+	expected := mapOrder([]string{"x", "a"})
 	if !reflect.DeepEqual(l.PinsetOrder, expected) {
 		t.Errorf("Expected %s, not %s", expected, l.PinsetOrder)
 	}
@@ -52,12 +52,12 @@ func TestUnmarshalOrderedList(t *testing.T) {
 }
 
 func TestUnmarshalOrderedListLong(t *testing.T) {
-	l := OrderedList{}
+	l := orderedList{}
 	err := json.Unmarshal([]byte(testPolicyJSON), &l)
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	expected := MapOrder([]string{"example-c", "example-b", "example-a"})
+	expected := mapOrder([]string{"example-c", "example-b", "example-a"})
 	if !reflect.DeepEqual(l.PinsetOrder, expected) {
 		t.Errorf("Expected %s, not %s", expected, l.PinsetOrder)
 	}
@@ -68,7 +68,7 @@ func TestUnmarshalOrderedListLong(t *testing.T) {
 }
 
 func TestMarshalPreservesOrdering(t *testing.T) {
-	l := OrderedList{}
+	l := orderedList{}
 	err := json.Unmarshal([]byte(testPolicyJSON), &l)
 	if err != nil {
 		t.Fatalf("%v", err)
