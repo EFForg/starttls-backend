@@ -3,8 +3,10 @@ package policy
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
+	"time"
 )
 
 type MapOrder []string
@@ -26,10 +28,61 @@ type OrderedList struct {
 	listOrder
 }
 
+type OrderedPinsetMap struct {
+	data map[string]Pinset
+	MapOrder
+}
+
+type OrderedPolicyMap struct {
+	data map[string]TLSPolicy
+	MapOrder
+}
+
+func (m OrderedPolicyMap) MarshalJSON() ([]byte, error) {
+	data := "{"
+	for _, key := range m.MapOrder {
+		value, err := json.Marshal(m.data[key])
+		if err != nil {
+			return nil, err
+		}
+		data += fmt.Sprintf("\"%s\":%s,", key, value)
+	}
+	return []byte(data[:len(data)-1] + "}"), nil
+}
+
+func (m OrderedPinsetMap) MarshalJSON() ([]byte, error) {
+	data := "{"
+	for _, key := range m.MapOrder {
+		value, err := json.Marshal(m.data[key])
+		if err != nil {
+			return nil, err
+		}
+		data += fmt.Sprintf("\"%s\":%s,", key, value)
+	}
+	return []byte(data[:len(data)-1] + "}"), nil
+
+}
+
 // MarshalJSON [interface json.Marshaler]
 func (l OrderedList) MarshalJSON() ([]byte, error) {
-	// TODO
-	return nil, nil
+	marshalMe := struct {
+		Timestamp     time.Time        `json:"timestamp"`
+		Expires       time.Time        `json:"expires"`
+		Version       string           `json:"version,omitempty"`
+		Author        string           `json:"author,omitempty"`
+		Pinsets       OrderedPinsetMap `json:"pinsets"`
+		PolicyAliases OrderedPolicyMap `json:"policy-aliases"`
+		Policies      OrderedPolicyMap `json:"policies"`
+	}{
+		Timestamp:     l.Timestamp,
+		Expires:       l.Expires,
+		Version:       l.Version,
+		Author:        l.Author,
+		Pinsets:       OrderedPinsetMap{l.Pinsets, l.PinsetOrder},
+		PolicyAliases: OrderedPolicyMap{l.PolicyAliases, l.PolicyAliasOrder},
+		Policies:      OrderedPolicyMap{l.Policies, l.PolicyOrder},
+	}
+	return json.Marshal(marshalMe)
 }
 
 // Performs an action on each top-level key found in a marshaled JSON

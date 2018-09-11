@@ -16,15 +16,15 @@ const policyURL = "https://dl.eff.org/starttls-everywhere/policy.json"
 // Pinset represents a set of valid public keys for a domain's
 // SSL certificate.
 type Pinset struct {
-	StaticSPKIHashes []string `json:"static-spki-hashes"`
+	StaticSPKIHashes []string `json:"static-spki-hashes,omitempty"`
 }
 
 // TLSPolicy dictates the policy for a particular email domain.
 type TLSPolicy struct {
 	PolicyAlias   string   `json:"policy-alias,omitempty"`
 	MinTLSVersion string   `json:"min-tls-version,omitempty"`
-	Mode          string   `json:"mode"`
-	MXs           []string `json:"mxs"`
+	Mode          string   `json:"mode,omitempty"`
+	MXs           []string `json:"mxs,omitempty"`
 	Pin           string   `json:"pin,omitempty"`
 	Report        string   `json:"report,omitempty"`
 }
