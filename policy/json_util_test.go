@@ -9,7 +9,7 @@ import (
 
 func TestRetrieveKeyOrdering(t *testing.T) {
 	data := "{\"hi\": \"dumb\", \"lol\": 4, \"am\": {\"b\":{}, \"c\":3}, \"xx\":\"hi\", \"xxx\": \"lol\"}\n"
-	result := retrieveKeyOrderingFromMarshaledMap(strings.NewReader(data))
+	result, _ := retrieveKeyOrderingFromMarshaledMap(strings.NewReader(data))
 	expected := []string{"hi", "lol", "am", "xx", "xxx"}
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %s, not %s", expected, result)
@@ -18,7 +18,7 @@ func TestRetrieveKeyOrdering(t *testing.T) {
 
 func TestRetrieveSingleKeyOrdering(t *testing.T) {
 	data := "{\"lol\":{}}\n"
-	result := retrieveKeyOrderingFromMarshaledMap(strings.NewReader(data))
+	result, _ := retrieveKeyOrderingFromMarshaledMap(strings.NewReader(data))
 	expected := []string{"lol"}
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %s, not %s", expected, result)
@@ -27,10 +27,19 @@ func TestRetrieveSingleKeyOrdering(t *testing.T) {
 
 func TestRetrieveKeyOrderingEmpty(t *testing.T) {
 	data := "{}\n"
-	result := retrieveKeyOrderingFromMarshaledMap(strings.NewReader(data))
+	result, _ := retrieveKeyOrderingFromMarshaledMap(strings.NewReader(data))
 	expected := []string{}
 	if !reflect.DeepEqual(result, expected) {
 		t.Errorf("Expected %s, not %s", expected, result)
+	}
+}
+
+func TestRetrieveKeyOrderingErrors(t *testing.T) {
+	// Unmatched brace should lead to an error
+	data := "{\"lol\":{}"
+	_, err := retrieveKeyOrderingFromMarshaledMap(strings.NewReader(data))
+	if err == nil {
+		t.Errorf("Expected error while parsing JSON")
 	}
 }
 

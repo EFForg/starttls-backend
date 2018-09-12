@@ -12,8 +12,9 @@ import (
 type mapOrder []string
 
 func (o *mapOrder) UnmarshalJSON(data []byte) error {
-	*o = retrieveKeyOrderingFromMarshaledMap(bytes.NewReader(data))
-	return nil
+	result, err := retrieveKeyOrderingFromMarshaledMap(bytes.NewReader(data))
+	*o = result
+	return err
 }
 
 type listOrder struct {
@@ -85,20 +86,25 @@ func (l orderedList) MarshalJSON() ([]byte, error) {
 	return json.Marshal(marshalMe)
 }
 
-// Performs an action on each top-level key found in a marshaled JSON
-// represented by an io.Reader.
-// The callback is passed 1) the key itself, and 2) an io.Reader which starts
-// at the associated value, just past the colon separating the two.
-func retrieveKeyOrderingFromMarshaledMap(buffer io.Reader) []string {
+// Retrieves a list of each top-level key found in a marshaled JSON
+// represented by an io.Reader stream.
+func retrieveKeyOrderingFromMarshaledMap(buffer io.Reader) ([]string, error) {
 	keys := []string{}
+	// The default JSON decoder iterates through delimeters {} [], and values
+	// strings, numbers, and booleans.
+	// Note that the ":" code point, which delimits keys and values, is skipped.
+	// So we guess that a particular token is a top-level key if:
+	//   * the token is not in any nested object
+	//   * the previous token was not a key
 	dec := json.NewDecoder(buffer)
 	level := 0
 	previousWasKey := false
 	for {
 		t, err := dec.Token()
 		if err == io.EOF {
+			// If level > 0 but we encounter EOF, something's wrong.
 			if level != 0 {
-				log.Fatalf("unexpected EOF at nesting level %d", level)
+				return nil, fmt.Errorf("unexpected EOF while parsing JSON")
 			}
 			break
 		}
@@ -106,9 +112,7 @@ func retrieveKeyOrderingFromMarshaledMap(buffer io.Reader) []string {
 			log.Fatal(err)
 		}
 		// If we're at nested level 1, and we encounter a string token, and
-		// the previous token was *not* a key, we can safely assume that
-		// this token is a key.
-		// TODO: Is there a JSON grammar/parsing spec we can cite to prove this?
+		// the previous token was *not* a key, then this is a top-level key.
 		switch t.(type) {
 		case json.Delim:
 			if t == json.Delim('{') {
@@ -128,7 +132,7 @@ func retrieveKeyOrderingFromMarshaledMap(buffer io.Reader) []string {
 			break
 		}
 	}
-	return keys
+	return keys, nil
 }
 
 // UnmarshalJSON [interface json.Unmarshaler]
