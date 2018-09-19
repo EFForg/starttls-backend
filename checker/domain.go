@@ -89,7 +89,7 @@ func (d DomainResult) setStatus(status DomainStatus) DomainResult {
 }
 
 func lookupMXWithTimeout(domain string) ([]*net.MX, error) {
-	const timeout = 2 * time.Second
+	const timeout = 3 * time.Second
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
 	var r net.Resolver
