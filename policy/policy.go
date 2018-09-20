@@ -106,21 +106,18 @@ func (l UpdatedList) Get(domain string) (TLSPolicy, error) {
 func (l UpdatedList) Raw() List {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	list := List{
-		Timestamp:     l.Timestamp,
-		Expires:       l.Expires,
-		Version:       l.Version,
-		Author:        l.Author,
-		Pinsets:       make(map[string]Pinset),
-		PolicyAliases: make(map[string]TLSPolicy),
-		Policies:      make(map[string]TLSPolicy),
-	}
+	list := l.List
+	list.Timestamp = l.Timestamp
+	list.Expires = l.Expires
+	list.Pinsets = make(map[string]Pinset)
 	for pinName, pinset := range l.Pinsets {
 		list.Pinsets[pinName] = pinset.clone()
 	}
+	list.PolicyAliases = make(map[string]TLSPolicy)
 	for alias, policy := range l.PolicyAliases {
 		list.PolicyAliases[alias] = policy.clone()
 	}
+	list.Policies = make(map[string]TLSPolicy)
 	for domain, policy := range l.Policies {
 		list.Policies[domain] = policy.clone()
 	}
@@ -136,14 +133,8 @@ func (p Pinset) clone() Pinset {
 }
 
 func (p TLSPolicy) clone() TLSPolicy {
-	policy := TLSPolicy{
-		PolicyAlias:   p.PolicyAlias,
-		MinTLSVersion: p.MinTLSVersion,
-		Mode:          p.Mode,
-		Pin:           p.Pin,
-		Report:        p.Report,
-		MXs:           make([]string, 0),
-	}
+	policy := p
+	policy.MXs = make([]string, 0)
 	for _, mx := range p.MXs {
 		policy.MXs = append(policy.MXs, mx)
 	}
