@@ -113,7 +113,7 @@ func main() {
 		DontScan:    loadDontScan(),
 		Emailer:     emailConfig,
 	}
-	ServePublicEndpoints(&api, &cfg)
 	go validator.ValidateRegularly(list, 24*time.Hour)
 	go validator.ValidateRegularly(db, 24*time.Hour)
+	ServePublicEndpoints(&api, &cfg)
 }
