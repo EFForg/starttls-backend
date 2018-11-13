@@ -28,7 +28,7 @@ func reportToSentry(name string, domain string, result checker.DomainResult) {
 		result)
 }
 
-type checkPerformer func(string, []string) checker.DomainResult
+type checkPerformer func(string, []string, time.Duration) checker.DomainResult
 type reportFailure func(string, string, checker.DomainResult)
 
 // Helper function that's agnostic to how checks are performed how to
@@ -48,7 +48,7 @@ func validateRegularly(v DomainPolicyStore, interval time.Duration,
 				log.Printf("[%s validator] Could not retrieve policy for domain %s: %v", v.GetName(), domain, err)
 				continue
 			}
-			result := check(domain, hostnames)
+			result := check(domain, hostnames, 10*time.Second)
 			if result.Status != 0 && report != nil {
 				report(v.GetName(), domain, result)
 			}

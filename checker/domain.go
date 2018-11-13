@@ -44,12 +44,12 @@ type DomainQuery struct {
 
 // Looks up what hostnames are correlated with a particular domain.
 type hostnameLookup interface {
-	lookupHostname(string) ([]string, error)
+	lookupHostname(string, time.Duration) ([]string, error)
 }
 
 // Performs a series of checks on a particular domain, hostname combo.
 type hostnameChecker interface {
-	checkHostname(string, string) HostnameResult
+	checkHostname(string, string, time.Duration) HostnameResult
 }
 
 // DomainResult wraps all the results for a particular mail domain.
@@ -79,8 +79,8 @@ func (d DomainResult) Class() string {
 
 type tlsChecker struct{}
 
-func (*tlsChecker) checkHostname(domain string, hostname string) HostnameResult {
-	return CheckHostname(domain, hostname)
+func (*tlsChecker) checkHostname(domain string, hostname string, timeout time.Duration) HostnameResult {
+	return CheckHostname(domain, hostname, timeout)
 }
 
 func (d DomainResult) setStatus(status DomainStatus) DomainResult {
@@ -88,8 +88,7 @@ func (d DomainResult) setStatus(status DomainStatus) DomainResult {
 	return d
 }
 
-func lookupMXWithTimeout(domain string) ([]*net.MX, error) {
-	const timeout = 3 * time.Second
+func lookupMXWithTimeout(domain string, timeout time.Duration) ([]*net.MX, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
 	var r net.Resolver
@@ -98,12 +97,12 @@ func lookupMXWithTimeout(domain string) ([]*net.MX, error) {
 
 type dnsLookup struct{}
 
-func (*dnsLookup) lookupHostname(domain string) ([]string, error) {
+func (*dnsLookup) lookupHostname(domain string, timeout time.Duration) ([]string, error) {
 	domainASCII, err := idna.ToASCII(domain)
 	if err != nil {
 		return nil, fmt.Errorf("domain name %s couldn't be converted to ASCII", domain)
 	}
-	mxs, err := lookupMXWithTimeout(domainASCII)
+	mxs, err := lookupMXWithTimeout(domainASCII, timeout)
 	if err != nil || len(mxs) == 0 {
 		return nil, fmt.Errorf("No MX records found")
 	}
@@ -125,16 +124,16 @@ func (*dnsLookup) lookupHostname(domain string) ([]string, error) {
 //   `domain` is the mail domain to perform the lookup on.
 //   `mxHostnames` is the list of expected hostnames.
 //     If `mxHostnames` is nil, we don't validate the DNS lookup.
-func CheckDomain(domain string, mxHostnames []string) DomainResult {
+func CheckDomain(domain string, mxHostnames []string, timeout time.Duration) DomainResult {
 	return performCheck(DomainQuery{
 		Domain:            domain,
 		ExpectedHostnames: mxHostnames,
 		hostnameLookup:    &dnsLookup{},
 		hostnameChecker:   &tlsChecker{},
-	})
+	}, timeout)
 }
 
-func performCheck(query DomainQuery) DomainResult {
+func performCheck(query DomainQuery, timeout time.Duration) DomainResult {
 	result := DomainResult{
 		Domain:          query.Domain,
 		MxHostnames:     query.ExpectedHostnames,
@@ -143,13 +142,13 @@ func performCheck(query DomainQuery) DomainResult {
 	// 1. Look up hostnames
 	// 2. Perform and aggregate checks from those hostnames.
 	// 3. Set a summary message.
-	hostnames, err := query.lookupHostname(query.Domain)
+	hostnames, err := query.lookupHostname(query.Domain, timeout)
 	if err != nil {
 		return result.reportError(err)
 	}
 	checkedHostnames := make([]string, 0)
 	for _, hostname := range hostnames {
-		hostnameResult := query.checkHostname(query.Domain, hostname)
+		hostnameResult := query.checkHostname(query.Domain, hostname, timeout)
 		result.HostnameResults[hostname] = hostnameResult
 		if hostnameResult.couldConnect() {
 			checkedHostnames = append(checkedHostnames, hostname)
