@@ -185,6 +185,8 @@ func makeUpdatedList(fetch fetchListFn, updateFrequency time.Duration) UpdatedLi
 			time.Sleep(updateFrequency)
 		}
 	}()
+	l.mu.RLock()
+	defer l.mu.RUnlock()
 	return l
 }
 
