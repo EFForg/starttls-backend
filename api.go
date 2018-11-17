@@ -235,8 +235,15 @@ func (api API) Queue(r *http.Request) APIResponse {
 		if scan.Data.Status != 0 {
 			return APIResponse{
 				StatusCode: http.StatusBadRequest,
-				Message:    "%s hasn't passed our STARTTLS security checks",
+				Message:    fmt.Sprintf("%s hasn't passed our STARTTLS security checks", domain),
 			}
+		}
+		// 0. Check to see it's not already queued
+		_, err = api.List.Get(domain)
+		if err == nil {
+			return APIResponse{
+				StatusCode: http.StatusBadRequest,
+				Message:    fmt.Sprintf("%s is already on the list!", domain)}
 		}
 		domainData, err := getDomainParams(r, domain)
 		if err != nil {
