@@ -109,11 +109,11 @@ func main() {
 	api := API{
 		Database:    db,
 		CheckDomain: defaultCheck,
-		List:        list,
+		List:        &list,
 		DontScan:    loadDontScan(),
 		Emailer:     emailConfig,
 	}
 	ServePublicEndpoints(&api, &cfg)
-	go validator.ValidateRegularly(list, 24*time.Hour)
+	go validator.ValidateRegularly(&list, 24*time.Hour)
 	go validator.ValidateRegularly(db, 24*time.Hour)
 }
