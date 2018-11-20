@@ -109,7 +109,7 @@ func main() {
 	api := API{
 		Database:    db,
 		CheckDomain: defaultCheck,
-		List:        &list,
+		List:        list,
 		DontScan:    loadDontScan(),
 		Emailer:     emailConfig,
 	}

@@ -22,8 +22,7 @@ func mockErroringFetchHTTP() (List, error) {
 }
 
 func TestGetPolicy(t *testing.T) {
-	list := UpdatedList{}
-	list.startFetching(mockFetchHTTP, time.Hour)
+	list := makeUpdatedList(mockFetchHTTP, time.Hour)
 
 	policy, err := list.Get("not-on-the-List.com")
 	if err == nil {
@@ -40,8 +39,7 @@ func TestGetPolicy(t *testing.T) {
 }
 
 func TestFailedListUpdate(t *testing.T) {
-	list := UpdatedList{}
-	list.startFetching(mockErroringFetchHTTP, time.Hour)
+	list := makeUpdatedList(mockErroringFetchHTTP, time.Hour)
 	_, err := list.Get("eff.org")
 	if err == nil {
 		t.Errorf("Get should return an error if fetching the List fails")
@@ -50,8 +48,7 @@ func TestFailedListUpdate(t *testing.T) {
 
 func TestListUpdate(t *testing.T) {
 	var updatedList = List{Policies: map[string]TLSPolicy{}}
-	list := UpdatedList{}
-	list.startFetching(func() (List, error) { return updatedList, nil }, time.Second)
+	list := makeUpdatedList(func() (List, error) { return updatedList, nil }, time.Second)
 	_, err := list.Get("example.com")
 	if err == nil {
 		t.Error("Getting the policy for an unListed domain should return an error")
@@ -73,8 +70,7 @@ func TestDomainsToValidate(t *testing.T) {
 		"eff.org":     TLSPolicy{},
 		"example.com": TLSPolicy{},
 	}}
-	list := UpdatedList{}
-	list.startFetching(func() (List, error) { return updatedList, nil }, time.Second)
+	list := makeUpdatedList(func() (List, error) { return updatedList, nil }, time.Second)
 	domains, _ := list.DomainsToValidate()
 	if !reflect.DeepEqual([]string{"eff.org", "example.com"}, domains) {
 		t.Errorf("Expected eff.org and example.com to be returned")
@@ -85,8 +81,7 @@ func TestHostnamesForDomain(t *testing.T) {
 	hostnames := []string{"a", "b", "c"}
 	var updatedList = List{Policies: map[string]TLSPolicy{
 		"eff.org": TLSPolicy{MXs: hostnames}}}
-	list := UpdatedList{}
-	list.startFetching(func() (List, error) { return updatedList, nil }, time.Second)
+	list := makeUpdatedList(func() (List, error) { return updatedList, nil }, time.Second)
 	returned, err := list.HostnamesForDomain("eff.org")
 	if err != nil {
 		t.Fatalf("Encountered %v", err)
@@ -101,8 +96,7 @@ func TestCloneDoesntChangeOriginal(t *testing.T) {
 		Version: "3",
 		Policies: map[string]TLSPolicy{
 			"eff.org": TLSPolicy{MXs: []string{"a"}}}}
-	list := UpdatedList{}
-	list.startFetching(func() (List, error) { return updatedList, nil }, time.Hour)
+	list := makeUpdatedList(func() (List, error) { return updatedList, nil }, time.Hour)
 	newList := list.Raw()
 	// Change new list
 	newList.Version = "5"

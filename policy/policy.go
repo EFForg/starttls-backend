@@ -47,7 +47,7 @@ func (l *List) Add(domain string, policy TLSPolicy) {
 
 // get retrieves the TLSPolicy for a domain, and resolves
 // aliases if they exist.
-func (l List) get(domain string) (TLSPolicy, error) {
+func (l *List) get(domain string) (TLSPolicy, error) {
 	policy, ok := l.Policies[domain]
 	if !ok {
 		return TLSPolicy{}, fmt.Errorf("policy for domain %s doesn't exist", domain)
@@ -65,7 +65,7 @@ func (l List) get(domain string) (TLSPolicy, error) {
 // policyURL every hour. Safe for concurrent calls to `Get`.
 type UpdatedList struct {
 	mu sync.RWMutex
-	List
+	*List
 }
 
 // DomainsToValidate [interface Validator] retrieves domains from the
@@ -91,7 +91,7 @@ func (l *UpdatedList) HostnamesForDomain(domain string) ([]string, error) {
 }
 
 // GetName retrieves a readable name for this data store (for use in error messages)
-func (l UpdatedList) GetName() string {
+func (l *UpdatedList) GetName() string {
 	return "Policy List"
 }
 
@@ -106,7 +106,7 @@ func (l *UpdatedList) Get(domain string) (TLSPolicy, error) {
 func (l *UpdatedList) Raw() List {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	list := l.List
+	list := *l.List
 	list.Timestamp = l.Timestamp
 	list.Expires = l.Expires
 	list.Pinsets = make(map[string]Pinset)
@@ -167,26 +167,28 @@ func (l *UpdatedList) update(fetch fetchListFn) {
 		log.Printf("Error updating policy list: %s\n", err)
 	} else {
 		l.mu.Lock()
-		l.List = newList
+		l.List = &newList
 		l.mu.Unlock()
 	}
 }
 
-// Launches a thread to continually update l. Accepts a fetchListFn
-// to allow stubbing http request to remote policy list.
-func (l *UpdatedList) startFetching(fetch fetchListFn, updateFrequency time.Duration) {
+// makeUpdatedList constructs an UpdatedList object and launches a
+// thread to continually update it. Accepts a fetchListFn to allow
+// stubbing http request to remote policy list.
+func makeUpdatedList(fetch fetchListFn, updateFrequency time.Duration) *UpdatedList {
+	l := UpdatedList{List: &List{}}
 	l.update(fetch)
+
 	go func() {
 		for {
 			l.update(fetch)
 			time.Sleep(updateFrequency)
 		}
 	}()
+	return &l
 }
 
 // MakeUpdatedList wraps makeUpdatedList to use FetchListHTTP by default to update policy list
-func MakeUpdatedList() UpdatedList {
-	list := UpdatedList{}
-	list.startFetching(fetchListHTTP, time.Hour)
-	return list
+func MakeUpdatedList() *UpdatedList {
+	return makeUpdatedList(fetchListHTTP, time.Hour)
 }
