@@ -17,9 +17,11 @@ import (
 // ScanData each represent the result of a single scan, conducted using
 // starttls-checker.
 type ScanData struct {
-	Domain    string               `json:"domain"`    // Input domain
-	Data      checker.DomainResult `json:"scandata"`  // JSON blob: scan results from starttls-checker
-	Timestamp time.Time            `json:"timestamp"` // Time at which this scan was conducted
+	ID        int64                `db:"id" json:"-"`
+	Domain    string               `db:"domain" json:"domain"` // Input domain
+	Data      checker.DomainResult `db:"-" json:"scandata"`    // JSON blob: scan results from starttls-checker
+	DataBlob  string               `db:"scandata" json:"-"`
+	Timestamp time.Time            `db:"timestamp" json:"timestamp"` // Time at which this scan was conducted
 }
 
 // DomainState represents the state of a single domain.
@@ -36,26 +38,28 @@ const (
 
 // DomainData stores the preload state of a single domain.
 type DomainData struct {
-	Name        string      `json:"domain"` // Domain that is preloaded
-	Email       string      `json:"-"`      // Contact e-mail for Domain
-	MXs         []string    `json:"mxs"`    // MXs that are valid for this domain
-	State       DomainState `json:"state"`
-	LastUpdated time.Time   `json:"last_updated"`
+	Name        string      `db:"domain" json:"domain"` // Domain that is preloaded
+	Email       string      `db:"email" json:"-"`       // Contact e-mail for Domain
+	MXs         []string    `db:"-" json:"mxs"`         // MXs that are valid for this domain
+	Data        string      `db:"data" json:"-"`
+	State       DomainState `db:"status" :"state"`
+	LastUpdated time.Time   `db:"last_updated" json:"last_updated"`
 }
 
 // TokenData stores the state of an e-mail verification token.
 type TokenData struct {
-	Domain  string    `json:"domain"`  // Domain for which we're verifying the e-mail.
-	Token   string    `json:"token"`   // Token that we're expecting.
-	Expires time.Time `json:"expires"` // When this token expires.
-	Used    bool      `json:"used"`    // Whether this token was used.
+	Domain  string    `db:"domain" json:"domain"`   // Domain for which we're verifying the e-mail.
+	Token   string    `db:"token" json:"token"`     // Token that we're expecting.
+	Expires time.Time `db:"expires" json:"expires"` // When this token expires.
+	Used    bool      `db:"used" json:"used"`       // Whether this token was used.
 }
 
 // EmailBlacklistData stores the emails from which we've recieved bounce or complaint notifications.
 type EmailBlacklistData struct {
-	Email     string    // Email to blacklist.
-	Timestamp time.Time // When the bounce or complaint occured.
-	Reason    string    // eg. "bounce" or "complaint"
+	ID        int64  `db:"id"`
+	Email     string `db:"email"`     // Email to blacklist.
+	Timestamp string `db:"timestamp"` // When the bounce or complaint occured.
+	Reason    string `db:"reason"`    // eg. "bounce" or "complaint"
 }
 
 // Database interface: These are the things that the Database should be able to do.

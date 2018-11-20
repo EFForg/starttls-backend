@@ -12,6 +12,7 @@ import (
 
 	// Imports postgresql driver for database/sql
 	_ "github.com/lib/pq"
+	"gopkg.in/gorp.v2"
 )
 
 // Format string for Sql timestamps.
@@ -19,8 +20,9 @@ const sqlTimeFormat = "2006-01-02 15:04:05"
 
 // SQLDatabase is a Database interface backed by postgresql.
 type SQLDatabase struct {
-	cfg  Config  // Configuration to define the DB connection.
-	conn *sql.DB // The database connection.
+	cfg  Config // Configuration to define the DB connection.
+	conn *gorp.DbMap
+	// conn *sql.DB // The database connection.
 }
 
 func getConnectionString(cfg Config) string {
@@ -42,7 +44,12 @@ func InitSQLDatabase(cfg Config) (*SQLDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SQLDatabase{cfg: cfg, conn: conn}, nil
+	dbmap := &gorp.DbMap{Db: conn, Dialect: gorp.PostgresDialect{}}
+	dbmap.AddTableWithName(DomainData{}, "domains").SetKeys(false, "Name")
+	dbmap.AddTableWithName(TokenData{}, "tokens").SetKeys(false, "Domain")
+	dbmap.AddTableWithName(ScanData{}, "scans").SetKeys(true, "ID")
+	dbmap.AddTableWithName(EmailBlacklistData{}, "blacklisted_emails").SetKeys(true, "ID")
+	return &SQLDatabase{cfg: cfg, conn: dbmap}, nil
 }
 
 // TOKEN DB FUNCTIONS
@@ -65,12 +72,8 @@ func (db *SQLDatabase) UseToken(tokenStr string) (string, error) {
 
 // GetTokenByDomain gets the token for a domain name.
 func (db *SQLDatabase) GetTokenByDomain(domain string) (string, error) {
-	var token string
-	err := db.conn.QueryRow("SELECT token FROM tokens WHERE domain=$1", domain).Scan(&token)
-	if err != nil {
-		return "", err
-	}
-	return token, nil
+	obj, err := db.conn.Get(TokenData{}, domain)
+	return obj.(*TokenData).Token, err
 }
 
 // PutToken generates and inserts a token into the database for a particular
@@ -82,27 +85,34 @@ func (db *SQLDatabase) PutToken(domain string) (TokenData, error) {
 		Expires: time.Now().Add(time.Duration(time.Hour * 72)),
 		Used:    false,
 	}
-	_, err := db.conn.Exec("INSERT INTO tokens(domain, token, expires) VALUES($1, $2, $3) "+
-		"ON CONFLICT (domain) DO UPDATE SET token=$2, expires=$3, used=FALSE",
-		domain, tokenData.Token, tokenData.Expires.UTC().Format(sqlTimeFormat))
+	err := db.conn.Insert(&tokenData)
 	if err != nil {
-		return TokenData{}, err
+		_, err = db.conn.Update(&tokenData)
 	}
-	return tokenData, nil
+	return tokenData, err
 }
 
 // SCAN DB FUNCTIONS
 
-// PutScan inserts a new scan for a particular domain into the database.
-func (db *SQLDatabase) PutScan(scanData ScanData) error {
-	byteArray, err := json.Marshal(scanData.Data)
+// PreInsert marshals Data into DataBlob
+func (d *ScanData) PreInsert(s gorp.SqlExecutor) error {
+	byteArray, err := json.Marshal(d.Data)
 	if err != nil {
 		return err
 	}
-	// Serialize scanData.Data for insertion into SQLdb!
-	_, err = db.conn.Exec("INSERT INTO scans(domain, scandata, timestamp) VALUES($1, $2, $3)",
-		scanData.Domain, string(byteArray), scanData.Timestamp.UTC().Format(sqlTimeFormat))
+	d.DataBlob = string(byteArray)
+	return nil
+}
+
+// PostGet unmarshals DataBlob into Data
+func (d *ScanData) PostGet(s gorp.SqlExecutor) error {
+	err := json.Unmarshal([]byte(d.DataBlob), &(d.Data))
 	return err
+}
+
+// PutScan inserts a new scan for a particular domain into the database.
+func (db *SQLDatabase) PutScan(scanData ScanData) error {
+	return db.conn.Insert(&scanData)
 }
 
 const mostRecentQuery = `
@@ -113,39 +123,57 @@ SELECT domain, scandata, timestamp FROM scans
 // GetLatestScan retrieves the most recent scan performed on a particular email
 // domain.
 func (db SQLDatabase) GetLatestScan(domain string) (ScanData, error) {
-	var rawScanData []byte
-	result := ScanData{}
-	err := db.conn.QueryRow(mostRecentQuery, domain).Scan(
-		&result.Domain, &rawScanData, &result.Timestamp)
-	if err != nil {
-		return result, err
-	}
-	err = json.Unmarshal(rawScanData, &result.Data)
+	var result ScanData
+	err := db.conn.SelectOne(&result, mostRecentQuery, domain)
 	return result, err
 }
 
 // GetAllScans retrieves all the scans performed for a particular domain.
 func (db SQLDatabase) GetAllScans(domain string) ([]ScanData, error) {
-	rows, err := db.conn.Query(
-		"SELECT domain, scandata, timestamp FROM scans WHERE domain=$1", domain)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+	// PostGet is only called if the slice elements are pointers
+	// https://github.com/go-gorp/gorp/issues/338
+	scanPtrs := []*ScanData{}
+	_, err := db.conn.Select(&scanPtrs, "select * from scans where domain=$1", domain)
 	scans := []ScanData{}
-	for rows.Next() {
-		var scan ScanData
-		var rawScanData []byte
-		if err := rows.Scan(&scan.Domain, &rawScanData, &scan.Timestamp); err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(rawScanData, &scan.Data)
-		scans = append(scans, scan)
+	for _, scan := range scanPtrs {
+		scans = append(scans, *scan)
 	}
-	return scans, nil
+	return scans, err
 }
 
 // DOMAIN DB FUNCTIONS
+
+// PreUpdate dumps structured data into a blob for SQL
+func (d *DomainData) PreUpdate(s gorp.SqlExecutor) error {
+	d.Data = strings.Join(d.MXs[:], ",")
+	return nil
+}
+
+// PreInsert does the same thing as PreUpdate and also sets
+// default state to Unvalidated
+func (d *DomainData) PreInsert(s gorp.SqlExecutor) error {
+	if len(d.State) == 0 {
+		d.State = StateUnvalidated
+	}
+	return d.PreUpdate(s)
+}
+
+// PostGet retrives structured MX data from d.Data
+func (d *DomainData) PostGet(s gorp.SqlExecutor) error {
+	d.MXs = []string{}
+	if len(d.Data) > 0 {
+		d.MXs = strings.Split(d.Data, ",")
+	}
+	return nil
+}
+
+func (d *DomainData) equal(other *DomainData) bool {
+	mxsSame := len(d.MXs) == len(other.MXs)
+	for i := range d.MXs {
+		mxsSame = mxsSame && d.MXs[i] == other.MXs[i]
+	}
+	return d.Email == other.Email && mxsSame
+}
 
 // PutDomain inserts a particular domain into the database. If the domain does
 // not yet exist in the database, we initialize it with StateUnvalidated.
@@ -163,57 +191,37 @@ func (db *SQLDatabase) PutDomain(domainData DomainData) error {
 // GetDomain retrieves the status and information associated with a particular
 // mailserver domain.
 func (db SQLDatabase) GetDomain(domain string) (DomainData, error) {
-	data := DomainData{}
-	var rawMXs string
-	err := db.conn.QueryRow("SELECT domain, email, data, status, last_updated FROM domains WHERE domain=$1",
-		domain).Scan(
-		&data.Name, &data.Email, &rawMXs, &data.State, &data.LastUpdated)
-	data.MXs = strings.Split(rawMXs, ",")
-	if len(rawMXs) == 0 {
-		data.MXs = []string{}
+	obj, err := db.conn.Get(DomainData{}, domain)
+	if obj == nil {
+		return DomainData{}, err
 	}
-	return data, err
+	return *(obj.(*DomainData)), err
 }
 
 // GetDomains retrieves all the domains which match a particular state.
 func (db SQLDatabase) GetDomains(state DomainState) ([]DomainData, error) {
-	rows, err := db.conn.Query(
-		"SELECT domain, email, data, status, last_updated FROM domains WHERE status=$1", state)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+	domainData := []*DomainData{}
+	_, err := db.conn.Select(&domainData, "select * from domains where status=$1", state)
 	domains := []DomainData{}
-	for rows.Next() {
-		var domain DomainData
-		var rawMXs string
-		if err := rows.Scan(&domain.Name, &domain.Email, &rawMXs, &domain.State, &domain.LastUpdated); err != nil {
-			return nil, err
-		}
-		domain.MXs = strings.Split(rawMXs, ",")
-		domains = append(domains, domain)
+	for _, domain := range domainData {
+		domains = append(domains, *domain)
 	}
-	return domains, nil
+	return domains, err
 }
 
 // EMAIL BLACKLIST DB FUNCTIONS
 
 // PutBlacklistedEmail adds a bounce or complaint notification to the email blacklist.
 func (db SQLDatabase) PutBlacklistedEmail(email string, reason string, timestamp string) error {
-	_, err := db.conn.Exec("INSERT INTO blacklisted_emails(email, reason, timestamp) VALUES($1, $2, $3)",
-		email, reason, timestamp)
-	return err
+	return db.conn.Insert(&EmailBlacklistData{
+		Email: email, Timestamp: timestamp, Reason: reason,
+	})
 }
 
 // IsBlacklistedEmail returns true iff we've blacklisted the passed email address for sending.
 func (db SQLDatabase) IsBlacklistedEmail(email string) (bool, error) {
-	var count int
-	row := db.conn.QueryRow("SELECT COUNT(*) FROM blacklisted_emails WHERE email=$1", email)
-	err := row.Scan(&count)
-	if err != nil {
-		return false, err
-	}
-	return count > 0, nil
+	count, err := db.conn.SelectInt("select count(*) from blacklisted_emails where email=$1", email)
+	return count > 0, err
 }
 
 func tryExec(database SQLDatabase, commands []string) error {
