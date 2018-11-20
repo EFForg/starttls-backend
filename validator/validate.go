@@ -37,6 +37,7 @@ func validateRegularly(v DomainPolicyStore, interval time.Duration,
 	check checkPerformer, report reportFailure) {
 	for {
 		<-time.After(interval)
+		log.Printf("[%s validator] starting regular validation", v.GetName())
 		domains, err := v.DomainsToValidate()
 		if err != nil {
 			log.Printf("[%s validator] Could not retrieve domains: %v", v.GetName(), err)
@@ -50,6 +51,7 @@ func validateRegularly(v DomainPolicyStore, interval time.Duration,
 			}
 			result := check(domain, hostnames, 10*time.Second)
 			if result.Status != 0 && report != nil {
+				log.Printf("[%s validator] %s failed; sending report", v.GetName(), domain)
 				report(v.GetName(), domain, result)
 			}
 		}
