@@ -102,6 +102,8 @@ func TestCloneDoesntChangeOriginal(t *testing.T) {
 	newList.Version = "5"
 	effPolicy := newList.Policies["eff.org"]
 	effPolicy.MXs = []string{"a", "b"}
+	list.mu.RLock()
+	defer list.mu.RUnlock()
 	if list.Version == "5" || len(list.Policies["eff.org"].MXs) > 1 {
 		t.Errorf("Expected original to remain unchanged after changing copy")
 	}

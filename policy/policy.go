@@ -47,7 +47,7 @@ func (l *List) Add(domain string, policy TLSPolicy) {
 
 // get retrieves the TLSPolicy for a domain, and resolves
 // aliases if they exist.
-func (l List) get(domain string) (TLSPolicy, error) {
+func (l *List) get(domain string) (TLSPolicy, error) {
 	policy, ok := l.Policies[domain]
 	if !ok {
 		return TLSPolicy{}, fmt.Errorf("policy for domain %s doesn't exist", domain)
@@ -65,12 +65,12 @@ func (l List) get(domain string) (TLSPolicy, error) {
 // policyURL every hour. Safe for concurrent calls to `Get`.
 type UpdatedList struct {
 	mu sync.RWMutex
-	List
+	*List
 }
 
 // DomainsToValidate [interface Validator] retrieves domains from the
 // DB whose policies should be validated.
-func (l UpdatedList) DomainsToValidate() ([]string, error) {
+func (l *UpdatedList) DomainsToValidate() ([]string, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	domains := []string{}
@@ -82,7 +82,7 @@ func (l UpdatedList) DomainsToValidate() ([]string, error) {
 
 // HostnamesForDomain [interface Validator] retrieves the hostname policy for
 // a particular domain.
-func (l UpdatedList) HostnamesForDomain(domain string) ([]string, error) {
+func (l *UpdatedList) HostnamesForDomain(domain string) ([]string, error) {
 	policy, err := l.Get(domain)
 	if err != nil {
 		return []string{}, err
@@ -91,22 +91,22 @@ func (l UpdatedList) HostnamesForDomain(domain string) ([]string, error) {
 }
 
 // GetName retrieves a readable name for this data store (for use in error messages)
-func (l UpdatedList) GetName() string {
+func (l *UpdatedList) GetName() string {
 	return "Policy List"
 }
 
 // Get safely reads from the underlying policy list and returns a TLSPolicy for a domain
-func (l UpdatedList) Get(domain string) (TLSPolicy, error) {
+func (l *UpdatedList) Get(domain string) (TLSPolicy, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	return l.get(domain)
 }
 
 // Raw returns a raw List struct, copied from the underlying one
-func (l UpdatedList) Raw() List {
+func (l *UpdatedList) Raw() List {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	list := l.List
+	list := *l.List
 	list.Timestamp = l.Timestamp
 	list.Expires = l.Expires
 	list.Pinsets = make(map[string]Pinset)
@@ -167,7 +167,7 @@ func (l *UpdatedList) update(fetch fetchListFn) {
 		log.Printf("Error updating policy list: %s\n", err)
 	} else {
 		l.mu.Lock()
-		l.List = newList
+		l.List = &newList
 		l.mu.Unlock()
 	}
 }
@@ -175,8 +175,8 @@ func (l *UpdatedList) update(fetch fetchListFn) {
 // makeUpdatedList constructs an UpdatedList object and launches a
 // thread to continually update it. Accepts a fetchListFn to allow
 // stubbing http request to remote policy list.
-func makeUpdatedList(fetch fetchListFn, updateFrequency time.Duration) UpdatedList {
-	l := UpdatedList{}
+func makeUpdatedList(fetch fetchListFn, updateFrequency time.Duration) *UpdatedList {
+	l := UpdatedList{List: &List{}}
 	l.update(fetch)
 
 	go func() {
@@ -185,10 +185,10 @@ func makeUpdatedList(fetch fetchListFn, updateFrequency time.Duration) UpdatedLi
 			time.Sleep(updateFrequency)
 		}
 	}()
-	return l
+	return &l
 }
 
 // MakeUpdatedList wraps makeUpdatedList to use FetchListHTTP by default to update policy list
-func MakeUpdatedList() UpdatedList {
+func MakeUpdatedList() *UpdatedList {
 	return makeUpdatedList(fetchListHTTP, time.Hour)
 }
