@@ -3,6 +3,7 @@ package checker
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 // fake DNS map for "resolving" MX lookups
@@ -43,14 +44,14 @@ var hostnameResults = map[string]HostnameResult{
 type mockLookup struct{}
 type mockChecker struct{}
 
-func (*mockLookup) lookupHostname(domain string) ([]string, error) {
+func (*mockLookup) lookupHostname(domain string, _ time.Duration) ([]string, error) {
 	if domain == "error" {
 		return nil, fmt.Errorf("No MX records found")
 	}
 	return mxLookup[domain], nil
 }
 
-func (*mockChecker) checkHostname(domain string, hostname string) HostnameResult {
+func (*mockChecker) checkHostname(domain string, hostname string, _ time.Duration) HostnameResult {
 	if result, ok := hostnameResults[hostname]; ok {
 		return result
 	}
@@ -91,7 +92,7 @@ func performTests(t *testing.T, tests []domainTestCase) {
 			ExpectedHostnames: test.expectedHostnames,
 			hostnameLookup:    &mockLookup{},
 			hostnameChecker:   &mockChecker{},
-		}).Status
+		}, time.Second).Status
 		test.check(t, got)
 	}
 }

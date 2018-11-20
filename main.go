@@ -113,7 +113,11 @@ func main() {
 		DontScan:    loadDontScan(),
 		Emailer:     emailConfig,
 	}
+	if os.Getenv("VALIDATE_QUEUED") == "1" {
+		go validator.ValidateRegularly(list, 24*time.Hour)
+	}
+	if os.Getenv("VALIDATE_LIST") == "1" {
+		go validator.ValidateRegularly(db, 24*time.Hour)
+	}
 	ServePublicEndpoints(&api, &cfg)
-	go validator.ValidateRegularly(&list, 24*time.Hour)
-	go validator.ValidateRegularly(db, 24*time.Hour)
 }

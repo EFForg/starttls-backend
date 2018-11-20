@@ -13,13 +13,13 @@ import (
 
 func validQueueData(scan bool) url.Values {
 	data := url.Values{}
-	data.Set("domain", "eff.org")
+	data.Set("domain", "example.com")
 	if scan {
 		http.PostForm(server.URL+"/api/scan", data)
 	}
 	data.Set("email", "testing@fake-email.org")
-	data.Add("hostnames", ".eff.org")
-	data.Add("hostnames", "mx.eff.org")
+	data.Add("hostnames", ".example.com")
+	data.Add("hostnames", "mx.example.com")
 	return data
 }
 
@@ -136,12 +136,22 @@ func TestQueueWithoutHostnames(t *testing.T) {
 	defer teardown()
 
 	data := url.Values{}
-	data.Set("domain", "eff.org")
+	data.Set("domain", "example.com")
 	data.Set("email", "testing@fake-email.org")
 	resp, _ := http.PostForm(server.URL+"/api/queue", data)
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("POST to api/queue should have failed with error %d", http.StatusBadRequest)
+	}
+}
+
+func TestQueueAlreadyOnList(t *testing.T) {
+	defer teardown()
+	requestData := validQueueData(true)
+	requestData.Set("domain", "eff.org")
+	resp, _ := http.PostForm(server.URL+"/api/queue", requestData)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("Queuing eff.org should have failed with error %d since it's already on the list", resp.StatusCode)
 	}
 }
 
@@ -189,9 +199,9 @@ func TestQueueTwice(t *testing.T) {
 	}
 
 	// 2. Get token from DB
-	token, err := api.Database.GetTokenByDomain("eff.org")
+	token, err := api.Database.GetTokenByDomain("example.com")
 	if err != nil {
-		t.Fatalf("Token for eff.org not found in database")
+		t.Fatalf("Token for example.com not found in database")
 	}
 
 	// 3. Request to be queued again.
