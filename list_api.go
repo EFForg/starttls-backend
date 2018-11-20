@@ -57,7 +57,6 @@ func (api API) GetList(r *http.Request) APIResponse {
 //
 // POST /auth/fail
 //      domain: Domain name to demote to "failed" state
-//      reason: Human-text reasoning for why domain was demoted and how it failed
 func (api API) FailDomain(r *http.Request) APIResponse {
 	if r.Method != http.MethodPost {
 		return APIResponse{StatusCode: http.StatusMethodNotAllowed,
