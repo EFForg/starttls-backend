@@ -128,18 +128,18 @@ type blacklistRequest struct {
 	reason     string
 	timestamp  string
 	recipients Recipients
-	raw        rawSNSMessage
+	raw        string
 }
 
-type rawSNSMessage string
+type ravenExtraContent string
 
 // Class satisfies raven's Interface interface so we can send this as extra context.
 // https://github.com/getsentry/raven-go/issues/125
-func (r rawSNSMessage) Class() string {
+func (r ravenExtraContent) Class() string {
 	return "extra"
 }
 
-func (r rawSNSMessage) MarshalJSON() ([]byte, error) {
+func (r ravenExtraContent) MarshalJSON() ([]byte, error) {
 	return []byte(r), nil
 }
 
@@ -182,7 +182,7 @@ func (r *blacklistRequest) UnmarshalJSON(b []byte) error {
 	}
 
 	*r = blacklistRequest{
-		raw:        rawSNSMessage(wrapper.Message),
+		raw:        wrapper.Message,
 		timestamp:  wrapper.Timestamp,
 		reason:     msg.NotificationType,
 		recipients: recipients,
@@ -211,12 +211,12 @@ func handleSESNotification(database db.Database) func(http.ResponseWriter, *http
 		err = json.Unmarshal(body, data)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			raven.CaptureError(err, nil)
+			raven.CaptureError(err, nil, ravenExtraContent(body))
 			return
 		}
 
 		tags := map[string]string{"notification_type": data.reason}
-		raven.CaptureMessage("Received SES notification", tags, data.raw)
+		raven.CaptureMessage("Received SES notification", tags, ravenExtraContent(data.raw))
 
 		for _, recipient := range data.recipients {
 			err = database.PutBlacklistedEmail(recipient.EmailAddress, data.reason, data.timestamp)
