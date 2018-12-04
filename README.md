@@ -42,3 +42,6 @@ docker-compose exec app go test -v
 ```
 docker-compose exec app go test ./db -v
 ```
+
+### No-scan domains
+In case of complaints or abuse, we may not want to continually scan some domains. You can set the environment variable `DOMAIN_BLACKLIST` to point to a file with a list of newline-separated domains. Attempting to scan those domains from the public-facing website will result in error codes.
