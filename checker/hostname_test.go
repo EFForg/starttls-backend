@@ -1,6 +1,7 @@
 package checker
 
 import (
+	"bufio"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -22,7 +23,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-const testTimeout = time.Second
+const testTimeout = 250 * time.Millisecond
 
 // Code follows pattern from crypto/tls/generate_cert.go
 // to generate a cert from a PEM-encoded RSA private key.
@@ -193,6 +194,49 @@ func TestSuccessWithFakeCA(t *testing.T) {
 		},
 	}
 	compareStatuses(t, expected, result)
+}
+
+// Tests that the checker successfully initiates an SMTP connection with mail
+// servers that use a greet delay.
+func TestSuccessWithDelayedGreeting(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go ServeDelayedGreeting(ln, t)
+
+	client, err := smtpDialWithTimeout(ln.Addr().String(), testTimeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.Close()
+}
+
+func ServeDelayedGreeting(ln net.Listener, t *testing.T) {
+	conn, err := ln.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	time.Sleep(testTimeout + 100*time.Millisecond)
+	_, err = conn.Write([]byte("220 localhost ESMTP\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	line, err := bufio.NewReader(conn).ReadString('\n')
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(line, "EHLO localhost") {
+		t.Fatalf("unexpected response from checker: %s", line)
+	}
+
+	_, err = conn.Write([]byte("250 HELO\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestFailureWithBadHostname(t *testing.T) {
