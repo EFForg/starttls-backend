@@ -9,6 +9,7 @@ import (
 // fake DNS map for "resolving" MX lookups
 var mxLookup = map[string][]string{
 	"empty":         []string{},
+	"changes":       []string{"changes"},
 	"domain":        []string{"hostname1", "hostname2"},
 	"noconnection":  []string{"noconnection", "noconnection"},
 	"noconnection2": []string{"noconnection", "nostarttlsconnect"},
@@ -55,6 +56,10 @@ func (*mockChecker) checkHostname(domain string, hostname string, _ time.Duratio
 	if result, ok := hostnameResults[hostname]; ok {
 		return result
 	}
+	// For caching test: "changes" result changes after first scan
+	if hostname == "changes" {
+		hostnameResults["changes"] = hostnameResults["nostarttls"]
+	}
 	// by default return successful check
 	return HostnameResult{Status: 0, Checks: map[string]CheckResult{
 		"connectivity": {"connectivity", 0, nil},
@@ -83,6 +88,7 @@ func (test domainTestCase) check(t *testing.T, got DomainStatus) {
 }
 
 func performTests(t *testing.T, tests []domainTestCase) {
+	cache := CreateSimpleCache()
 	for _, test := range tests {
 		if test.expectedHostnames == nil {
 			test.expectedHostnames = mxLookup[test.domain]
@@ -92,7 +98,7 @@ func performTests(t *testing.T, tests []domainTestCase) {
 			ExpectedHostnames: test.expectedHostnames,
 			hostnameLookup:    &mockLookup{},
 			hostnameChecker:   &mockChecker{},
-		}, time.Second).Status
+		}, time.Second, &cache).Status
 		test.check(t, got)
 	}
 }
@@ -129,5 +135,17 @@ func TestHostnamesNoSTARTTLS(t *testing.T) {
 		{domain: "nostarttls", expect: DomainNoSTARTTLSFailure},
 		{domain: "noconnection2", expect: DomainNoSTARTTLSFailure},
 	}
+	performTests(t, tests)
+}
+
+func TestHostnameScanCached(t *testing.T) {
+	// "Changes" result status should change from 0 => 5 after first scan,
+	// but since it's cached, we should always get 0 (the result from the
+	// first scan)
+
+	tests := []domainTestCase{
+		{domain: "changes", expect: 0},
+		{domain: "changes", expect: 0},
+		{domain: "changes", expect: 0}}
 	performTests(t, tests)
 }

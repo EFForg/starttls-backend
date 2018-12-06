@@ -42,6 +42,30 @@ type DomainQuery struct {
 	hostnameChecker
 }
 
+type ScanCache interface {
+	// hostname, expiry date, result of that scan
+	GetHostnameScan(string) (HostnameResult, bool)
+	PutHostnameScan(string, HostnameResult)
+}
+
+// Simple cache for testing
+type SimpleCache struct {
+	m map[string]HostnameResult
+}
+
+func CreateSimpleCache() SimpleCache {
+	return SimpleCache{m: make(map[string]HostnameResult)}
+}
+
+func (l *SimpleCache) GetHostnameScan(hostname string) (HostnameResult, bool) {
+	result, ok := l.m[hostname]
+	return result, ok
+}
+
+func (l *SimpleCache) PutHostnameScan(hostname string, result HostnameResult) {
+	l.m[hostname] = result
+}
+
 // Looks up what hostnames are correlated with a particular domain.
 type hostnameLookup interface {
 	lookupHostname(string, time.Duration) ([]string, error)
@@ -124,16 +148,16 @@ func (*dnsLookup) lookupHostname(domain string, timeout time.Duration) ([]string
 //   `domain` is the mail domain to perform the lookup on.
 //   `mxHostnames` is the list of expected hostnames.
 //     If `mxHostnames` is nil, we don't validate the DNS lookup.
-func CheckDomain(domain string, mxHostnames []string, timeout time.Duration) DomainResult {
+func CheckDomain(domain string, mxHostnames []string, timeout time.Duration, cache ScanCache) DomainResult {
 	return performCheck(DomainQuery{
 		Domain:            domain,
 		ExpectedHostnames: mxHostnames,
 		hostnameLookup:    &dnsLookup{},
 		hostnameChecker:   &tlsChecker{},
-	}, timeout)
+	}, timeout, cache)
 }
 
-func performCheck(query DomainQuery, timeout time.Duration) DomainResult {
+func performCheck(query DomainQuery, timeout time.Duration, cache ScanCache) DomainResult {
 	result := DomainResult{
 		Domain:          query.Domain,
 		MxHostnames:     query.ExpectedHostnames,
@@ -148,7 +172,11 @@ func performCheck(query DomainQuery, timeout time.Duration) DomainResult {
 	}
 	checkedHostnames := make([]string, 0)
 	for _, hostname := range hostnames {
-		hostnameResult := query.checkHostname(query.Domain, hostname, timeout)
+		hostnameResult, ok := cache.GetHostnameScan(hostname)
+		if !ok {
+			hostnameResult = query.checkHostname(query.Domain, hostname, timeout)
+			cache.PutHostnameScan(hostname, hostnameResult)
+		}
 		result.HostnameResults[hostname] = hostnameResult
 		if hostnameResult.couldConnect() {
 			checkedHostnames = append(checkedHostnames, hostname)
