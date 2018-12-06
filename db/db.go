@@ -83,6 +83,10 @@ type Database interface {
 	PutBlacklistedEmail(email string, reason string, timestamp string) error
 	// Returns true if we've blacklisted an email.
 	IsBlacklistedEmail(string) (bool, error)
+	// Retrieves a hostname scan for a particular hostname
+	GetHostnameScan(string) (checker.HostnameResult, bool)
+	// Enters a hostname scan.
+	PutHostnameScan(string, checker.HostnameResult)
 	ClearTables() error
 }
 
