@@ -42,30 +42,6 @@ type DomainQuery struct {
 	hostnameChecker
 }
 
-type ScanCache interface {
-	// hostname, expiry date, result of that scan
-	GetHostnameScan(string) (HostnameResult, bool)
-	PutHostnameScan(string, HostnameResult)
-}
-
-// Simple cache for testing
-type SimpleCache struct {
-	m map[string]HostnameResult
-}
-
-func CreateSimpleCache() SimpleCache {
-	return SimpleCache{m: make(map[string]HostnameResult)}
-}
-
-func (l *SimpleCache) GetHostnameScan(hostname string) (HostnameResult, bool) {
-	result, ok := l.m[hostname]
-	return result, ok
-}
-
-func (l *SimpleCache) PutHostnameScan(hostname string, result HostnameResult) {
-	l.m[hostname] = result
-}
-
 // Looks up what hostnames are correlated with a particular domain.
 type hostnameLookup interface {
 	lookupHostname(string, time.Duration) ([]string, error)
@@ -172,8 +148,8 @@ func performCheck(query DomainQuery, timeout time.Duration, cache ScanCache) Dom
 	}
 	checkedHostnames := make([]string, 0)
 	for _, hostname := range hostnames {
-		hostnameResult, ok := cache.GetHostnameScan(hostname)
-		if !ok {
+		hostnameResult, err := cache.GetHostnameScan(hostname)
+		if err != nil {
 			hostnameResult = query.checkHostname(query.Domain, hostname, timeout)
 			cache.PutHostnameScan(hostname, hostnameResult)
 		}

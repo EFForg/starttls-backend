@@ -43,7 +43,7 @@ func validateRegularly(v DomainPolicyStore, interval time.Duration,
 			log.Printf("[%s validator] Could not retrieve domains: %v", v.GetName(), err)
 			continue
 		}
-		cache := checker.CreateSimpleCache()
+		cache := checker.CreateSimpleCache(time.Minute * 10)
 
 		for _, domain := range domains {
 			hostnames, err := v.HostnamesForDomain(domain)
@@ -51,7 +51,7 @@ func validateRegularly(v DomainPolicyStore, interval time.Duration,
 				log.Printf("[%s validator] Could not retrieve policy for domain %s: %v", v.GetName(), domain, err)
 				continue
 			}
-			result := check(domain, hostnames, 10*time.Second, &cache)
+			result := check(domain, hostnames, 10*time.Second, cache)
 			if result.Status != 0 && report != nil {
 				log.Printf("[%s validator] %s failed; sending report", v.GetName(), domain)
 				report(v.GetName(), domain, result)

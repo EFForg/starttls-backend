@@ -54,6 +54,7 @@ func (*mockLookup) lookupHostname(domain string, _ time.Duration) ([]string, err
 
 func (*mockChecker) checkHostname(domain string, hostname string, _ time.Duration) HostnameResult {
 	if result, ok := hostnameResults[hostname]; ok {
+		result.Timestamp = time.Now()
 		return result
 	}
 	// For caching test: "changes" result changes after first scan
@@ -65,7 +66,7 @@ func (*mockChecker) checkHostname(domain string, hostname string, _ time.Duratio
 		"connectivity": {"connectivity", 0, nil},
 		"starttls":     {"starttls", 0, nil},
 		"certificate":  {"certificate", 0, nil},
-		"version":      {"version", 0, nil}}}
+		"version":      {"version", 0, nil}}, Timestamp: time.Now()}
 }
 
 // Test helpers.
@@ -88,7 +89,11 @@ func (test domainTestCase) check(t *testing.T, got DomainStatus) {
 }
 
 func performTests(t *testing.T, tests []domainTestCase) {
-	cache := CreateSimpleCache()
+	performTestsWithCacheTimeout(t, tests, time.Hour)
+}
+
+func performTestsWithCacheTimeout(t *testing.T, tests []domainTestCase, cacheExpiry time.Duration) {
+	cache := CreateSimpleCache(cacheExpiry)
 	for _, test := range tests {
 		if test.expectedHostnames == nil {
 			test.expectedHostnames = mxLookup[test.domain]
@@ -98,9 +103,10 @@ func performTests(t *testing.T, tests []domainTestCase) {
 			ExpectedHostnames: test.expectedHostnames,
 			hostnameLookup:    &mockLookup{},
 			hostnameChecker:   &mockChecker{},
-		}, time.Second, &cache).Status
+		}, time.Second, cache).Status
 		test.check(t, got)
 	}
+
 }
 
 // Test cases.
@@ -142,10 +148,18 @@ func TestHostnameScanCached(t *testing.T) {
 	// "Changes" result status should change from 0 => 5 after first scan,
 	// but since it's cached, we should always get 0 (the result from the
 	// first scan)
-
+	delete(hostnameResults, "changes")
 	tests := []domainTestCase{
 		{domain: "changes", expect: 0},
 		{domain: "changes", expect: 0},
 		{domain: "changes", expect: 0}}
 	performTests(t, tests)
+}
+
+func TestHostnameScanExpires(t *testing.T) {
+	delete(hostnameResults, "changes")
+	tests := []domainTestCase{
+		{domain: "changes", expect: 0},
+		{domain: "changes", expect: 4}}
+	performTestsWithCacheTimeout(t, tests, 0)
 }

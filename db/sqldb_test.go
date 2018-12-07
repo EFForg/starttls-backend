@@ -306,8 +306,8 @@ func TestGetHostnameScan(t *testing.T) {
 	checksMap["test"] = checker.CheckResult{}
 	database.PutHostnameScan("hello", checker.HostnameResult{
 		Hostname: "hello", Status: 1, Checks: checksMap})
-	result, ok := database.GetHostnameScan("hello")
-	if !ok {
+	result, err := database.GetHostnameScan("hello")
+	if err != nil {
 		t.Errorf("Expected hostname scan to return without errors")
 	}
 	if result.Status != 1 || checksMap["test"].Name != result.Checks["test"].Name {
