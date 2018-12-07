@@ -7,7 +7,7 @@ import (
 
 func TestSimpleCacheMap(t *testing.T) {
 	cache := CreateSimpleCache(time.Hour)
-	err := cache.PutHostnameScan("anything", HostnameResult{Status: 3})
+	err := cache.PutHostnameScan("anything", HostnameResult{Status: 3, Timestamp: time.Now()})
 	if err != nil {
 		t.Errorf("Expected scan put to succeed: %v", err)
 	}
