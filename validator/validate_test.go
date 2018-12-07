@@ -29,7 +29,7 @@ func (m mockDomainPolicyStore) HostnamesForDomain(domain string) ([]string, erro
 
 func TestRegularValidationValidates(t *testing.T) {
 	called := make(chan bool)
-	fakeChecker := func(domain string, hostnames []string, _ time.Duration) checker.DomainResult {
+	fakeChecker := func(domain string, hostnames []string, _ time.Duration, _ checker.ScanCache) checker.DomainResult {
 		called <- true
 		return checker.DomainResult{}
 	}
@@ -47,7 +47,7 @@ func TestRegularValidationValidates(t *testing.T) {
 
 func TestRegularValidationReportsErrors(t *testing.T) {
 	reports := make(chan string)
-	fakeChecker := func(domain string, hostnames []string, _ time.Duration) checker.DomainResult {
+	fakeChecker := func(domain string, hostnames []string, _ time.Duration, _ checker.ScanCache) checker.DomainResult {
 		if domain == "fail" || domain == "error" {
 			return checker.DomainResult{Status: 5}
 		}
