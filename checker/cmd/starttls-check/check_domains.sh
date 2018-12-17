@@ -1,9 +1,10 @@
 #!/bin/bash
 
-lines=""
+domains_file=$(mktemp)
 while read line
 do
-    lines="${lines}\n${line}"
+    echo $line >> "${domains_file}"
 done
 
-echo -e $lines | grep ",queued" | ./starttls-check -log "queued_check_results.json" | grep SUCCESS
+./starttls-check -log "queued_check_results.json" -csv "${domains_file}"
+rm ${domains_file}
