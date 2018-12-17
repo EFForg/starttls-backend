@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/EFForg/starttls-backend/checker"
 	// Imports postgresql driver for database/sql
 	_ "github.com/lib/pq"
 )
@@ -264,4 +265,33 @@ func (db SQLDatabase) HostnamesForDomain(domain string) ([]string, error) {
 // GetName retrieves a readable name for this data store (for use in error messages)
 func (db SQLDatabase) GetName() string {
 	return "SQL Database"
+}
+
+const cacheTime = time.Minute * 5
+
+// GetHostnameScan retrives most recent scan from database.
+func (db *SQLDatabase) GetHostnameScan(hostname string) (checker.HostnameResult, error) {
+	result := checker.HostnameResult{Hostname: hostname}
+	var rawScanData []byte
+	var timestamp time.Time
+	err := db.conn.QueryRow(`SELECT timestamp, status, scandata FROM hostname_scans
+                    WHERE hostname=$1 AND
+                    timestamp=(SELECT MAX(timestamp) FROM hostname_scans WHERE hostname=$1)`,
+		hostname).Scan(&timestamp, &result.Status, &rawScanData)
+	if err != nil {
+		return result, err
+	}
+	err = json.Unmarshal(rawScanData, &result.Checks)
+	return result, err
+}
+
+// PutHostnameScan puts this scan into the database.
+func (db *SQLDatabase) PutHostnameScan(hostname string, result checker.HostnameResult) error {
+	data, err := json.Marshal(result.Checks)
+	if err != nil {
+		return err
+	}
+	_, err = db.conn.Exec(`INSERT INTO hostname_scans(hostname, status, scandata)
+                                VALUES($1, $2, $3)`, hostname, result.Status, string(data))
+	return err
 }

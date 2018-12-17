@@ -300,3 +300,17 @@ func TestPutAndIsBlacklistedEmail(t *testing.T) {
 		t.Errorf("good@example.com should not be blacklisted, but was")
 	}
 }
+
+func TestGetHostnameScan(t *testing.T) {
+	checksMap := make(map[string]checker.CheckResult)
+	checksMap["test"] = checker.CheckResult{}
+	database.PutHostnameScan("hello", checker.HostnameResult{
+		Hostname: "hello", Status: 1, Checks: checksMap})
+	result, err := database.GetHostnameScan("hello")
+	if err != nil {
+		t.Errorf("Expected hostname scan to return without errors")
+	}
+	if result.Status != 1 || checksMap["test"].Name != result.Checks["test"].Name {
+		t.Errorf("Expected hostname scan to return correct data")
+	}
+}

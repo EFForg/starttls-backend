@@ -49,6 +49,7 @@ type API struct {
 // for a particular domain.
 type PolicyList interface {
 	Get(string) (policy.TLSPolicy, error)
+	Raw() policy.List
 }
 
 // EmailSender interface wraps a back-end that can send e-mails.
@@ -113,7 +114,8 @@ func asyncPolicyCheck(api API, domain string) <-chan checker.CheckResult {
 
 func defaultCheck(api API, domain string) (checker.DomainResult, error) {
 	policyChan := asyncPolicyCheck(api, domain)
-	result := checker.CheckDomain(domain, nil)
+	result := checker.CheckDomain(domain, nil, 3*time.Second,
+		checker.ScanCache{ScanStore: api.Database, ExpireTime: 5 * time.Minute})
 	result.ExtraResults = make(map[string]checker.CheckResult)
 	result.ExtraResults["policylist"] = <-policyChan
 	return result, nil
@@ -234,8 +236,15 @@ func (api API) Queue(r *http.Request) APIResponse {
 		if scan.Data.Status != 0 {
 			return APIResponse{
 				StatusCode: http.StatusBadRequest,
-				Message:    "%s hasn't passed our STARTTLS security checks",
+				Message:    fmt.Sprintf("%s hasn't passed our STARTTLS security checks", domain),
 			}
+		}
+		// 0. Check to see it's not already queued
+		_, err = api.List.Get(domain)
+		if err == nil {
+			return APIResponse{
+				StatusCode: http.StatusBadRequest,
+				Message:    fmt.Sprintf("%s is already on the list!", domain)}
 		}
 		domainData, err := getDomainParams(r, domain)
 		if err != nil {

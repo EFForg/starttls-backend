@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
 )
@@ -58,9 +59,10 @@ func statusToString(status checker.DomainStatus) string {
 func checkDomains(domains [][2]string, logFile string) {
 	w := csv.NewWriter(os.Stdout)
 	results := make(map[string]checker.DomainResult)
+	cache := checker.CreateSimpleCache(10 * time.Minute)
 	for _, domainInfo := range domains {
 		result := checker.CheckDomain(domainInfo[0],
-			strings.Split(domainInfo[1], ","))
+			strings.Split(domainInfo[1], ","), 10*time.Second, cache)
 		results[result.Domain] = result
 		w.Write(append(domainInfo[:], statusToString(result.Status)))
 		w.Flush()
@@ -100,7 +102,8 @@ func main() {
 	// 	}
 
 	if *domainStr != "" {
-		result := checker.CheckDomain(*domainStr, nil)
+		cache := checker.CreateSimpleCache(10 * time.Minute)
+		result := checker.CheckDomain(*domainStr, nil, 10*time.Second, cache)
 		b, err := json.Marshal(result)
 		if err != nil {
 			log.Printf("%q", err)
