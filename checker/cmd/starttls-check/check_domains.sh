@@ -1,5 +1,7 @@
 #!/bin/bash
 
+go build .
+
 domains_file=$(mktemp)
 while read line
 do
