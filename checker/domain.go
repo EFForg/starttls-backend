@@ -124,16 +124,16 @@ func (*dnsLookup) lookupHostname(domain string, timeout time.Duration) ([]string
 //   `domain` is the mail domain to perform the lookup on.
 //   `mxHostnames` is the list of expected hostnames.
 //     If `mxHostnames` is nil, we don't validate the DNS lookup.
-func CheckDomain(domain string, mxHostnames []string, timeout time.Duration) DomainResult {
+func CheckDomain(domain string, mxHostnames []string, timeout time.Duration, cache ScanCache) DomainResult {
 	return performCheck(DomainQuery{
 		Domain:            domain,
 		ExpectedHostnames: mxHostnames,
 		hostnameLookup:    &dnsLookup{},
 		hostnameChecker:   &tlsChecker{},
-	}, timeout)
+	}, timeout, cache)
 }
 
-func performCheck(query DomainQuery, timeout time.Duration) DomainResult {
+func performCheck(query DomainQuery, timeout time.Duration, cache ScanCache) DomainResult {
 	result := DomainResult{
 		Domain:          query.Domain,
 		MxHostnames:     query.ExpectedHostnames,
@@ -148,7 +148,11 @@ func performCheck(query DomainQuery, timeout time.Duration) DomainResult {
 	}
 	checkedHostnames := make([]string, 0)
 	for _, hostname := range hostnames {
-		hostnameResult := query.checkHostname(query.Domain, hostname, timeout)
+		hostnameResult, err := cache.GetHostnameScan(hostname)
+		if err != nil {
+			hostnameResult = query.checkHostname(query.Domain, hostname, timeout)
+			cache.PutHostnameScan(hostname, hostnameResult)
+		}
 		result.HostnameResults[hostname] = hostnameResult
 		if hostnameResult.couldConnect() {
 			checkedHostnames = append(checkedHostnames, hostname)

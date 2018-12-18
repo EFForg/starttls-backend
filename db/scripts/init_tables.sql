@@ -17,6 +17,15 @@ CREATE TABLE IF NOT EXISTS scans
     timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS hostname_scans
+(
+    id          SERIAL PRIMARY KEY,
+    hostname    TEXT NOT NULL,
+    timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status      SMALLINT,
+    scandata    TEXT NOT NULL
+);
+
 
 CREATE TABLE IF NOT EXISTS domains
 (

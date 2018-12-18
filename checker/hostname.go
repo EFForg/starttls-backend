@@ -12,10 +12,11 @@ import (
 
 // HostnameResult wraps the results of a security check against a particular hostname.
 type HostnameResult struct {
-	Domain   string                 `json:"domain"`
-	Hostname string                 `json:"hostname"`
-	Status   CheckStatus            `json:"status"`
-	Checks   map[string]CheckResult `json:"checks"`
+	Domain    string                 `json:"domain"`
+	Hostname  string                 `json:"hostname"`
+	Status    CheckStatus            `json:"status"`
+	Checks    map[string]CheckResult `json:"checks"`
+	Timestamp time.Time              `json:"-"`
 }
 
 // Returns result of specifiedcheck.
@@ -258,10 +259,11 @@ func (h *HostnameResult) addCheck(checkResult CheckResult) {
 // `hostname` is the hostname for this server.
 func CheckHostname(domain string, hostname string, timeout time.Duration) HostnameResult {
 	result := HostnameResult{
-		Status:   Success,
-		Domain:   domain,
-		Hostname: hostname,
-		Checks:   make(map[string]CheckResult),
+		Status:    Success,
+		Domain:    domain,
+		Hostname:  hostname,
+		Checks:    make(map[string]CheckResult),
+		Timestamp: time.Now(),
 	}
 
 	// Connect to the SMTP server and use that connection to perform as many checks as possible.
