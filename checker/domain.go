@@ -13,9 +13,36 @@ import (
 type Checker struct {
 	Timeout         time.Duration
 	Cache           ScanCache // No cache if nil?
-	hostnameLookup            // Defaults to dnsLookup
-	hostnameChecker           // Defaults to tlsChecker
+	LookupHostnames func(string, time.Duration) ([]string, error)
+	CheckHostname   func(string, string, time.Duration) HostnameResult
 }
+
+// cache defaults to a ten-minute in-memory cache
+func New(timeout time.Duration, cache ScanCache) Checker {
+	if cache == nil {
+		cache = CreateSimpleCache(10 * time.Minute)
+	}
+	c := Checker{
+		Timeout: timeout,
+		Cache:   cache,
+	}
+	c.LookupHostnames = c.dnsLookupHostnames
+	c.CheckHostname = c.defaultCheckHostname
+}
+
+// func (c Checker) LookupHostnames(domain string) ([]string, error) {
+// 	if c.lookupHostnames != nil {
+// 		return c.lookupHostnames(domain)
+// 	}
+// 	return c.dnsLookupHostnames(domain)
+// }
+//
+// func (c Checker) CheckHostname(string, string) {
+// 	if c.hostnameChecker != nil {
+// 		return c.hostnameChecker()
+// 	}
+// 	return c.checkHostname
+// }
 
 // Reports an error during the domain checks.
 func (d DomainResult) reportError(err error) DomainResult {
@@ -37,16 +64,6 @@ const (
 	DomainCouldNotConnect    DomainStatus = 5
 	DomainBadHostnameFailure DomainStatus = 6
 )
-
-// Looks up what hostnames are correlated with a particular domain.
-type hostnameLookup interface {
-	lookupHostname(string, time.Duration) ([]string, error)
-}
-
-// Performs a series of checks on a particular domain, hostname combo.
-type hostnameChecker interface {
-	checkHostname(string, string, time.Duration) HostnameResult
-}
 
 // DomainResult wraps all the results for a particular mail domain.
 type DomainResult struct {
@@ -73,12 +90,6 @@ func (d DomainResult) Class() string {
 	return "extra"
 }
 
-type tlsChecker struct{}
-
-func (*tlsChecker) checkHostname(domain string, hostname string, timeout time.Duration) HostnameResult {
-	return CheckHostname(domain, hostname, timeout)
-}
-
 func (d DomainResult) setStatus(status DomainStatus) DomainResult {
 	d.Status = DomainStatus(SetStatus(CheckStatus(d.Status), CheckStatus(status)))
 	return d
@@ -91,9 +102,7 @@ func lookupMXWithTimeout(domain string, timeout time.Duration) ([]*net.MX, error
 	return r.LookupMX(ctx, domain)
 }
 
-type dnsLookup struct{}
-
-func (*dnsLookup) lookupHostname(domain string, timeout time.Duration) ([]string, error) {
+func (c Checker) dnsLookupHostname(domain string, timeout time.Duration) ([]string, error) {
 	domainASCII, err := idna.ToASCII(domain)
 	if err != nil {
 		return nil, fmt.Errorf("domain name %s couldn't be converted to ASCII", domain)

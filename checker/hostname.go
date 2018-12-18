@@ -257,7 +257,7 @@ func (h *HostnameResult) addCheck(checkResult CheckResult) {
 // CheckHostname performs a series of checks against a hostname for an email domain.
 // `domain` is the mail domain that this server serves email for.
 // `hostname` is the hostname for this server.
-func CheckHostname(domain string, hostname string, timeout time.Duration) HostnameResult {
+func defaultCheckHostname(domain string, hostname string, timeout time.Duration) HostnameResult {
 	result := HostnameResult{
 		Status:    Success,
 		Domain:    domain,
