@@ -54,8 +54,11 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
-	cache := checker.CreateSimpleCache(10 * time.Minute)
-	result := checker.CheckDomain(*domainStr, nil, 5*time.Second, cache)
+	c := checker.Checker{
+		Timeout: 10 * time.Second,
+		Cache:   checker.CreateSimpleCache(time.Minute * 10),
+	}
+	result := c.CheckDomain(*domainStr, nil)
 	b, err := json.Marshal(result)
 	if err != nil {
 		fmt.Printf("%q", err)

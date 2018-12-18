@@ -10,6 +10,13 @@ import (
 	"golang.org/x/net/idna"
 )
 
+type Checker struct {
+	Timeout         time.Duration
+	Cache           ScanCache // No cache if nil?
+	hostnameLookup            // Defaults to dnsLookup
+	hostnameChecker           // Defaults to tlsChecker
+}
+
 // Reports an error during the domain checks.
 func (d DomainResult) reportError(err error) DomainResult {
 	d.Status = DomainError
@@ -30,17 +37,6 @@ const (
 	DomainCouldNotConnect    DomainStatus = 5
 	DomainBadHostnameFailure DomainStatus = 6
 )
-
-// DomainQuery wraps the parameters we need to perform a domain check.
-type DomainQuery struct {
-	// Domain being checked.
-	Domain string
-	// Expected hostnames in MX records for Domain
-	ExpectedHostnames []string
-	// Unexported implementations for fns that make network requests
-	hostnameLookup
-	hostnameChecker
-}
 
 // Looks up what hostnames are correlated with a particular domain.
 type hostnameLookup interface {
@@ -124,38 +120,33 @@ func (*dnsLookup) lookupHostname(domain string, timeout time.Duration) ([]string
 //   `domain` is the mail domain to perform the lookup on.
 //   `mxHostnames` is the list of expected hostnames.
 //     If `mxHostnames` is nil, we don't validate the DNS lookup.
-func CheckDomain(domain string, mxHostnames []string, timeout time.Duration, cache ScanCache) DomainResult {
-	return performCheck(DomainQuery{
-		Domain:            domain,
-		ExpectedHostnames: mxHostnames,
-		hostnameLookup:    &dnsLookup{},
-		hostnameChecker:   &tlsChecker{},
-	}, timeout, cache)
-}
-
-func performCheck(query DomainQuery, timeout time.Duration, cache ScanCache) DomainResult {
+func (c Checker) CheckDomain(domain string, expectedHostnames []string) DomainResult {
 	result := DomainResult{
-		Domain:          query.Domain,
-		MxHostnames:     query.ExpectedHostnames,
+		Domain:          domain,
+		MxHostnames:     expectedHostnames,
 		HostnameResults: make(map[string]HostnameResult),
 	}
 	// 1. Look up hostnames
 	// 2. Perform and aggregate checks from those hostnames.
 	// 3. Set a summary message.
-	hostnames, err := query.lookupHostname(query.Domain, timeout)
+	hostnames, err := c.lookupHostname(domain, c.Timeout)
 	if err != nil {
+		//@TODO make this match the interface for CheckResult
 		return result.reportError(err)
 	}
 	checkedHostnames := make([]string, 0)
 	for _, hostname := range hostnames {
-		hostnameResult, err := cache.GetHostnameScan(hostname)
-		if err != nil {
-			hostnameResult = query.checkHostname(query.Domain, hostname, timeout)
-			cache.PutHostnameScan(hostname, hostnameResult)
-		}
-		result.HostnameResults[hostname] = hostnameResult
-		if hostnameResult.couldConnect() {
-			checkedHostnames = append(checkedHostnames, hostname)
+		//@TODO abstract cache logic?
+		if cache := c.Cache; &cache != nil {
+			hostnameResult, err := cache.GetHostnameScan(hostname)
+			if err != nil {
+				hostnameResult = c.checkHostname(domain, hostname, c.Timeout)
+				cache.PutHostnameScan(hostname, hostnameResult)
+			}
+			result.HostnameResults[hostname] = hostnameResult
+			if hostnameResult.couldConnect() {
+				checkedHostnames = append(checkedHostnames, hostname)
+			}
 		}
 	}
 	result.PreferredHostnames = checkedHostnames
@@ -172,7 +163,7 @@ func performCheck(query DomainQuery, timeout time.Duration, cache ScanCache) Dom
 			return result.setStatus(DomainNoSTARTTLSFailure)
 		}
 		// Any of the connected hostnames don't have a match?
-		if query.ExpectedHostnames != nil && !hasValidName(query.ExpectedHostnames, hostname) {
+		if expectedHostnames != nil && !hasValidName(expectedHostnames, hostname) {
 			return result.setStatus(DomainBadHostnameFailure)
 		}
 		result = result.setStatus(DomainStatus(hostnameResult.Status))

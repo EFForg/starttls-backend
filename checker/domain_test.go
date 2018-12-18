@@ -93,20 +93,19 @@ func performTests(t *testing.T, tests []domainTestCase) {
 }
 
 func performTestsWithCacheTimeout(t *testing.T, tests []domainTestCase, cacheExpiry time.Duration) {
-	cache := CreateSimpleCache(cacheExpiry)
+	c := Checker{
+		Timeout:         time.Second,
+		Cache:           CreateSimpleCache(cacheExpiry),
+		hostnameLookup:  &mockLookup{},
+		hostnameChecker: &mockChecker{},
+	}
 	for _, test := range tests {
 		if test.expectedHostnames == nil {
 			test.expectedHostnames = mxLookup[test.domain]
 		}
-		got := performCheck(DomainQuery{
-			Domain:            test.domain,
-			ExpectedHostnames: test.expectedHostnames,
-			hostnameLookup:    &mockLookup{},
-			hostnameChecker:   &mockChecker{},
-		}, time.Second, cache).Status
+		got := c.CheckDomain(test.domain, test.expectedHostnames).Status
 		test.check(t, got)
 	}
-
 }
 
 // Test cases.
