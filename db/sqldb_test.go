@@ -304,13 +304,14 @@ func TestPutAndIsBlacklistedEmail(t *testing.T) {
 func TestGetHostnameScan(t *testing.T) {
 	checksMap := make(map[string]checker.CheckResult)
 	checksMap["test"] = checker.CheckResult{}
+	now = time.Now()
 	database.PutHostnameScan("hello", checker.HostnameResult{
-		Hostname: "hello", Status: 1, Checks: checksMap})
+		Timestamp: now, Hostname: "hello", Status: 1, Checks: checksMap})
 	result, err := database.GetHostnameScan("hello")
 	if err != nil {
 		t.Errorf("Expected hostname scan to return without errors")
 	}
-	if result.Status != 1 || checksMap["test"].Name != result.Checks["test"].Name {
+	if result.Timestamp != now || result.Status != 1 || checksMap["test"].Name != result.Checks["test"].Name {
 		t.Errorf("Expected hostname scan to return correct data")
 	}
 }
