@@ -10,6 +10,8 @@ import (
 	"golang.org/x/net/idna"
 )
 
+// A Checker is used to run checks against SMTP domains and hostnames.
+// It should be initialized with a call to New.
 type Checker struct {
 	Timeout         time.Duration
 	Cache           ScanCache // No cache if nil?
@@ -17,7 +19,9 @@ type Checker struct {
 	CheckHostname   func(string, string, time.Duration) HostnameResult
 }
 
-// cache defaults to a ten-minute in-memory cache
+// New returns a new Checker that can be used to check SMTP hosts.
+// timeout specifies the timeout for network requests made during checks.
+// If cache is nil, a 10-minute in-memory cache will be used.
 func New(timeout time.Duration, cache ScanCache) Checker {
 	if cache == nil {
 		cache = CreateSimpleCache(10 * time.Minute)
@@ -29,20 +33,6 @@ func New(timeout time.Duration, cache ScanCache) Checker {
 	c.LookupHostnames = c.dnsLookupHostnames
 	c.CheckHostname = c.defaultCheckHostname
 }
-
-// func (c Checker) LookupHostnames(domain string) ([]string, error) {
-// 	if c.lookupHostnames != nil {
-// 		return c.lookupHostnames(domain)
-// 	}
-// 	return c.dnsLookupHostnames(domain)
-// }
-//
-// func (c Checker) CheckHostname(string, string) {
-// 	if c.hostnameChecker != nil {
-// 		return c.hostnameChecker()
-// 	}
-// 	return c.checkHostname
-// }
 
 // Reports an error during the domain checks.
 func (d DomainResult) reportError(err error) DomainResult {
