@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
 )
@@ -54,10 +53,7 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
-	c := checker.Checker{
-		Timeout: 10 * time.Second,
-		Cache:   checker.CreateSimpleCache(time.Minute * 10),
-	}
+	c := checker.Checker{}
 	result := c.CheckDomain(*domainStr, nil)
 	b, err := json.Marshal(result)
 	if err != nil {

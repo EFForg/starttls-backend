@@ -5,34 +5,9 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	"golang.org/x/net/idna"
 )
-
-// A Checker is used to run checks against SMTP domains and hostnames.
-// It should be initialized with a call to New.
-type Checker struct {
-	Timeout         time.Duration
-	Cache           ScanCache // No cache if nil?
-	LookupHostnames func(string, time.Duration) ([]string, error)
-	CheckHostname   func(string, string, time.Duration) HostnameResult
-}
-
-// New returns a new Checker that can be used to check SMTP hosts.
-// timeout specifies the timeout for network requests made during checks.
-// If cache is nil, a 10-minute in-memory cache will be used.
-func New(timeout time.Duration, cache ScanCache) Checker {
-	if cache == nil {
-		cache = CreateSimpleCache(10 * time.Minute)
-	}
-	c := Checker{
-		Timeout: timeout,
-		Cache:   cache,
-	}
-	c.LookupHostnames = c.dnsLookupHostnames
-	c.CheckHostname = c.defaultCheckHostname
-}
 
 // Reports an error during the domain checks.
 func (d DomainResult) reportError(err error) DomainResult {
@@ -85,19 +60,23 @@ func (d DomainResult) setStatus(status DomainStatus) DomainResult {
 	return d
 }
 
-func lookupMXWithTimeout(domain string, timeout time.Duration) ([]*net.MX, error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+func (c Checker) lookupMXWithTimeout(domain string) ([]*net.MX, error) {
+	ctx, cancel := context.WithTimeout(context.TODO(), c.timeout())
 	defer cancel()
 	var r net.Resolver
 	return r.LookupMX(ctx, domain)
 }
 
-func (c Checker) dnsLookupHostname(domain string, timeout time.Duration) ([]string, error) {
+func (c Checker) LookupHostnames(domain string) ([]string, error) {
+	if c.lookupHostnames != nil {
+		// Allow the Checker to mock this function.
+		return c.lookupHostnames(domain)
+	}
 	domainASCII, err := idna.ToASCII(domain)
 	if err != nil {
 		return nil, fmt.Errorf("domain name %s couldn't be converted to ASCII", domain)
 	}
-	mxs, err := lookupMXWithTimeout(domainASCII, timeout)
+	mxs, err := c.lookupMXWithTimeout(domainASCII)
 	if err != nil || len(mxs) == 0 {
 		return nil, fmt.Errorf("No MX records found")
 	}
@@ -128,7 +107,7 @@ func (c Checker) CheckDomain(domain string, expectedHostnames []string) DomainRe
 	// 1. Look up hostnames
 	// 2. Perform and aggregate checks from those hostnames.
 	// 3. Set a summary message.
-	hostnames, err := c.lookupHostname(domain, c.Timeout)
+	hostnames, err := c.LookupHostnames(domain)
 	if err != nil {
 		//@TODO make this match the interface for CheckResult
 		return result.reportError(err)
@@ -136,16 +115,15 @@ func (c Checker) CheckDomain(domain string, expectedHostnames []string) DomainRe
 	checkedHostnames := make([]string, 0)
 	for _, hostname := range hostnames {
 		//@TODO abstract cache logic?
-		if cache := c.Cache; &cache != nil {
-			hostnameResult, err := cache.GetHostnameScan(hostname)
-			if err != nil {
-				hostnameResult = c.checkHostname(domain, hostname, c.Timeout)
-				cache.PutHostnameScan(hostname, hostnameResult)
-			}
-			result.HostnameResults[hostname] = hostnameResult
-			if hostnameResult.couldConnect() {
-				checkedHostnames = append(checkedHostnames, hostname)
-			}
+		cache := c.cache()
+		hostnameResult, err := cache.GetHostnameScan(hostname)
+		if err != nil {
+			hostnameResult = c.CheckHostname(domain, hostname)
+			cache.PutHostnameScan(hostname, hostnameResult)
+		}
+		result.HostnameResults[hostname] = hostnameResult
+		if hostnameResult.couldConnect() {
+			checkedHostnames = append(checkedHostnames, hostname)
 		}
 	}
 	result.PreferredHostnames = checkedHostnames

@@ -24,6 +24,8 @@ func TestMain(m *testing.M) {
 
 const testTimeout = time.Second
 
+var testChecker = Checker{Timeout: testTimeout}
+
 // Code follows pattern from crypto/tls/generate_cert.go
 // to generate a cert from a PEM-encoded RSA private key.
 func createCert(keyData string, commonName string) string {
@@ -88,7 +90,7 @@ func TestPolicyMatch(t *testing.T) {
 }
 
 func TestNoConnection(t *testing.T) {
-	result := CheckHostname("", "example.com", testTimeout)
+	result := testChecker.CheckHostname("", "example.com")
 
 	expected := HostnameResult{
 		Status: 3,
@@ -103,7 +105,7 @@ func TestNoTLS(t *testing.T) {
 	ln := smtpListenAndServe(t, &tls.Config{})
 	defer ln.Close()
 
-	result := CheckHostname("", ln.Addr().String(), testTimeout)
+	result := testChecker.CheckHostname("", ln.Addr().String())
 
 	expected := HostnameResult{
 		Status: 2,
@@ -123,7 +125,7 @@ func TestSelfSigned(t *testing.T) {
 	ln := smtpListenAndServe(t, &tls.Config{Certificates: []tls.Certificate{cert}})
 	defer ln.Close()
 
-	result := CheckHostname("", ln.Addr().String(), testTimeout)
+	result := testChecker.CheckHostname("", ln.Addr().String())
 
 	expected := HostnameResult{
 		Status: 2,
@@ -149,7 +151,7 @@ func TestNoTLS12(t *testing.T) {
 	})
 	defer ln.Close()
 
-	result := CheckHostname("", ln.Addr().String(), testTimeout)
+	result := testChecker.CheckHostname("", ln.Addr().String())
 
 	expected := HostnameResult{
 		Status: 2,
@@ -182,7 +184,7 @@ func TestSuccessWithFakeCA(t *testing.T) {
 	// conserving the port number.
 	addrParts := strings.Split(ln.Addr().String(), ":")
 	port := addrParts[len(addrParts)-1]
-	result := CheckHostname("", "localhost:"+port, testTimeout)
+	result := testChecker.CheckHostname("", "localhost:"+port)
 	expected := HostnameResult{
 		Status: 0,
 		Checks: map[string]CheckResult{
@@ -214,7 +216,7 @@ func TestFailureWithBadHostname(t *testing.T) {
 	// conserving the port number.
 	addrParts := strings.Split(ln.Addr().String(), ":")
 	port := addrParts[len(addrParts)-1]
-	result := CheckHostname("", "localhost:"+port, testTimeout)
+	result := testChecker.CheckHostname("", "localhost:"+port)
 	expected := HostnameResult{
 		Status: 2,
 		Checks: map[string]CheckResult{
@@ -254,7 +256,7 @@ func TestAdvertisedCiphers(t *testing.T) {
 
 	ln := smtpListenAndServe(t, tlsConfig)
 	defer ln.Close()
-	CheckHostname("", ln.Addr().String(), testTimeout)
+	testChecker.CheckHostname("", ln.Addr().String())
 
 	// Partial list of ciphers we want to support
 	expectedCipherSuites := []struct {

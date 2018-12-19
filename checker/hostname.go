@@ -257,7 +257,12 @@ func (h *HostnameResult) addCheck(checkResult CheckResult) {
 // CheckHostname performs a series of checks against a hostname for an email domain.
 // `domain` is the mail domain that this server serves email for.
 // `hostname` is the hostname for this server.
-func defaultCheckHostname(domain string, hostname string, timeout time.Duration) HostnameResult {
+func (c Checker) CheckHostname(domain string, hostname string) HostnameResult {
+	if c.checkHostname != nil {
+		// Allow the Checker to mock this function.
+		return c.checkHostname(domain, hostname)
+	}
+
 	result := HostnameResult{
 		Status:    Success,
 		Domain:    domain,
@@ -268,7 +273,7 @@ func defaultCheckHostname(domain string, hostname string, timeout time.Duration)
 
 	// Connect to the SMTP server and use that connection to perform as many checks as possible.
 	connectivityResult := CheckResult{Name: "connectivity"}
-	client, err := smtpDialWithTimeout(hostname, timeout)
+	client, err := smtpDialWithTimeout(hostname, c.timeout())
 	if err != nil {
 		result.addCheck(connectivityResult.Error("Could not establish connection: %v", err))
 		return result
@@ -284,7 +289,7 @@ func defaultCheckHostname(domain string, hostname string, timeout time.Duration)
 	// result.addCheck(checkTLSCipher(hostname))
 
 	// Creates a new connection to check for SSLv2/3 support because we can't call starttls twice.
-	result.addCheck(checkTLSVersion(client, hostname, timeout))
+	result.addCheck(checkTLSVersion(client, hostname, c.timeout()))
 
 	return result
 }

@@ -40,19 +40,14 @@ var hostnameResults = map[string]HostnameResult{
 	},
 }
 
-// Mock implementation for lookup and checker
-
-type mockLookup struct{}
-type mockChecker struct{}
-
-func (*mockLookup) lookupHostname(domain string, _ time.Duration) ([]string, error) {
+func mockLookupHostnames(domain string) ([]string, error) {
 	if domain == "error" {
 		return nil, fmt.Errorf("No MX records found")
 	}
 	return mxLookup[domain], nil
 }
 
-func (*mockChecker) checkHostname(domain string, hostname string, _ time.Duration) HostnameResult {
+func mockCheckHostname(domain string, hostname string) HostnameResult {
 	if result, ok := hostnameResults[hostname]; ok {
 		result.Timestamp = time.Now()
 		return result
@@ -96,8 +91,8 @@ func performTestsWithCacheTimeout(t *testing.T, tests []domainTestCase, cacheExp
 	c := Checker{
 		Timeout:         time.Second,
 		Cache:           CreateSimpleCache(cacheExpiry),
-		hostnameLookup:  &mockLookup{},
-		hostnameChecker: &mockChecker{},
+		lookupHostnames: mockLookupHostnames,
+		checkHostname:   mockCheckHostname,
 	}
 	for _, test := range tests {
 		if test.expectedHostnames == nil {
