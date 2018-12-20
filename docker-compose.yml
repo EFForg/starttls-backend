@@ -1,15 +1,19 @@
-version: '2'
+version: '2.1'
 services:
     postgres:
         build: db/
         env_file:
           - .env
+        healthcheck:
+          test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
         environment:
           POSTGRES_DB: $DB_NAME
           POSTGRES_USER: $DB_USERNAME
           POSTGRES_PASSWORD: $DB_PASSWORD
     postgres_test:
         build: db/
+        healthcheck:
+          test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
         env_file:
           - .env.test
         environment:
@@ -23,7 +27,9 @@ services:
         ports:
           - 8080:8080
         depends_on:
-          - postgres
-          - postgres_test
+          postgres:
+            condition: service_healthy
+          postgres_test:
+            condition: service_healthy
         env_file:
           - .env

@@ -29,11 +29,7 @@ docker-compose up
 ```
 
 ## Performing database migrations
-```
-docker-compose exec <DB_CONTAINER> sh -c \
-'psql -U $DB_USERNAME $DB_NAME -f ./docker-entrypoint-initdb.d/init_tables.sql'
-```
-Where `<DB_CONTAINER>` is the name of the container; in the setup we have outlined here, this would either be `postgres` or `postgres_test`.
+When running tests, if you need the database migrations to run, set `DB_MIGRATE=true` in the `.env` file.
 
 ## Testing
 # Service tests
