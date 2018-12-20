@@ -26,7 +26,7 @@ func (c *ScanCache) GetHostnameScan(hostname string) (HostnameResult, error) {
 		return result, err
 	}
 	if time.Now().Sub(result.Timestamp) > c.ExpireTime {
-		return result, fmt.Errorf("Most recent scan for %s expired", hostname)
+		return result, fmt.Errorf("most recent scan for %s expired", hostname)
 	}
 	return result, nil
 }
