@@ -68,6 +68,7 @@ func lookupMXWithTimeout(domain string, timeout time.Duration) ([]*net.MX, error
 	return r.LookupMX(ctx, domain)
 }
 
+// LookupHostnames retrieves the MX hostnames associated with a domain.
 func (c Checker) LookupHostnames(domain string) ([]string, error) {
 	domainASCII, err := idna.ToASCII(domain)
 	if err != nil {
@@ -112,12 +113,10 @@ func (c Checker) CheckDomain(domain string, expectedHostnames []string) DomainRe
 	// 3. Set a summary message.
 	hostnames, err := c.LookupHostnames(domain)
 	if err != nil {
-		//@TODO make this match the interface for CheckResult
 		return result.setStatus(DomainCouldNotConnect)
 	}
 	checkedHostnames := make([]string, 0)
 	for _, hostname := range hostnames {
-		//@TODO abstract cache logic?
 		cache := c.cache()
 		hostnameResult, err := cache.GetHostnameScan(hostname)
 		if err != nil {
