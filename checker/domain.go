@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"golang.org/x/net/idna"
 )
@@ -60,23 +61,25 @@ func (d DomainResult) setStatus(status DomainStatus) DomainResult {
 	return d
 }
 
-func (c Checker) lookupMXWithTimeout(domain string) ([]*net.MX, error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), c.timeout())
+func lookupMXWithTimeout(domain string, timeout time.Duration) ([]*net.MX, error) {
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel()
 	var r net.Resolver
 	return r.LookupMX(ctx, domain)
 }
 
 func (c Checker) LookupHostnames(domain string) ([]string, error) {
-	if c.lookupHostnames != nil {
-		// Allow the Checker to mock this function.
-		return c.lookupHostnames(domain)
-	}
 	domainASCII, err := idna.ToASCII(domain)
 	if err != nil {
 		return nil, fmt.Errorf("domain name %s couldn't be converted to ASCII", domain)
 	}
-	mxs, err := c.lookupMXWithTimeout(domainASCII)
+	// Allow the Checker to mock DNS lookup.
+	var mxs []*net.MX
+	if c.lookupMX != nil {
+		mxs, err = c.lookupMX(domain)
+	} else {
+		mxs, err = lookupMXWithTimeout(domainASCII, c.timeout())
+	}
 	if err != nil || len(mxs) == 0 {
 		return nil, fmt.Errorf("No MX records found")
 	}
@@ -110,7 +113,7 @@ func (c Checker) CheckDomain(domain string, expectedHostnames []string) DomainRe
 	hostnames, err := c.LookupHostnames(domain)
 	if err != nil {
 		//@TODO make this match the interface for CheckResult
-		return result.reportError(err)
+		return result.setStatus(DomainCouldNotConnect)
 	}
 	checkedHostnames := make([]string, 0)
 	for _, hostname := range hostnames {

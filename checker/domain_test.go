@@ -2,6 +2,7 @@ package checker
 
 import (
 	"fmt"
+	"net"
 	"testing"
 	"time"
 )
@@ -40,11 +41,15 @@ var hostnameResults = map[string]HostnameResult{
 	},
 }
 
-func mockLookupHostnames(domain string) ([]string, error) {
+func mockLookupMX(domain string) ([]*net.MX, error) {
 	if domain == "error" {
 		return nil, fmt.Errorf("No MX records found")
 	}
-	return mxLookup[domain], nil
+	result := []*net.MX{}
+	for _, host := range mxLookup[domain] {
+		result = append(result, &net.MX{Host: host})
+	}
+	return result, nil
 }
 
 func mockCheckHostname(domain string, hostname string) HostnameResult {
@@ -89,10 +94,10 @@ func performTests(t *testing.T, tests []domainTestCase) {
 
 func performTestsWithCacheTimeout(t *testing.T, tests []domainTestCase, cacheExpiry time.Duration) {
 	c := Checker{
-		Timeout:         time.Second,
-		Cache:           CreateSimpleCache(cacheExpiry),
-		lookupHostnames: mockLookupHostnames,
-		checkHostname:   mockCheckHostname,
+		Timeout:       time.Second,
+		Cache:         CreateSimpleCache(cacheExpiry),
+		lookupMX:      mockLookupMX,
+		checkHostname: mockCheckHostname,
 	}
 	for _, test := range tests {
 		if test.expectedHostnames == nil {

@@ -1,13 +1,16 @@
 package checker
 
-import "time"
+import (
+	"net"
+	"time"
+)
 
 // A Checker is used to run checks against SMTP domains and hostnames.
 type Checker struct {
-	Timeout         time.Duration
-	Cache           ScanCache // No cache if nil?
-	lookupHostnames func(string) ([]string, error)
-	checkHostname   func(string, string) HostnameResult
+	Timeout       time.Duration
+	Cache         ScanCache // No cache if nil?
+	lookupMX      func(string) ([]*net.MX, error)
+	checkHostname func(string, string) HostnameResult
 }
 
 func (c Checker) timeout() time.Duration {
