@@ -49,8 +49,9 @@ func main() {
 		flag.PrintDefaults()
 	}
 	domainStr := flag.String("domain", "", "Required: Domain to check TLS for.")
+	domainsFileStr := flag.String("domains", "", "Required: Domain to check TLS for.")
 	flag.Parse()
-	if *domainStr == "" {
+	if *domainStr == "" && *domainsFileStr == "" {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}

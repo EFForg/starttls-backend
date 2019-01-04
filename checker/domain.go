@@ -172,7 +172,7 @@ func performCheck(query DomainQuery, timeout time.Duration, cache ScanCache) Dom
 			return result.setStatus(DomainNoSTARTTLSFailure)
 		}
 		// Any of the connected hostnames don't have a match?
-		if query.ExpectedHostnames != nil && !hasValidName(query.ExpectedHostnames, hostname) {
+		if query.ExpectedHostnames != nil && !policyMatches(hostname, query.ExpectedHostnames) {
 			return result.setStatus(DomainBadHostnameFailure)
 		}
 		result = result.setStatus(DomainStatus(hostnameResult.Status))

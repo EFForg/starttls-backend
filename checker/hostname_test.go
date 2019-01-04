@@ -48,7 +48,7 @@ func createCert(keyData string, commonName string) string {
 
 func TestPolicyMatch(t *testing.T) {
 	var tests = []struct {
-		certName string
+		hostname string
 		policyMX string
 		want     bool
 	}{
@@ -62,28 +62,34 @@ func TestPolicyMatch(t *testing.T) {
 
 		// base domain shouldn't match wildcard
 		{"example.com", ".example.com", false},
-		{"*.example.com", "example.com", false},
+		{"example.com", "*.example.com", false},
 
 		// Invalid wildcard shouldn't match.
-		{"*mx.example.com", "mx.example.com", false},
+		{"mx.example.com", "*mx.example.com", false},
 
-		// Single-level subdomain match for policy suffix.
-		{"mx.example.com", ".example.com", true},
-		{"*.example.com", ".example.com", true},
+		// Single-level subdomain match
+		{"mx.example.com", "*.example.com", true},
+		{"mx.mx.example.com", "*.mx.example.com", true},
 
-		// No multi-level subdomain matching for policy suffix.
-		{"mx.mx.example.com", ".example.com", false},
-		{"*.mx.example.com", ".example.com", false},
+		// Wildcard may match left-most label only
+		{"mx.example.com", "mx.*.com", false},
 
-		// Role reversal also works.
-		{"*.example.com", "mx.example.com", true},
+		// No multi-level subdomain matching.
+		{"mx.mx.example.com", "*.example.com", false},
+
+		// No partial subdomain matches
+		{"mx.example.com", "mx.*ple.com", false},
+
+		// Hostname should not use wildcards.
+		{"*.example.com", "mx.example.com", false},
 		{"*.example.com", "mx.mx.example.com", false},
 		{"*.example.com", ".mx.example.com", false},
 	}
 
 	for _, test := range tests {
-		if got := policyMatch(test.certName, test.policyMX); got != test.want {
-			t.Errorf("policyMatch(%q, %q) = %v", test.certName, test.policyMX, got)
+		policy := []string{test.policyMX}
+		if got := policyMatches(test.hostname, policy); got != test.want {
+			t.Errorf("policyMatch(%q, %q) = %v", test.hostname, policy, got)
 		}
 	}
 }
@@ -91,7 +97,7 @@ func TestPolicyMatch(t *testing.T) {
 func TestNoConnection(t *testing.T) {
 	result := CheckHostname("", "example.com", testTimeout)
 
-	expected := HostnameResult{
+	expected := ResultGroup{
 		Status: 3,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 3, nil},
@@ -106,7 +112,7 @@ func TestNoTLS(t *testing.T) {
 
 	result := CheckHostname("", ln.Addr().String(), testTimeout)
 
-	expected := HostnameResult{
+	expected := ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
@@ -126,7 +132,7 @@ func TestSelfSigned(t *testing.T) {
 
 	result := CheckHostname("", ln.Addr().String(), testTimeout)
 
-	expected := HostnameResult{
+	expected := ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
@@ -152,7 +158,7 @@ func TestNoTLS12(t *testing.T) {
 
 	result := CheckHostname("", ln.Addr().String(), testTimeout)
 
-	expected := HostnameResult{
+	expected := ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
@@ -184,7 +190,7 @@ func TestSuccessWithFakeCA(t *testing.T) {
 	addrParts := strings.Split(ln.Addr().String(), ":")
 	port := addrParts[len(addrParts)-1]
 	result := CheckHostname("", "localhost:"+port, testTimeout)
-	expected := HostnameResult{
+	expected := ResultGroup{
 		Status: 0,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
@@ -259,7 +265,7 @@ func TestFailureWithBadHostname(t *testing.T) {
 	addrParts := strings.Split(ln.Addr().String(), ":")
 	port := addrParts[len(addrParts)-1]
 	result := CheckHostname("", "localhost:"+port, testTimeout)
-	expected := HostnameResult{
+	expected := ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
@@ -325,7 +331,7 @@ func containsCipherSuite(result []uint16, want uint16) bool {
 }
 
 // compareStatuses compares the status for the HostnameResult and each Check with a desired value
-func compareStatuses(t *testing.T, expected HostnameResult, result HostnameResult) {
+func compareStatuses(t *testing.T, expected ResultGroup, result HostnameResult) {
 	if result.Status != expected.Status {
 		t.Errorf("hostname status = %d, want %d", result.Status, expected.Status)
 	}
