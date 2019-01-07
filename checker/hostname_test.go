@@ -1,6 +1,7 @@
 package checker
 
 import (
+	"bufio"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -22,7 +23,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-const testTimeout = time.Second
+const testTimeout = 250 * time.Millisecond
 
 var testChecker = Checker{Timeout: testTimeout}
 
@@ -49,7 +50,7 @@ func createCert(keyData string, commonName string) string {
 
 func TestPolicyMatch(t *testing.T) {
 	var tests = []struct {
-		certName string
+		hostname string
 		policyMX string
 		want     bool
 	}{
@@ -63,28 +64,34 @@ func TestPolicyMatch(t *testing.T) {
 
 		// base domain shouldn't match wildcard
 		{"example.com", ".example.com", false},
-		{"*.example.com", "example.com", false},
+		{"example.com", "*.example.com", false},
 
 		// Invalid wildcard shouldn't match.
-		{"*mx.example.com", "mx.example.com", false},
+		{"mx.example.com", "*mx.example.com", false},
 
-		// Single-level subdomain match for policy suffix.
-		{"mx.example.com", ".example.com", true},
-		{"*.example.com", ".example.com", true},
+		// Single-level subdomain match
+		{"mx.example.com", "*.example.com", true},
+		{"mx.mx.example.com", "*.mx.example.com", true},
 
-		// No multi-level subdomain matching for policy suffix.
-		{"mx.mx.example.com", ".example.com", false},
-		{"*.mx.example.com", ".example.com", false},
+		// Wildcard may match left-most label only
+		{"mx.example.com", "mx.*.com", false},
 
-		// Role reversal also works.
-		{"*.example.com", "mx.example.com", true},
+		// No multi-level subdomain matching.
+		{"mx.mx.example.com", "*.example.com", false},
+
+		// No partial subdomain matches
+		{"mx.example.com", "mx.*ple.com", false},
+
+		// Hostname should not use wildcards.
+		{"*.example.com", "mx.example.com", false},
 		{"*.example.com", "mx.mx.example.com", false},
 		{"*.example.com", ".mx.example.com", false},
 	}
 
 	for _, test := range tests {
-		if got := policyMatch(test.certName, test.policyMX); got != test.want {
-			t.Errorf("policyMatch(%q, %q) = %v", test.certName, test.policyMX, got)
+		policy := []string{test.policyMX}
+		if got := policyMatches(test.hostname, policy); got != test.want {
+			t.Errorf("policyMatch(%q, %q) = %v", test.hostname, policy, got)
 		}
 	}
 }
@@ -92,7 +99,7 @@ func TestPolicyMatch(t *testing.T) {
 func TestNoConnection(t *testing.T) {
 	result := testChecker.CheckHostname("", "example.com")
 
-	expected := HostnameResult{
+	expected := ResultGroup{
 		Status: 3,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 3, nil},
@@ -107,7 +114,7 @@ func TestNoTLS(t *testing.T) {
 
 	result := testChecker.CheckHostname("", ln.Addr().String())
 
-	expected := HostnameResult{
+	expected := ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
@@ -127,7 +134,7 @@ func TestSelfSigned(t *testing.T) {
 
 	result := testChecker.CheckHostname("", ln.Addr().String())
 
-	expected := HostnameResult{
+	expected := ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
@@ -153,7 +160,7 @@ func TestNoTLS12(t *testing.T) {
 
 	result := testChecker.CheckHostname("", ln.Addr().String())
 
-	expected := HostnameResult{
+	expected := ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
@@ -185,7 +192,7 @@ func TestSuccessWithFakeCA(t *testing.T) {
 	addrParts := strings.Split(ln.Addr().String(), ":")
 	port := addrParts[len(addrParts)-1]
 	result := testChecker.CheckHostname("", "localhost:"+port)
-	expected := HostnameResult{
+	expected := ResultGroup{
 		Status: 0,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
@@ -195,6 +202,49 @@ func TestSuccessWithFakeCA(t *testing.T) {
 		},
 	}
 	compareStatuses(t, expected, result)
+}
+
+// Tests that the checker successfully initiates an SMTP connection with mail
+// servers that use a greet delay.
+func TestSuccessWithDelayedGreeting(t *testing.T) {
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go ServeDelayedGreeting(ln, t)
+
+	client, err := smtpDialWithTimeout(ln.Addr().String(), testTimeout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.Close()
+}
+
+func ServeDelayedGreeting(ln net.Listener, t *testing.T) {
+	conn, err := ln.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	time.Sleep(testTimeout + 100*time.Millisecond)
+	_, err = conn.Write([]byte("220 localhost ESMTP\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	line, err := bufio.NewReader(conn).ReadString('\n')
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(line, "EHLO localhost") {
+		t.Fatalf("unexpected response from checker: %s", line)
+	}
+
+	_, err = conn.Write([]byte("250 HELO\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestFailureWithBadHostname(t *testing.T) {
@@ -217,7 +267,7 @@ func TestFailureWithBadHostname(t *testing.T) {
 	addrParts := strings.Split(ln.Addr().String(), ":")
 	port := addrParts[len(addrParts)-1]
 	result := testChecker.CheckHostname("", "localhost:"+port)
-	expected := HostnameResult{
+	expected := ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
@@ -283,7 +333,7 @@ func containsCipherSuite(result []uint16, want uint16) bool {
 }
 
 // compareStatuses compares the status for the HostnameResult and each Check with a desired value
-func compareStatuses(t *testing.T, expected HostnameResult, result HostnameResult) {
+func compareStatuses(t *testing.T, expected ResultGroup, result HostnameResult) {
 	if result.Status != expected.Status {
 		t.Errorf("hostname status = %d, want %d", result.Status, expected.Status)
 	}

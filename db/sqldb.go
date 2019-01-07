@@ -267,17 +267,17 @@ func (db SQLDatabase) GetName() string {
 	return "SQL Database"
 }
 
-const cacheTime = time.Minute * 5
-
 // GetHostnameScan retrives most recent scan from database.
 func (db *SQLDatabase) GetHostnameScan(hostname string) (checker.HostnameResult, error) {
-	result := checker.HostnameResult{Hostname: hostname}
+	result := checker.HostnameResult{
+		Hostname:    hostname,
+		ResultGroup: &checker.ResultGroup{},
+	}
 	var rawScanData []byte
-	var timestamp time.Time
 	err := db.conn.QueryRow(`SELECT timestamp, status, scandata FROM hostname_scans
                     WHERE hostname=$1 AND
                     timestamp=(SELECT MAX(timestamp) FROM hostname_scans WHERE hostname=$1)`,
-		hostname).Scan(&timestamp, &result.Status, &rawScanData)
+		hostname).Scan(&result.Timestamp, &result.Status, &rawScanData)
 	if err != nil {
 		return result, err
 	}

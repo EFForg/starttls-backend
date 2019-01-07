@@ -142,7 +142,7 @@ func (c Checker) CheckDomain(domain string, expectedHostnames []string) DomainRe
 			return result.setStatus(DomainNoSTARTTLSFailure)
 		}
 		// Any of the connected hostnames don't have a match?
-		if expectedHostnames != nil && !hasValidName(expectedHostnames, hostname) {
+		if expectedHostnames != nil && !policyMatches(hostname, expectedHostnames) {
 			return result.setStatus(DomainBadHostnameFailure)
 		}
 		result = result.setStatus(DomainStatus(hostnameResult.Status))

@@ -1,5 +1,8 @@
 # starttls-backend
 
+[![Build Status](https://travis-ci.com/EFForg/starttls-backend.svg?branch=master)](https://travis-ci.org/EFForg/starttls-backend)
+[![Coverage Status](https://coveralls.io/repos/github/EFForg/starttls-backend/badge.svg?branch=master)](https://coveralls.io/github/EFForg/starttls-backend?branch=master)
+
 ## Setup
 1. Install `go` and `postgres`.
 2. Download the project and copy the configuration file:
@@ -26,11 +29,7 @@ docker-compose up
 ```
 
 ## Performing database migrations
-```
-docker-compose exec <DB_CONTAINER> sh -c \
-'psql -U $DB_USERNAME $DB_NAME -f ./docker-entrypoint-initdb.d/init_tables.sql'
-```
-Where `<DB_CONTAINER>` is the name of the container; in the setup we have outlined here, this would either be `postgres` or `postgres_test`.
+When running tests, if you need the database migrations to run, set `DB_MIGRATE=true` in the `.env` file.
 
 ## Testing
 # Service tests
@@ -42,3 +41,6 @@ docker-compose exec app go test -v
 ```
 docker-compose exec app go test ./db -v
 ```
+
+### No-scan domains
+In case of complaints or abuse, we may not want to continually scan some domains. You can set the environment variable `DOMAIN_BLACKLIST` to point to a file with a list of newline-separated domains. Attempting to scan those domains from the public-facing website will result in error codes.

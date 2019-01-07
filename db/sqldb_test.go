@@ -304,11 +304,20 @@ func TestPutAndIsBlacklistedEmail(t *testing.T) {
 func TestGetHostnameScan(t *testing.T) {
 	checksMap := make(map[string]checker.CheckResult)
 	checksMap["test"] = checker.CheckResult{}
-	database.PutHostnameScan("hello", checker.HostnameResult{
-		Hostname: "hello", Status: 1, Checks: checksMap})
+	now := time.Now()
+	database.PutHostnameScan("hello",
+		checker.HostnameResult{
+			Timestamp:   time.Now(),
+			Hostname:    "hello",
+			ResultGroup: &checker.ResultGroup{Status: 1, Checks: checksMap},
+		},
+	)
 	result, err := database.GetHostnameScan("hello")
 	if err != nil {
 		t.Errorf("Expected hostname scan to return without errors")
+	}
+	if now.Sub(result.Timestamp) > time.Second {
+		t.Errorf("unexpected gap between written timestamp %s and read timestamp %s", now, result.Timestamp)
 	}
 	if result.Status != 1 || checksMap["test"].Name != result.Checks["test"].Name {
 		t.Errorf("Expected hostname scan to return correct data")

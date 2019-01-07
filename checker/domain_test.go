@@ -18,21 +18,21 @@ var mxLookup = map[string][]string{
 }
 
 // Fake hostname checks :)
-var hostnameResults = map[string]HostnameResult{
-	"noconnection": HostnameResult{
+var hostnameResults = map[string]ResultGroup{
+	"noconnection": ResultGroup{
 		Status: 3,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 3, nil},
 		},
 	},
-	"nostarttls": HostnameResult{
+	"nostarttls": ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
 			"starttls":     {"starttls", 2, nil},
 		},
 	},
-	"nostarttlsconnect": HostnameResult{
+	"nostarttlsconnect": ResultGroup{
 		Status: 3,
 		Checks: map[string]CheckResult{
 			"connectivity": {"connectivity", 0, nil},
@@ -54,19 +54,28 @@ func mockLookupMX(domain string) ([]*net.MX, error) {
 
 func mockCheckHostname(domain string, hostname string) HostnameResult {
 	if result, ok := hostnameResults[hostname]; ok {
-		result.Timestamp = time.Now()
-		return result
+		return HostnameResult{
+			ResultGroup: &result,
+			Timestamp:   time.Now(),
+		}
 	}
 	// For caching test: "changes" result changes after first scan
 	if hostname == "changes" {
 		hostnameResults["changes"] = hostnameResults["nostarttls"]
 	}
 	// by default return successful check
-	return HostnameResult{Status: 0, Checks: map[string]CheckResult{
-		"connectivity": {"connectivity", 0, nil},
-		"starttls":     {"starttls", 0, nil},
-		"certificate":  {"certificate", 0, nil},
-		"version":      {"version", 0, nil}}, Timestamp: time.Now()}
+	return HostnameResult{
+		ResultGroup: &ResultGroup{
+			Status: 0,
+			Checks: map[string]CheckResult{
+				"connectivity": {"connectivity", 0, nil},
+				"starttls":     {"starttls", 0, nil},
+				"certificate":  {"certificate", 0, nil},
+				"version":      {"version", 0, nil},
+			},
+		},
+		Timestamp: time.Now(),
+	}
 }
 
 // Test helpers.
