@@ -57,7 +57,7 @@ type PolicyList interface {
 type EmailSender interface {
 	// SendValidation sends a validation e-mail for a particular domain,
 	// with a particular validation token.
-	SendValidation(*db.DomainData, string) error
+	SendValidation(*models.Domain, string) error
 }
 
 // APIResponse wraps all the responses from this API.
@@ -181,8 +181,8 @@ const MaxHostnames = 8
 
 // Extracts relevant parameters from http.Request for a POST to /api/queue
 // TODO: also validate hostnames as FQDNs.
-func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
-	domainData := db.DomainData{Name: domain, State: db.StateUnvalidated}
+func getDomainParams(r *http.Request, domain string) (models.Domain, error) {
+	domainData := models.Domain{Name: domain, State: db.StateUnvalidated}
 	email, err := getParam("email", r)
 	if err == nil {
 		domainData.Email = email
@@ -212,10 +212,10 @@ func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
 //   POST /api/queue?domain=<domain>
 //        domain: Mail domain to queue a TLS policy for.
 //        hostnames: List of MX hostnames to put into this domain's TLS policy. Up to 8.
-//        Sets db.DomainData object as response.
+//        Sets models.Domain object as response.
 //        email (optional): Contact email associated with domain.
 //   GET  /api/queue?domain=<domain>
-//        Sets db.DomainData object as response.
+//        Sets models.Domain object as response.
 func (api API) Queue(r *http.Request) APIResponse {
 	// Retrieve domain param
 	domain, err := getASCIIDomain(r)
@@ -306,7 +306,7 @@ func (api API) Validate(r *http.Request) APIResponse {
 	if err != nil {
 		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 	}
-	err = api.Database.PutDomain(db.DomainData{
+	err = api.Database.PutDomain(models.Domain{
 		Name:  domainData.Name,
 		Email: domainData.Email,
 		State: db.StateQueued,

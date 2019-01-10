@@ -128,7 +128,7 @@ func TestGetAllScans(t *testing.T) {
 
 func TestPutGetDomain(t *testing.T) {
 	database.ClearTables()
-	data := db.DomainData{
+	data := models.Domain{
 		Name:  "testing.com",
 		Email: "admin@testing.com",
 	}
@@ -150,12 +150,12 @@ func TestPutGetDomain(t *testing.T) {
 
 func TestUpsertDomain(t *testing.T) {
 	database.ClearTables()
-	data := db.DomainData{
+	data := models.Domain{
 		Name:  "testing.com",
 		Email: "admin@testing.com",
 	}
 	database.PutDomain(data)
-	err := database.PutDomain(db.DomainData{Name: "testing.com", State: db.StateQueued})
+	err := database.PutDomain(models.Domain{Name: "testing.com", State: db.StateQueued})
 	if err != nil {
 		t.Errorf("PutDomain(%s) failed: %v\n", data.Name, err)
 	}
@@ -198,7 +198,7 @@ func TestPutTokenTwice(t *testing.T) {
 
 func TestLastUpdatedFieldUpdates(t *testing.T) {
 	database.ClearTables()
-	data := db.DomainData{
+	data := models.Domain{
 		Name:  "testing.com",
 		Email: "admin@testing.com",
 		State: db.StateUnvalidated,
@@ -207,7 +207,7 @@ func TestLastUpdatedFieldUpdates(t *testing.T) {
 	retrievedData, _ := database.GetDomain(data.Name)
 	lastUpdated := retrievedData.LastUpdated
 	data.State = db.StateQueued
-	database.PutDomain(db.DomainData{Name: data.Name, Email: "new fone who dis"})
+	database.PutDomain(models.Domain{Name: data.Name, Email: "new fone who dis"})
 	retrievedData, _ = database.GetDomain(data.Name)
 	if lastUpdated.Equal(retrievedData.LastUpdated) {
 		t.Errorf("Expected last_updated to be updated on change: %v", lastUpdated)
@@ -216,7 +216,7 @@ func TestLastUpdatedFieldUpdates(t *testing.T) {
 
 func TestLastUpdatedFieldDoesntUpdate(t *testing.T) {
 	database.ClearTables()
-	data := db.DomainData{
+	data := models.Domain{
 		Name:  "testing.com",
 		Email: "admin@testing.com",
 		State: db.StateUnvalidated,
@@ -238,9 +238,9 @@ func TestDomainsToValidate(t *testing.T) {
 	}
 	for domain, queued := range queuedMap {
 		if queued {
-			database.PutDomain(db.DomainData{Name: domain, State: db.StateQueued})
+			database.PutDomain(models.Domain{Name: domain, State: db.StateQueued})
 		} else {
-			database.PutDomain(db.DomainData{Name: domain})
+			database.PutDomain(models.Domain{Name: domain})
 		}
 	}
 	result, err := database.DomainsToValidate()
@@ -256,8 +256,8 @@ func TestDomainsToValidate(t *testing.T) {
 
 func TestHostnamesForDomain(t *testing.T) {
 	database.ClearTables()
-	database.PutDomain(db.DomainData{Name: "x", MXs: []string{"x.com", "y.org"}})
-	database.PutDomain(db.DomainData{Name: "y"})
+	database.PutDomain(models.Domain{Name: "x", MXs: []string{"x.com", "y.org"}})
+	database.PutDomain(models.Domain{Name: "y"})
 	result, err := database.HostnamesForDomain("x")
 	if err != nil {
 		t.Fatalf("HostnamesForDomain failed: %v\n", err)

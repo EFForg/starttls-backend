@@ -23,9 +23,6 @@ type ScanData struct {
 	Timestamp time.Time            `json:"timestamp"` // Time at which this scan was conducted
 }
 
-// DomainState represents the state of a single domain.
-type DomainState string
-
 // Possible values for DomainState
 const (
 	StateUnknown     = "unknown"     // Domain was never submitted, so we don't know.
@@ -34,15 +31,6 @@ const (
 	StateFailed      = "failed"      // Requested to be queued, but failed verification.
 	StateAdded       = "added"       // On the list.
 )
-
-// DomainData stores the preload state of a single domain.
-type DomainData struct {
-	Name        string      `json:"domain"` // Domain that is preloaded
-	Email       string      `json:"-"`      // Contact e-mail for Domain
-	MXs         []string    `json:"mxs"`    // MXs that are valid for this domain
-	State       DomainState `json:"state"`
-	LastUpdated time.Time   `json:"last_updated"`
-}
 
 // TokenData stores the state of an e-mail verification token.
 type TokenData struct {
@@ -69,11 +57,11 @@ type Database interface {
 	// Retrieves all scandata for domain
 	GetAllScans(string) ([]models.Scan, error)
 	// Upserts domain state.
-	PutDomain(DomainData) error
+	PutDomain(models.Domain) error
 	// Retrieves state of a domain
-	GetDomain(string) (DomainData, error)
+	GetDomain(string) (models.Domain, error)
 	// Retrieves all domains in a particular state.
-	GetDomains(DomainState) ([]DomainData, error)
+	GetDomains(models.DomainState) ([]models.Domain, error)
 	// Gets the token for a domain
 	GetTokenByDomain(string) (string, error)
 	// Creates a token in the db
