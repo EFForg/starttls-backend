@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
+	"github.com/EFForg/starttls-backend/models"
 )
 
 ///////////////////////////////////////
@@ -62,11 +63,11 @@ type EmailBlacklistData struct {
 // Slightly more limited than CRUD for all the schemas.
 type Database interface {
 	// Puts new scandata for domain
-	PutScan(ScanData) error
+	PutScan(models.Scan) error
 	// Retrieves most recent scandata for domain
-	GetLatestScan(string) (ScanData, error)
+	GetLatestScan(string) (models.Scan, error)
 	// Retrieves all scandata for domain
-	GetAllScans(string) ([]ScanData, error)
+	GetAllScans(string) ([]models.Scan, error)
 	// Upserts domain state.
 	PutDomain(DomainData) error
 	// Retrieves state of a domain

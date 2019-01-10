@@ -12,6 +12,7 @@ import (
 
 	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/db"
+	"github.com/EFForg/starttls-backend/models"
 	"github.com/EFForg/starttls-backend/policy"
 	"github.com/getsentry/raven-go"
 )
@@ -127,7 +128,7 @@ func defaultCheck(api API, domain string) (checker.DomainResult, error) {
 //        Scans domain and returns data from it.
 //   GET /api/scan?domain=<domain>
 //        Retrieves most recent scan for domain.
-// Both set a db.ScanData JSON as the response.
+// Both set a models.Scan JSON as the response.
 func (api API) Scan(r *http.Request) APIResponse {
 	domain, err := getASCIIDomain(r)
 	if err != nil {
@@ -151,17 +152,17 @@ func (api API) Scan(r *http.Request) APIResponse {
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
-		scandata := db.ScanData{
+		scan = models.Scan{
 			Domain:    domain,
 			Data:      rawScandata,
 			Timestamp: time.Now(),
 		}
 		// 2. Put scan into DB
-		err = api.Database.PutScan(scandata)
+		err = api.Database.PutScan(scan)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
-		return APIResponse{StatusCode: http.StatusOK, Response: scandata}
+		return APIResponse{StatusCode: http.StatusOK, Response: scan}
 		// GET: Just fetch the most recent scan
 	} else if r.Method == http.MethodGet {
 		scan, err := api.Database.GetLatestScan(domain)

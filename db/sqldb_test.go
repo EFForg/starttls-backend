@@ -8,6 +8,7 @@ import (
 
 	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/db"
+	"github.com/EFForg/starttls-backend/models"
 	"github.com/joho/godotenv"
 )
 
@@ -46,7 +47,7 @@ func TestMain(m *testing.M) {
 
 func TestPutScan(t *testing.T) {
 	database.ClearTables()
-	dummyScan := db.ScanData{
+	dummyScan := models.Scan{
 		Domain:    "dummy.com",
 		Data:      checker.DomainResult{Domain: "dummy.com"},
 		Timestamp: time.Now(),
@@ -60,12 +61,12 @@ func TestPutScan(t *testing.T) {
 func TestGetLatestScan(t *testing.T) {
 	database.ClearTables()
 	// Add two dummy objects
-	earlyScan := db.ScanData{
+	earlyScan := models.Scan{
 		Domain:    "dummy.com",
 		Data:      checker.DomainResult{Domain: "dummy.com", Message: "test_before"},
 		Timestamp: time.Now(),
 	}
-	laterScan := db.ScanData{
+	laterScan := models.Scan{
 		Domain:    "dummy.com",
 		Data:      checker.DomainResult{Domain: "dummy.com", Message: "test_after"},
 		Timestamp: time.Now().Add(time.Duration(time.Hour)),
@@ -98,7 +99,7 @@ func TestGetAllScans(t *testing.T) {
 		t.Errorf("Expected GetAllScans to return []")
 	}
 	// Add two dummy objects
-	dummyScan := db.ScanData{
+	dummyScan := models.Scan{
 		Domain:    "dummy.com",
 		Data:      checker.DomainResult{Domain: "dummy.com", Message: "test1"},
 		Timestamp: time.Now(),
