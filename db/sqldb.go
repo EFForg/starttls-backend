@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
+	"github.com/EFForg/starttls-backend/models"
+
 	// Imports postgresql driver for database/sql
 	_ "github.com/lib/pq"
 )
@@ -95,14 +97,15 @@ func (db *SQLDatabase) PutToken(domain string) (TokenData, error) {
 // SCAN DB FUNCTIONS
 
 // PutScan inserts a new scan for a particular domain into the database.
-func (db *SQLDatabase) PutScan(scanData ScanData) error {
-	byteArray, err := json.Marshal(scanData.Data)
+func (db *SQLDatabase) PutScan(scan models.Scan) error {
+	// @TODO marshall scan adds extra fields - need a custom obj for this
+	byteArray, err := json.Marshal(scan.Data)
 	if err != nil {
 		return err
 	}
 	// Serialize scanData.Data for insertion into SQLdb!
 	_, err = db.conn.Exec("INSERT INTO scans(domain, scandata, timestamp) VALUES($1, $2, $3)",
-		scanData.Domain, string(byteArray), scanData.Timestamp.UTC().Format(sqlTimeFormat))
+		scan.Domain, string(byteArray), scan.Timestamp.UTC().Format(sqlTimeFormat))
 	return err
 }
 
@@ -113,9 +116,9 @@ SELECT domain, scandata, timestamp FROM scans
 
 // GetLatestScan retrieves the most recent scan performed on a particular email
 // domain.
-func (db SQLDatabase) GetLatestScan(domain string) (ScanData, error) {
+func (db SQLDatabase) GetLatestScan(domain string) (models.Scan, error) {
 	var rawScanData []byte
-	result := ScanData{}
+	result := models.Scan{}
 	err := db.conn.QueryRow(mostRecentQuery, domain).Scan(
 		&result.Domain, &rawScanData, &result.Timestamp)
 	if err != nil {
@@ -126,16 +129,16 @@ func (db SQLDatabase) GetLatestScan(domain string) (ScanData, error) {
 }
 
 // GetAllScans retrieves all the scans performed for a particular domain.
-func (db SQLDatabase) GetAllScans(domain string) ([]ScanData, error) {
+func (db SQLDatabase) GetAllScans(domain string) ([]models.Scan, error) {
 	rows, err := db.conn.Query(
 		"SELECT domain, scandata, timestamp FROM scans WHERE domain=$1", domain)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	scans := []ScanData{}
+	scans := []models.Scan{}
 	for rows.Next() {
-		var scan ScanData
+		var scan models.Scan
 		var rawScanData []byte
 		if err := rows.Scan(&scan.Domain, &rawScanData, &scan.Timestamp); err != nil {
 			return nil, err
