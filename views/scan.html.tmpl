@@ -1,0 +1,20 @@
+<html>
+  <body>
+    <h1>Scan results for {{ .Domain }}</h1>
+    <p><em>You're viewing unstyled results. You can enable Javascript to view styled content.</em></p>
+    <p>@todo Domain-level scan results</p>
+
+    <h2>Mailboxes</h2>
+    {{ range $hostname, $result := .Data.HostnameResults }}
+      <h3>{{ $hostname }}</h3>
+      <ul>
+        {{ range $check, $checkResult := $result.Checks }}
+          <li>
+            <h4>{{ $checkResult.StatusText }}</h3>
+            <p>{{ $checkResult.Description }}
+          </li>
+        {{ end }}
+      </ul>
+    {{ end }}
+  </body>
+</html>
