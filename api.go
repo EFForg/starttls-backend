@@ -165,7 +165,7 @@ func (api API) Scan(r *http.Request) APIResponse {
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
-		return APIResponse{StatusCode: http.StatusOK, Response: scandata}
+		return APIResponse{StatusCode: http.StatusOK, Response: Scan(scandata)}
 		// GET: Just fetch the most recent scan
 	} else if r.Method == http.MethodGet {
 		scan, err := api.Database.GetLatestScan(domain)
@@ -357,11 +357,11 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 	fmt.Fprintf(w, "%s\n", b)
 }
 
-func writeHTML(w http.ResponseWriter, v interface{}) {
+func writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
 	type htmlResponder interface {
 		WriteHTML(w http.ResponseWriter) error
 	}
-	if responder, ok := v.(htmlResponder); ok {
+	if responder, ok := apiResponse.Response.(htmlResponder); ok {
 		responder.WriteHTML(w)
 	} else {
 		http.Error(w, "HTML is not supported for this action.", http.StatusUnsupportedMediaType)
