@@ -364,11 +364,11 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 	fmt.Fprintf(w, "%s\n", b)
 }
 
-func writeHTML(w http.ResponseWriter, v interface{}) {
+func writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
 	type htmlResponder interface {
 		WriteHTML(w http.ResponseWriter) error
 	}
-	if responder, ok := v.(htmlResponder); ok {
+	if responder, ok := apiResponse.Response.(htmlResponder); ok {
 		responder.WriteHTML(w)
 	} else {
 		http.Error(w, "HTML is not supported for this action.", http.StatusUnsupportedMediaType)
