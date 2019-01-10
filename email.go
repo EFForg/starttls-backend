@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/EFForg/starttls-backend/db"
+	"github.com/EFForg/starttls-backend/models"
 	raven "github.com/getsentry/raven-go"
 )
 
@@ -87,8 +88,8 @@ func makeEmailConfigFromEnv(database db.Database) (emailConfig, error) {
 	return c, nil
 }
 
-func validationAddress(domainInfo *db.DomainData) string {
-	return fmt.Sprintf("postmaster@%s", domainInfo.Name)
+func validationAddress(domain *models.Domain) string {
+	return fmt.Sprintf("postmaster@%s", domain.Name)
 }
 
 func validationEmailText(domain string, contactEmail string, hostnames []string, token string, website string) string {
@@ -98,10 +99,10 @@ func validationEmailText(domain string, contactEmail string, hostnames []string,
 
 // SendValidation sends a validation e-mail for the domain outlined by domainInfo.
 // The validation link is generated using a token.
-func (c emailConfig) SendValidation(domainInfo *db.DomainData, token string) error {
-	emailContent := validationEmailText(domainInfo.Name, domainInfo.Email, domainInfo.MXs, token,
+func (c emailConfig) SendValidation(domain *models.Domain, token string) error {
+	emailContent := validationEmailText(domain.Name, domain.Email, domain.MXs, token,
 		c.website)
-	return c.sendEmail(validationEmailSubject, emailContent, validationAddress(domainInfo))
+	return c.sendEmail(validationEmailSubject, emailContent, validationAddress(domain))
 }
 
 func (c emailConfig) sendEmail(subject string, body string, address string) error {

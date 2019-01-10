@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/EFForg/starttls-backend/db"
+	"github.com/EFForg/starttls-backend/models"
 )
 
 func validQueueData(scan bool) url.Values {
@@ -77,15 +77,15 @@ func TestBasicQueueWorkflow(t *testing.T) {
 
 	// 2-T. Check to see domain status was initialized to 'unvalidated'
 	domainBody, _ := ioutil.ReadAll(resp.Body)
-	domainData := db.DomainData{}
-	err := json.Unmarshal(domainBody, &APIResponse{Response: &domainData})
+	domain := models.Domain{}
+	err := json.Unmarshal(domainBody, &APIResponse{Response: &domain})
 	if err != nil {
 		t.Fatalf("Returned invalid JSON object:%v\n", string(domainBody))
 	}
-	if domainData.State != "unvalidated" {
+	if domain.State != "unvalidated" {
 		t.Fatalf("Initial state for domains should be 'unvalidated'")
 	}
-	if len(domainData.MXs) != 2 {
+	if len(domain.MXs) != 2 {
 		t.Fatalf("Domain should have loaded two hostnames into policy")
 	}
 
@@ -123,11 +123,11 @@ func TestBasicQueueWorkflow(t *testing.T) {
 
 	// 4-T. Check to see domain status was updated to "queued" after valid token redemption
 	domainBody, _ = ioutil.ReadAll(resp.Body)
-	err = json.Unmarshal(domainBody, &APIResponse{Response: &domainData})
+	err = json.Unmarshal(domainBody, &APIResponse{Response: &domain})
 	if err != nil {
 		t.Fatalf("Returned invalid JSON object:%v\n", string(domainBody))
 	}
-	if domainData.State != "queued" {
+	if domain.State != "queued" {
 		t.Fatalf("Token validation should have automatically queued domain")
 	}
 }

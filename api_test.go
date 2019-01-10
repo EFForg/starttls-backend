@@ -5,6 +5,7 @@ import (
 
 	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/db"
+	"github.com/EFForg/starttls-backend/models"
 )
 
 func TestPolicyCheck(t *testing.T) {
@@ -23,18 +24,18 @@ func TestPolicyCheck(t *testing.T) {
 func TestPolicyCheckWithQueuedDomain(t *testing.T) {
 	defer teardown()
 
-	domainData := db.DomainData{
+	domain := models.Domain{
 		Name:  "example.com",
 		Email: "postmaster@example.com",
 		State: db.StateUnvalidated,
 	}
-	api.Database.PutDomain(domainData)
+	api.Database.PutDomain(domain)
 	result := api.policyCheck("example.com")
 	if result.Status != checker.Warning {
 		t.Errorf("Check should have warned.")
 	}
-	domainData.State = db.StateQueued
-	api.Database.PutDomain(domainData)
+	domain.State = db.StateQueued
+	api.Database.PutDomain(domain)
 	result = api.policyCheck("example.com")
 	if result.Status != checker.Warning {
 		t.Errorf("Check should have warned.")

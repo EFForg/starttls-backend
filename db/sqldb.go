@@ -155,19 +155,19 @@ func (db SQLDatabase) GetAllScans(domain string) ([]models.Scan, error) {
 // not yet exist in the database, we initialize it with StateUnvalidated.
 // Subsequent puts with the same domain updates the row with the information in
 // the object provided.
-func (db *SQLDatabase) PutDomain(domainData DomainData) error {
+func (db *SQLDatabase) PutDomain(domain models.Domain) error {
 	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status) "+
 		"VALUES($1, $2, $3, $4) "+
 		"ON CONFLICT (domain) DO UPDATE SET status=$5",
-		domainData.Name, domainData.Email, strings.Join(domainData.MXs[:], ","),
-		StateUnvalidated, domainData.State)
+		domain.Name, domain.Email, strings.Join(domain.MXs[:], ","),
+		StateUnvalidated, domain.State)
 	return err
 }
 
 // GetDomain retrieves the status and information associated with a particular
 // mailserver domain.
-func (db SQLDatabase) GetDomain(domain string) (DomainData, error) {
-	data := DomainData{}
+func (db SQLDatabase) GetDomain(domain string) (models.Domain, error) {
+	data := models.Domain{}
 	var rawMXs string
 	err := db.conn.QueryRow("SELECT domain, email, data, status, last_updated FROM domains WHERE domain=$1",
 		domain).Scan(
@@ -180,16 +180,16 @@ func (db SQLDatabase) GetDomain(domain string) (DomainData, error) {
 }
 
 // GetDomains retrieves all the domains which match a particular state.
-func (db SQLDatabase) GetDomains(state DomainState) ([]DomainData, error) {
+func (db SQLDatabase) GetDomains(state models.DomainState) ([]models.Domain, error) {
 	rows, err := db.conn.Query(
 		"SELECT domain, email, data, status, last_updated FROM domains WHERE status=$1", state)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	domains := []DomainData{}
+	domains := []models.Domain{}
 	for rows.Next() {
-		var domain DomainData
+		var domain models.Domain
 		var rawMXs string
 		if err := rows.Scan(&domain.Name, &domain.Email, &rawMXs, &domain.State, &domain.LastUpdated); err != nil {
 			return nil, err
