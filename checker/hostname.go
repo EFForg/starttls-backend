@@ -49,9 +49,10 @@ func policyMatches(mx string, patterns []string) bool {
 			return true
 		}
 		// Wildcard match
-		if strings.HasPrefix(pattern, "*.") {
+		if strings.HasPrefix(pattern, "*.") || strings.HasPrefix(pattern, ".") {
+			pattern = strings.TrimPrefix(pattern, "*")
 			mxParts := strings.SplitN(mx, ".", 2)
-			if len(mxParts) > 1 && mxParts[1] == pattern[2:] {
+			if len(mxParts) > 1 && mxParts[1] == pattern[1:] {
 				return true
 			}
 		}

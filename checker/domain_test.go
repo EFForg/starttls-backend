@@ -11,6 +11,7 @@ var mxLookup = map[string][]string{
 	"empty":         []string{},
 	"changes":       []string{"changes"},
 	"domain":        []string{"hostname1", "hostname2"},
+	"domain.tld":    []string{"mail2.domain.tld", "mail1.domain.tld"},
 	"noconnection":  []string{"noconnection", "noconnection"},
 	"noconnection2": []string{"noconnection", "nostarttlsconnect"},
 	"nostarttls":    []string{"nostarttls", "noconnection"},
@@ -134,6 +135,14 @@ func TestNoExpectedHostnames(t *testing.T) {
 		{"domain", []string{"hostname1"}, DomainBadHostnameFailure},
 		{"domain", []string{"hostname1", "hostname2"}, DomainSuccess},
 		{"domain", nil, DomainSuccess},
+	}
+	performTests(t, tests)
+}
+
+func TestWildcardHostnames(t *testing.T) {
+	tests := []domainTestCase{
+		{"domain.tld", []string{".tld"}, DomainBadHostnameFailure},
+		{"domain.tld", []string{".domain.tld"}, DomainSuccess},
 	}
 	performTests(t, tests)
 }
