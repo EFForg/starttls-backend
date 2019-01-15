@@ -69,7 +69,9 @@ func TestPolicyMatch(t *testing.T) {
 
 		// Single-level subdomain match
 		{"mx.example.com", "*.example.com", true},
+		{"mx.example.com", ".example.com", true},
 		{"mx.mx.example.com", "*.mx.example.com", true},
+		{"mx.mx.example.com", ".mx.example.com", true},
 
 		// Wildcard may match left-most label only
 		{"mx.example.com", "mx.*.com", false},
@@ -84,6 +86,9 @@ func TestPolicyMatch(t *testing.T) {
 		{"*.example.com", "mx.example.com", false},
 		{"*.example.com", "mx.mx.example.com", false},
 		{"*.example.com", ".mx.example.com", false},
+
+		// Some more edge cases
+		{"mx.example.com", "..example.com", false},
 	}
 
 	for _, test := range tests {
