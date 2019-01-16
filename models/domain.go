@@ -13,3 +13,12 @@ type Domain struct {
 
 // DomainState represents the state of a single domain.
 type DomainState string
+
+// Possible values for DomainState
+const (
+	StateUnknown     = "unknown"     // Domain was never submitted, so we don't know.
+	StateUnvalidated = "unvalidated" // E-mail token for this domain is unverified
+	StateQueued      = "queued"      // Queued for addition at next addition date.
+	StateFailed      = "failed"      // Requested to be queued, but failed verification.
+	StateAdded       = "added"       // On the list.
+)

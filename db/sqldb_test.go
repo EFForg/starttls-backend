@@ -143,7 +143,7 @@ func TestPutGetDomain(t *testing.T) {
 	if retrievedData.Name != data.Name {
 		t.Errorf("Somehow, GetDomain retrieved the wrong object?")
 	}
-	if retrievedData.State != db.StateUnvalidated {
+	if retrievedData.State != models.StateUnvalidated {
 		t.Errorf("Default state should be 'Unvalidated'")
 	}
 }
@@ -155,12 +155,12 @@ func TestUpsertDomain(t *testing.T) {
 		Email: "admin@testing.com",
 	}
 	database.PutDomain(data)
-	err := database.PutDomain(models.Domain{Name: "testing.com", State: db.StateQueued})
+	err := database.PutDomain(models.Domain{Name: "testing.com", State: models.StateQueued})
 	if err != nil {
 		t.Errorf("PutDomain(%s) failed: %v\n", data.Name, err)
 	}
 	retrievedData, err := database.GetDomain(data.Name)
-	if retrievedData.State != db.StateQueued {
+	if retrievedData.State != models.StateQueued {
 		t.Errorf("Expected state to be 'Queued', was %v\n", retrievedData)
 	}
 }
@@ -201,12 +201,12 @@ func TestLastUpdatedFieldUpdates(t *testing.T) {
 	data := models.Domain{
 		Name:  "testing.com",
 		Email: "admin@testing.com",
-		State: db.StateUnvalidated,
+		State: models.StateUnvalidated,
 	}
 	database.PutDomain(data)
 	retrievedData, _ := database.GetDomain(data.Name)
 	lastUpdated := retrievedData.LastUpdated
-	data.State = db.StateQueued
+	data.State = models.StateQueued
 	database.PutDomain(models.Domain{Name: data.Name, Email: "new fone who dis"})
 	retrievedData, _ = database.GetDomain(data.Name)
 	if lastUpdated.Equal(retrievedData.LastUpdated) {
@@ -219,7 +219,7 @@ func TestLastUpdatedFieldDoesntUpdate(t *testing.T) {
 	data := models.Domain{
 		Name:  "testing.com",
 		Email: "admin@testing.com",
-		State: db.StateUnvalidated,
+		State: models.StateUnvalidated,
 	}
 	database.PutDomain(data)
 	retrievedData, _ := database.GetDomain(data.Name)
@@ -238,7 +238,7 @@ func TestDomainsToValidate(t *testing.T) {
 	}
 	for domain, queued := range queuedMap {
 		if queued {
-			database.PutDomain(models.Domain{Name: domain, State: db.StateQueued})
+			database.PutDomain(models.Domain{Name: domain, State: models.StateQueued})
 		} else {
 			database.PutDomain(models.Domain{Name: domain})
 		}

@@ -160,7 +160,7 @@ func (db *SQLDatabase) PutDomain(domain models.Domain) error {
 		"VALUES($1, $2, $3, $4) "+
 		"ON CONFLICT (domain) DO UPDATE SET status=$5",
 		domain.Name, domain.Email, strings.Join(domain.MXs[:], ","),
-		StateUnvalidated, domain.State)
+		models.StateUnvalidated, domain.State)
 	return err
 }
 
@@ -245,7 +245,7 @@ func (db SQLDatabase) ClearTables() error {
 // DB whose policies should be validated.
 func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 	domains := []string{}
-	data, err := db.GetDomains(StateQueued)
+	data, err := db.GetDomains(models.StateQueued)
 	if err != nil {
 		return domains, err
 	}

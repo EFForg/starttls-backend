@@ -93,12 +93,12 @@ func (api API) policyCheck(domain string) checker.CheckResult {
 	if err != nil {
 		return result.Failure("Domain %s is not on the policy list.", domain)
 	}
-	if domainData.State == db.StateAdded {
+	if domainData.State == models.StateAdded {
 		log.Println("Warning: Domain was StateAdded in DB but was not found on the policy list.")
 		return result.Success()
-	} else if domainData.State == db.StateQueued {
+	} else if domainData.State == models.StateQueued {
 		return result.Warning("Domain %s is queued to be added to the policy list.", domain)
-	} else if domainData.State == db.StateUnvalidated {
+	} else if domainData.State == models.StateUnvalidated {
 		return result.Warning("The policy addition request for %s is waiting on email validation", domain)
 	}
 	return result.Failure("Domain %s is not on the policy list.", domain)
@@ -182,7 +182,7 @@ const MaxHostnames = 8
 // Extracts relevant parameters from http.Request for a POST to /api/queue
 // TODO: also validate hostnames as FQDNs.
 func getDomainParams(r *http.Request, domain string) (models.Domain, error) {
-	domainData := models.Domain{Name: domain, State: db.StateUnvalidated}
+	domainData := models.Domain{Name: domain, State: models.StateUnvalidated}
 	email, err := getParam("email", r)
 	if err == nil {
 		domainData.Email = email
@@ -309,7 +309,7 @@ func (api API) Validate(r *http.Request) APIResponse {
 	err = api.Database.PutDomain(models.Domain{
 		Name:  domainData.Name,
 		Email: domainData.Email,
-		State: db.StateQueued,
+		State: models.StateQueued,
 	})
 	if err != nil {
 		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
