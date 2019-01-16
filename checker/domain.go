@@ -68,8 +68,8 @@ func lookupMXWithTimeout(domain string, timeout time.Duration) ([]*net.MX, error
 	return r.LookupMX(ctx, domain)
 }
 
-// LookupHostnames retrieves the MX hostnames associated with a domain.
-func (c Checker) LookupHostnames(domain string) ([]string, error) {
+// lookupHostnames retrieves the MX hostnames associated with a domain.
+func (c Checker) lookupHostnames(domain string) ([]string, error) {
 	domainASCII, err := idna.ToASCII(domain)
 	if err != nil {
 		return nil, fmt.Errorf("domain name %s couldn't be converted to ASCII", domain)
@@ -111,7 +111,7 @@ func (c Checker) CheckDomain(domain string, expectedHostnames []string) DomainRe
 	// 1. Look up hostnames
 	// 2. Perform and aggregate checks from those hostnames.
 	// 3. Set a summary message.
-	hostnames, err := c.LookupHostnames(domain)
+	hostnames, err := c.lookupHostnames(domain)
 	if err != nil {
 		return result.setStatus(DomainCouldNotConnect)
 	}
