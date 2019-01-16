@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/EFForg/starttls-backend/db"
+	"github.com/EFForg/starttls-backend/models"
 )
 
 // Tests basic scanning workflow.
@@ -30,13 +30,13 @@ func TestBasicScan(t *testing.T) {
 
 	// Checking response JSON returns successful scan
 	scanBody, _ := ioutil.ReadAll(resp.Body)
-	scanData := db.ScanData{}
-	err := json.Unmarshal(scanBody, &APIResponse{Response: &scanData})
+	scan := models.Scan{}
+	err := json.Unmarshal(scanBody, &APIResponse{Response: &scan})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n%v\n", string(scanBody), err)
 	}
-	if scanData.Domain != "eff.org" {
-		t.Errorf("Scan JSON expected to have Domain: eff.org, not %s\n", scanData.Domain)
+	if scan.Domain != "eff.org" {
+		t.Errorf("Scan JSON expected to have Domain: eff.org, not %s\n", scan.Domain)
 	}
 
 	// Check to see that scan results persisted.
@@ -50,16 +50,16 @@ func TestBasicScan(t *testing.T) {
 
 	// Checking response JSON returns scan associated with domain
 	scanBody, _ = ioutil.ReadAll(resp.Body)
-	scanData2 := db.ScanData{}
-	err = json.Unmarshal(scanBody, &APIResponse{Response: &scanData2})
+	scan2 := models.Scan{}
+	err = json.Unmarshal(scanBody, &APIResponse{Response: &scan2})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n", string(scanBody))
 	}
-	if scanData2.Domain != "eff.org" {
-		t.Errorf("Scan JSON expected to have Domain: eff.org, not %s\n", scanData2.Domain)
+	if scan2.Domain != "eff.org" {
+		t.Errorf("Scan JSON expected to have Domain: eff.org, not %s\n", scan2.Domain)
 	}
-	if strings.Compare(scanData.Data.Domain, scanData2.Data.Domain) != 0 {
-		t.Errorf("Scan JSON mismatch:\n%v\n%v\n", scanData.Data.Domain, scanData2.Data.Domain)
+	if strings.Compare(scan.Data.Domain, scan2.Data.Domain) != 0 {
+		t.Errorf("Scan JSON mismatch:\n%v\n%v\n", scan.Data.Domain, scan2.Data.Domain)
 	}
 }
 
@@ -85,13 +85,13 @@ func TestScanCached(t *testing.T) {
 	api.CheckDomain = mockCheckPerform("somethingelse")
 	resp, _ := http.PostForm(server.URL+"/api/scan", data)
 	scanBody, _ := ioutil.ReadAll(resp.Body)
-	scanData := db.ScanData{}
+	scan := models.Scan{}
 	// Since scan occurred recently, we should have returned the cached OG response.
-	err := json.Unmarshal(scanBody, &APIResponse{Response: &scanData})
+	err := json.Unmarshal(scanBody, &APIResponse{Response: &scan})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n%v\n", string(scanBody), err)
 	}
-	if scanData.Data.Message != original.Message {
+	if scan.Data.Message != original.Message {
 		t.Fatalf("Scan expected to have been cached, not reperformed\n")
 	}
 }

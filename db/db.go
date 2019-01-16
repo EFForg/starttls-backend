@@ -13,16 +13,6 @@ import (
 //  *****   DATABASE SCHEMA   *****  //
 ///////////////////////////////////////
 
-// Each of these mirrors a table row.
-
-// ScanData each represent the result of a single scan, conducted using
-// starttls-checker.
-type ScanData struct {
-	Domain    string               `json:"domain"`    // Input domain
-	Data      checker.DomainResult `json:"scandata"`  // JSON blob: scan results from starttls-checker
-	Timestamp time.Time            `json:"timestamp"` // Time at which this scan was conducted
-}
-
 // Possible values for DomainState
 const (
 	StateUnknown     = "unknown"     // Domain was never submitted, so we don't know.
