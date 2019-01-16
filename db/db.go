@@ -13,15 +13,6 @@ import (
 //  *****   DATABASE SCHEMA   *****  //
 ///////////////////////////////////////
 
-// Possible values for DomainState
-const (
-	StateUnknown     = "unknown"     // Domain was never submitted, so we don't know.
-	StateUnvalidated = "unvalidated" // E-mail token for this domain is unverified
-	StateQueued      = "queued"      // Queued for addition at next addition date.
-	StateFailed      = "failed"      // Requested to be queued, but failed verification.
-	StateAdded       = "added"       // On the list.
-)
-
 // TokenData stores the state of an e-mail verification token.
 type TokenData struct {
 	Domain  string    `json:"domain"`  // Domain for which we're verifying the e-mail.
