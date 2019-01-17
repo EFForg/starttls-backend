@@ -60,6 +60,8 @@ func TestValidateMTASTSPolicyFile(t *testing.T) {
 		status CheckStatus
 	}{
 		{"version: STSv1\nmode: enforce\nmax_age:100000\nmx: foo.example.com\nmx: bar.example.com\n", Success},
+		// Support UTF-8
+		{"version: STSv1\nmode: enforce\nmax_age:100000\nmx: 🌟.🐢.com\n", Success},
 		{"\nmx: foo.example.com\nmx: bar.example.com\n", Failure},
 		{"version: STSv1\nmode: enforce\nmax_age:0\nmx: foo.example.com\nmx: bar.example.com\n", Failure},
 		{"version: STSv1\nmode: start_turtles\nmax_age:100000\nmx: foo.example.com\nmx: bar.example.com\n", Failure},
