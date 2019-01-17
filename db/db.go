@@ -3,23 +3,10 @@ package db
 import (
 	"flag"
 	"os"
-	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/models"
 )
-
-///////////////////////////////////////
-//  *****   DATABASE SCHEMA   *****  //
-///////////////////////////////////////
-
-// TokenData stores the state of an e-mail verification token.
-type TokenData struct {
-	Domain  string    `json:"domain"`  // Domain for which we're verifying the e-mail.
-	Token   string    `json:"token"`   // Token that we're expecting.
-	Expires time.Time `json:"expires"` // When this token expires.
-	Used    bool      `json:"used"`    // Whether this token was used.
-}
 
 // Database interface: These are the things that the Database should be able to do.
 // Slightly more limited than CRUD for all the schemas.
@@ -39,7 +26,7 @@ type Database interface {
 	// Gets the token for a domain
 	GetTokenByDomain(string) (string, error)
 	// Creates a token in the db
-	PutToken(string) (TokenData, error)
+	PutToken(string) (models.Token, error)
 	// Uses a token in the db
 	UseToken(string) (string, error)
 	// Adds a bounce or complaint notification to the email blacklist.
