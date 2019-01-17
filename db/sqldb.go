@@ -79,7 +79,7 @@ func (db *SQLDatabase) GetTokenByDomain(domain string) (string, error) {
 // PutToken generates and inserts a token into the database for a particular
 // domain, and returns the resulting token row.
 func (db *SQLDatabase) PutToken(domain string) (models.Token, error) {
-	tokenData := models.Token{
+	token := models.Token{
 		Domain:  domain,
 		Token:   randToken(),
 		Expires: time.Now().Add(time.Duration(time.Hour * 72)),
@@ -87,11 +87,11 @@ func (db *SQLDatabase) PutToken(domain string) (models.Token, error) {
 	}
 	_, err := db.conn.Exec("INSERT INTO tokens(domain, token, expires) VALUES($1, $2, $3) "+
 		"ON CONFLICT (domain) DO UPDATE SET token=$2, expires=$3, used=FALSE",
-		domain, tokenData.Token, tokenData.Expires.UTC().Format(sqlTimeFormat))
+		domain, token.Token, token.Expires.UTC().Format(sqlTimeFormat))
 	if err != nil {
 		return models.Token{}, err
 	}
-	return tokenData, nil
+	return token, nil
 }
 
 // SCAN DB FUNCTIONS
