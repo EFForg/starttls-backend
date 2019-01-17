@@ -79,7 +79,11 @@ func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
 			packet := raven.NewPacket(response.Message, raven.NewHttp(r))
 			raven.Capture(packet, nil)
 		}
-		writeJSON(w, response)
+		if strings.Contains(r.Header.Get("accept"), "text/html") {
+			writeHTML(w, response)
+		} else {
+			writeJSON(w, response)
+		}
 	}
 }
 
@@ -352,4 +356,15 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 		return
 	}
 	fmt.Fprintf(w, "%s\n", b)
+}
+
+func writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
+	type htmlResponder interface {
+		WriteHTML(w http.ResponseWriter) error
+	}
+	if responder, ok := apiResponse.Response.(htmlResponder); ok {
+		responder.WriteHTML(w)
+	} else {
+		http.Error(w, "HTML is not supported for this action.", http.StatusUnsupportedMediaType)
+	}
 }

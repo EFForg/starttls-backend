@@ -11,6 +11,30 @@ import (
 	"github.com/EFForg/starttls-backend/models"
 )
 
+func TestScanHTML(t *testing.T) {
+	defer teardown()
+
+	// Request a scan!
+	data := url.Values{}
+	data.Set("domain", "eff.org")
+
+	req, err := http.NewRequest("POST", server.URL+"/api/scan", strings.NewReader(data.Encode()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("accept", "text/html")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// if resp.StatusCode != http.StatusOK {
+	// 	t.Fatalf("POST to api/scan failed with error %d", resp.StatusCode)
+	// }
+	scanBody, _ := ioutil.ReadAll(resp.Body)
+	t.Fatal(string(scanBody))
+}
+
 // Tests basic scanning workflow.
 // Requests a scan for a particular domain, and
 // makes sure that the scan is persisted correctly in DB across requests.
