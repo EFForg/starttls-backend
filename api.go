@@ -158,13 +158,13 @@ func (api API) Scan(r *http.Request) APIResponse {
 			return APIResponse{StatusCode: http.StatusOK, Response: scan}
 		}
 		// 1. Conduct scan via starttls-checker
-		rawScandata, err := api.CheckDomain(api, domain)
+		scanData, err := api.CheckDomain(api, domain)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
 		scan = models.Scan{
 			Domain:    domain,
-			Data:      rawScandata,
+			Data:      scanData,
 			Timestamp: time.Now(),
 		}
 		// 2. Put scan into DB
