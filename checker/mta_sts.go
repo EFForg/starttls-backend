@@ -40,7 +40,7 @@ func getKeyValuePairs(record string, lineDelimiter string,
 }
 
 func checkMTASTSRecord(domain string) CheckResult {
-	result := CheckResult{Name: "mta-sts-txt"}
+	result := CheckResult{CheckType: MTASTSText}
 	records, err := net.LookupTXT(fmt.Sprintf("_mta-sts.%s", domain))
 	if err != nil {
 		return result.Failure("Couldn't find MTA-STS TXT record: %v", err)
@@ -63,7 +63,7 @@ func validateMTASTSRecord(records []string, result CheckResult) CheckResult {
 }
 
 func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameResult) CheckResult {
-	result := CheckResult{Name: "policy_file"}
+	result := CheckResult{CheckType: MTASTSPolicyFile}
 	client := &http.Client{
 		// Don't follow redirects.
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -147,3 +147,23 @@ func checkMTASTS(domain string, hostnameResults map[string]HostnameResult) Resul
 	result.addCheck(checkMTASTSPolicyFile(domain, hostnameResults))
 	return result
 }
+
+// Types of MTA-STS checks supported
+var (
+	MTASTSText CheckType = CheckType{
+		Name: "mta-sts-text",
+		StatusText: StatusText{
+			Success: "",
+			Failure: "",
+		},
+		Description: ``,
+	}
+	MTASTSPolicyFile CheckType = CheckType{
+		Name: "mta-sts-policy-file",
+		StatusText: StatusText{
+			Success: "",
+			Failure: "",
+		},
+		Description: ``,
+	}
+)

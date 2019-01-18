@@ -22,21 +22,21 @@ var hostnameResults = map[string]ResultGroup{
 	"noconnection": ResultGroup{
 		Status: 3,
 		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 3, nil},
+			"connectivity": {Connectivity, 3, nil},
 		},
 	},
 	"nostarttls": ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 2, nil},
+			"connectivity": {Connectivity, 0, nil},
+			"starttls":     {STARTTLS, 2, nil},
 		},
 	},
 	"nostarttlsconnect": ResultGroup{
 		Status: 3,
 		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 3, nil},
+			"connectivity": {Connectivity, 0, nil},
+			"starttls":     {STARTTLS, 3, nil},
 		},
 	},
 }
@@ -69,10 +69,10 @@ func (*mockChecker) checkHostname(domain string, hostname string, _ time.Duratio
 		ResultGroup: &ResultGroup{
 			Status: 0,
 			Checks: map[string]CheckResult{
-				"connectivity": {"connectivity", 0, nil},
-				"starttls":     {"starttls", 0, nil},
-				"certificate":  {"certificate", 0, nil},
-				"version":      {"version", 0, nil},
+				"connectivity": {Connectivity, 0, nil},
+				"starttls":     {STARTTLS, 0, nil},
+				"certificate":  {Certificate, 0, nil},
+				"version":      {Version, 0, nil},
 			},
 		},
 		Timestamp: time.Now(),

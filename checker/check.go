@@ -1,7 +1,6 @@
 package checker
 
 import (
-	"encoding/json"
 	"fmt"
 )
 
@@ -101,41 +100,6 @@ func (r *ResultGroup) addCheck(checkResult CheckResult) {
 	r.Status = SetStatus(r.Status, checkResult.Status)
 }
 
-// MarshalJSON specifies how json.Marshall should handle type CheckResult.
-// Adds status_text and description fields to the default output.
-func (c CheckResult) MarshalJSON() ([]byte, error) {
-	// FakeCheckResult lets us access the default json.Marshall result for CheckResult.
-	type FakeCheckResult CheckResult
-	return json.Marshal(struct {
-		FakeCheckResult
-		StatusText  string `json:"status_text,omitempty"`
-		Description string `json:"description,omitempty"`
-	}{
-		FakeCheckResult: FakeCheckResult(c),
-		StatusText:      c.StatusText(),
-		Description:     c.Description(),
-	})
-}
-
-// StatusText returns a human-readable status string
-func (c CheckResult) StatusText() string {
-	if checkType, ok := checkTypes[c.Name]; ok {
-		if statusText, ok := checkType.StatusText[c.Status]; ok {
-			return statusText
-		}
-	}
-	return ""
-}
-
-// Description returns a technical description of the check that was
-// performed.
-func (c CheckResult) Description() string {
-	if checkType, ok := checkTypes[c.Name]; ok {
-		return checkType.Description
-	}
-	return ""
-}
-
 // CheckType stores descriptive information about a single type of check that
 // can be performed by the Checker.
 type CheckType struct {
@@ -146,60 +110,3 @@ type CheckType struct {
 
 // StatusText maps CheckStatus codes to human-readable strings.
 type StatusText map[CheckStatus]string
-
-const (
-	STARTTLS CheckType = CheckType{
-		Name: "starttls",
-		StatusText: StatusText{
-			Success: "Supports STTARTTLS",
-			Failure: "Does not support STARTTLS",
-		},
-		Description: `“STARTTLS” is the command an email server sends if it wants to encrypt communications (using Transport Layer Security or “TLS”) with another email server. If your server supports STARTTLS, that means any other server that supports STARTTLS can communicate securely with it.
-
-This checks that your email server sends the STARTTLS command correctly, as well as accepting the STARTTLS command from other servers.`,
-	}
-	Version CheckType = CheckType{
-		Name: "version",
-		StatusText: StatusText{
-			Success: "Uses a secure version of TLS",
-			Failure: "Does not use a secure TLS version",
-		},
-		Description: `TLS has changed many times over the years. Researchers have discovered security flaws in some older versions, named “SSLv2” and “SSLv3”, so technologists across the internet are <a href="https://disablessl3.com/" target="_blank">working to deprecate</a> SSLv2/3.
-
-This checks that your email server does not allow establishing a valid TLS connection over SSLv2/3.`,
-	}
-	Certificate CheckType = CheckType{
-		Name: "certificate",
-		StatusText: StatusText{
-			Success: "Presents a valid certificate",
-			Failure: "Does not present a valid certificate",
-		},
-		Description: `On the internet, even if you *think* you’re talking to a service named “eff.org”, it could be an impersonator pretending to be “eff.org”. Checking a mail server’s certificate helps ensure that you really are talking to the actual service.
-
-In order for your certificate to be valid for your email domain, it should be unexpired, chain to a <a href="https://wiki.mozilla.org/CA/Included_Certificates" target="_blank">valid root</a>, and one of the names on the certificate should either match the domain (the part of an email address after the @) or the server’s hostname (the name of the server, as indicated by an MX record).`,
-	}
-	Connectivity CheckType = CheckType{
-		Name: "connectivity",
-		StatusText: StatusText{
-			Success: "Server is up and running",
-			Failure: "Could not establish connection",
-		},
-		Description: `We couldn't successfully connect to this mailserver to scan it. This could be an error on our side, too. If you're having trouble getting the scanner to work, shoot us an email at <a href="mailto:starttls-policy@eff.org">starttls-policy@eff.org</a>.`,
-	}
-	MTASTSText CheckType = CheckType{
-		Name: "mta-sts-text",
-		StatusText: StatusText{
-			Success: "",
-			Failure: "",
-		},
-		Description: ``,
-	}
-	MTASTSPolicyFile CheckType = CheckType{
-		Name: "mta-sts-policy-file",
-		StatusText: StatusText{
-			Success: "",
-			Failure: "",
-		},
-		Description: ``,
-	}
-)

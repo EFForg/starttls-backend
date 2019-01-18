@@ -79,8 +79,8 @@ func TestValidateMTASTSMXs(t *testing.T) {
 		ResultGroup: &ResultGroup{
 			Status: 3,
 			Checks: map[string]CheckResult{
-				"connectivity": {"connectivity", 0, nil},
-				"starttls":     {"starttls", 0, nil},
+				"connectivity": {Connectivity, 0, nil},
+				"starttls":     {STARTTLS, 0, nil},
 			},
 		},
 	}
@@ -88,8 +88,8 @@ func TestValidateMTASTSMXs(t *testing.T) {
 		ResultGroup: &ResultGroup{
 			Status: 3,
 			Checks: map[string]CheckResult{
-				"connectivity": {"connectivity", 0, nil},
-				"starttls":     {"starttls", 3, nil},
+				"connectivity": {Connectivity, 0, nil},
+				"starttls":     {STARTTLS, 3, nil},
 			},
 		},
 	}

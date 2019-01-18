@@ -105,7 +105,7 @@ func TestNoConnection(t *testing.T) {
 	expected := ResultGroup{
 		Status: 3,
 		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 3, nil},
+			"connectivity": {Connectivity, 3, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -120,8 +120,8 @@ func TestNoTLS(t *testing.T) {
 	expected := ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 2, nil},
+			"connectivity": {Connectivity, 0, nil},
+			"starttls":     {STARTTLS, 2, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -140,10 +140,10 @@ func TestSelfSigned(t *testing.T) {
 	expected := ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 0, nil},
-			"certificate":  {"certificate", 2, nil},
-			"version":      {"version", 0, nil},
+			"connectivity": {Connectivity, 0, nil},
+			"starttls":     {STARTTLS, 0, nil},
+			"certificate":  {Certificate, 2, nil},
+			"version":      {Version, 0, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -166,10 +166,10 @@ func TestNoTLS12(t *testing.T) {
 	expected := ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 0, nil},
-			"certificate":  {"certificate", 2, nil},
-			"version":      {"version", 1, nil},
+			"connectivity": {Connectivity, 0, nil},
+			"starttls":     {STARTTLS, 0, nil},
+			"certificate":  {Certificate, 2, nil},
+			"version":      {Version, 1, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -198,10 +198,10 @@ func TestSuccessWithFakeCA(t *testing.T) {
 	expected := ResultGroup{
 		Status: 0,
 		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 0, nil},
-			"certificate":  {"certificate", 0, nil},
-			"version":      {"version", 0, nil},
+			"connectivity": {Connectivity, 0, nil},
+			"starttls":     {STARTTLS, 0, nil},
+			"certificate":  {Certificate, 0, nil},
+			"version":      {Version, 0, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -273,10 +273,10 @@ func TestFailureWithBadHostname(t *testing.T) {
 	expected := ResultGroup{
 		Status: 2,
 		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 0, nil},
-			"certificate":  {"certificate", 2, nil},
-			"version":      {"version", 0, nil},
+			"connectivity": {Connectivity, 0, nil},
+			"starttls":     {STARTTLS, 0, nil},
+			"certificate":  {Certificate, 2, nil},
+			"version":      {Version, 0, nil},
 		},
 	}
 	compareStatuses(t, expected, result)

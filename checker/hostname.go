@@ -95,7 +95,7 @@ func smtpDialWithTimeout(hostname string, timeout time.Duration) (*smtp.Client, 
 
 // Simply tries to StartTLS with the server.
 func checkStartTLS(client *smtp.Client) CheckResult {
-	result := CheckResult{Name: "starttls"}
+	result := CheckResult{CheckType: STARTTLS}
 	ok, _ := client.Extension("StartTLS")
 	if !ok {
 		return result.Failure("Server does not advertise support for STARTTLS.")
@@ -141,7 +141,7 @@ var certRoots *x509.CertPool
 // Checks that the certificate presented is valid for a particular hostname, unexpired,
 // and chains to a trusted root.
 func checkCert(client *smtp.Client, domain, hostname string) CheckResult {
-	result := CheckResult{Name: "certificate"}
+	result := CheckResult{CheckType: Certificate}
 	state, ok := client.TLSConnectionState()
 	if !ok {
 		return result.Error("TLS not initiated properly.")
@@ -169,7 +169,7 @@ func tlsConfigForCipher(ciphers []uint16) tls.Config {
 
 // Checks to see that insecure ciphers are disabled.
 func checkTLSCipher(hostname string, timeout time.Duration) CheckResult {
-	result := CheckResult{Name: "cipher"}
+	result := CheckResult{CheckType: CheckType{Name: "cipher"}}
 	badCiphers := []uint16{
 		tls.TLS_RSA_WITH_RC4_128_SHA,
 		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
@@ -188,7 +188,7 @@ func checkTLSCipher(hostname string, timeout time.Duration) CheckResult {
 }
 
 func checkTLSVersion(client *smtp.Client, hostname string, timeout time.Duration) CheckResult {
-	result := CheckResult{Name: "version"}
+	result := CheckResult{CheckType: Version}
 
 	// Check the TLS version of the existing connection.
 	tlsConnectionState, ok := client.TLSConnectionState()
@@ -233,7 +233,7 @@ func CheckHostname(domain string, hostname string, timeout time.Duration) Hostna
 	}
 
 	// Connect to the SMTP server and use that connection to perform as many checks as possible.
-	connectivityResult := CheckResult{Name: "connectivity"}
+	connectivityResult := CheckResult{CheckType: Connectivity}
 	client, err := smtpDialWithTimeout(hostname, timeout)
 	if err != nil {
 		result.addCheck(connectivityResult.Error("Could not establish connection: %v", err))
@@ -254,3 +254,45 @@ func CheckHostname(domain string, hostname string, timeout time.Duration) Hostna
 
 	return result
 }
+
+// Supported checks against hostnames
+var (
+	STARTTLS CheckType = CheckType{
+		Name: "starttls",
+		StatusText: StatusText{
+			Success: "Supports STTARTTLS",
+			Failure: "Does not support STARTTLS",
+		},
+		Description: `“STARTTLS” is the command an email server sends if it wants to encrypt communications (using Transport Layer Security or “TLS”) with another email server. If your server supports STARTTLS, that means any other server that supports STARTTLS can communicate securely with it.
+
+This checks that your email server sends the STARTTLS command correctly, as well as accepting the STARTTLS command from other servers.`,
+	}
+	Version CheckType = CheckType{
+		Name: "version",
+		StatusText: StatusText{
+			Success: "Uses a secure version of TLS",
+			Failure: "Does not use a secure TLS version",
+		},
+		Description: `TLS has changed many times over the years. Researchers have discovered security flaws in some older versions, named “SSLv2” and “SSLv3”, so technologists across the internet are <a href="https://disablessl3.com/" target="_blank">working to deprecate</a> SSLv2/3.
+
+This checks that your email server does not allow establishing a valid TLS connection over SSLv2/3.`,
+	}
+	Certificate CheckType = CheckType{
+		Name: "certificate",
+		StatusText: StatusText{
+			Success: "Presents a valid certificate",
+			Failure: "Does not present a valid certificate",
+		},
+		Description: `On the internet, even if you *think* you’re talking to a service named “eff.org”, it could be an impersonator pretending to be “eff.org”. Checking a mail server’s certificate helps ensure that you really are talking to the actual service.
+
+In order for your certificate to be valid for your email domain, it should be unexpired, chain to a <a href="https://wiki.mozilla.org/CA/Included_Certificates" target="_blank">valid root</a>, and one of the names on the certificate should either match the domain (the part of an email address after the @) or the server’s hostname (the name of the server, as indicated by an MX record).`,
+	}
+	Connectivity CheckType = CheckType{
+		Name: "connectivity",
+		StatusText: StatusText{
+			Success: "Server is up and running",
+			Failure: "Could not establish connection",
+		},
+		Description: `We couldn't successfully connect to this mailserver to scan it. This could be an error on our side, too. If you're having trouble getting the scanner to work, shoot us an email at <a href="mailto:starttls-policy@eff.org">starttls-policy@eff.org</a>.`,
+	}
+)
