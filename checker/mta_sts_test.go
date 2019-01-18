@@ -78,18 +78,18 @@ func TestValidateMTASTSMXs(t *testing.T) {
 	goodHostnameResult := HostnameResult{
 		Result: &Result{
 			Status: 3,
-			Checks: map[string]*Result{
-				"connectivity": {"connectivity", 0, nil, nil},
-				"starttls":     {"starttls", 0, nil, nil},
+			Checks: map[string]CheckResult{
+				"connectivity": {Connectivity, 0, nil},
+				"starttls":     {STARTTLS, 0, nil},
 			},
 		},
 	}
 	noSTARTTLSHostnameResult := HostnameResult{
 		Result: &Result{
 			Status: 3,
-			Checks: map[string]*Result{
-				"connectivity": {"connectivity", 0, nil, nil},
-				"starttls":     {"starttls", 3, nil, nil},
+			Checks: map[string]CheckResult{
+				"connectivity": {Connectivity, 0, nil},
+				"starttls":     {STARTTLS, 3, nil},
 			},
 		},
 	}

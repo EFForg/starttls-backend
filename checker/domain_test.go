@@ -19,25 +19,25 @@ var mxLookup = map[string][]string{
 }
 
 // Fake hostname checks :)
-var hostnameResults = map[string]Result{
-	"noconnection": Result{
-		Status: Error,
-		Checks: map[string]*Result{
-			"connectivity": {"connectivity", Error, nil, nil},
+var hostnameResults = map[string]ResultGroup{
+	"noconnection": ResultGroup{
+		Status: 3,
+		Checks: map[string]CheckResult{
+			"connectivity": {Connectivity, 3, nil},
 		},
 	},
-	"nostarttls": Result{
-		Status: Failure,
-		Checks: map[string]*Result{
-			"connectivity": {"connectivity", 0, nil, nil},
-			"starttls":     {"starttls", Failure, nil, nil},
+	"nostarttls": ResultGroup{
+		Status: 2,
+		Checks: map[string]CheckResult{
+			"connectivity": {Connectivity, 0, nil},
+			"starttls":     {STARTTLS, 2, nil},
 		},
 	},
-	"nostarttlsconnect": Result{
-		Status: Error,
-		Checks: map[string]*Result{
-			"connectivity": {"connectivity", 0, nil, nil},
-			"starttls":     {"starttls", Error, nil, nil},
+	"nostarttlsconnect": ResultGroup{
+		Status: 3,
+		Checks: map[string]CheckResult{
+			"connectivity": {Connectivity, 0, nil},
+			"starttls":     {STARTTLS, 3, nil},
 		},
 	},
 }
@@ -68,11 +68,11 @@ func mockCheckHostname(domain string, hostname string) HostnameResult {
 	return HostnameResult{
 		Result: &Result{
 			Status: 0,
-			Checks: map[string]*Result{
-				"connectivity": {"connectivity", 0, nil, nil},
-				"starttls":     {"starttls", 0, nil, nil},
-				"certificate":  {"certificate", 0, nil, nil},
-				"version":      {"version", 0, nil, nil},
+			Checks: map[string]CheckResult{
+				"connectivity": {Connectivity, 0, nil},
+				"starttls":     {STARTTLS, 0, nil},
+				"certificate":  {Certificate, 0, nil},
+				"version":      {Version, 0, nil},
 			},
 		},
 		Timestamp: time.Now(),
