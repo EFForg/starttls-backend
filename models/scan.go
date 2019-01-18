@@ -2,7 +2,8 @@ package models
 
 import (
 	"html/template"
-	"net/http"
+	"io"
+	"os"
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
@@ -16,7 +17,14 @@ type Scan struct {
 }
 
 // WriteHTML renders a scan result as HTML.
-func (s Scan) WriteHTML(w http.ResponseWriter) error {
-	tmpl := template.Must(template.ParseFiles("views/scan.html.tmpl"))
-	return tmpl.Execute(w, s)
+func (s Scan) WriteHTML(w io.Writer) error {
+	data := struct {
+		Scan
+		baseURL string
+	}{
+		Scan:    s,
+		baseURL: os.Getenv("FRONTEND_WEBSITE_LINK"),
+	}
+	tmpl := template.Must(template.ParseFiles("../views/scan.html.tmpl"))
+	return tmpl.Execute(w, data)
 }
