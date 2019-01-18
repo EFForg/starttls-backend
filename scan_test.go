@@ -11,28 +11,33 @@ import (
 	"github.com/EFForg/starttls-backend/models"
 )
 
+func htmlPost(path string, data url.Values) (*http.Response, error) {
+	req, err := http.NewRequest("POST", server.URL+path, strings.NewReader(data.Encode()))
+	if err != nil {
+		return &http.Response{}, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("accept", "text/html")
+	return http.DefaultClient.Do(req)
+}
+
 func TestScanHTML(t *testing.T) {
 	defer teardown()
 
 	// Request a scan!
 	data := url.Values{}
 	data.Set("domain", "eff.org")
-
-	req, err := http.NewRequest("POST", server.URL+"/api/scan", strings.NewReader(data.Encode()))
+	resp, err := htmlPost("/api/scan", data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("accept", "text/html")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("HTML POST to api/scan failed with error %d", resp.StatusCode)
 	}
-	// if resp.StatusCode != http.StatusOK {
-	// 	t.Fatalf("POST to api/scan failed with error %d", resp.StatusCode)
-	// }
-	scanBody, _ := ioutil.ReadAll(resp.Body)
-	t.Fatal(string(scanBody))
+	body, _ := ioutil.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "eff.org") {
+		t.Errorf("Response should contain scan domain, got %s", string(body))
+	}
 }
 
 // Tests basic scanning workflow.
