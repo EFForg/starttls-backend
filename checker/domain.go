@@ -148,7 +148,7 @@ func (c *Checker) CheckDomain(domain string, expectedHostnames []string) DomainR
 		}
 		result = result.setStatus(DomainStatus(hostnameResult.Status))
 	}
-	result.ExtraResults["mta-sts"] = checkMTASTS(query.Domain, result.HostnameResults)
-	result.setStatus(result.ExtraResults["mta-sts"].Status)
+	result.ExtraResults["mta-sts"] = c.checkMTASTS(domain, result.HostnameResults)
+	// result.setStatus(DomainStatus(result.ExtraResults["mta-sts"].Status))
 	return result
 }

@@ -138,7 +138,7 @@ func validateMTASTSMXs(policyFileMXs []string, dnsMXs map[string]HostnameResult,
 	return result
 }
 
-func checkMTASTS(domain string, hostnameResults map[string]HostnameResult) *Result {
+func (c Checker) checkMTASTS(domain string, hostnameResults map[string]HostnameResult) *Result {
 	result := MakeResult("mta-sts")
 	result.addCheck(checkMTASTSRecord(domain))
 	result.addCheck(checkMTASTSPolicyFile(domain, hostnameResults))

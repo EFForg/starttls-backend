@@ -22,6 +22,9 @@ type Checker struct {
 
 	// checkHostname is used to mock checks for a single hostname.
 	checkHostname func(string, string) HostnameResult
+
+	// checkMTASTSOverride is used to mock MTA-STS checks.
+	checkMTASTSOverride func(string, map[string]HostnameResult) Result
 }
 
 func (c *Checker) timeout() time.Duration {
