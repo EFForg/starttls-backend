@@ -233,6 +233,7 @@ func (db SQLDatabase) ClearTables() error {
 		fmt.Sprintf("DELETE FROM %s", db.cfg.DbDomainTable),
 		fmt.Sprintf("DELETE FROM %s", db.cfg.DbScanTable),
 		fmt.Sprintf("DELETE FROM %s", db.cfg.DbTokenTable),
+		fmt.Sprintf("DELETE FROM %s", "hostname_scans"),
 		fmt.Sprintf("DELETE FROM %s", "blacklisted_emails"),
 		fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1", db.cfg.DbScanTable),
 	})
