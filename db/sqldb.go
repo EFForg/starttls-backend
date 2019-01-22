@@ -273,8 +273,8 @@ func (db SQLDatabase) GetName() string {
 // GetHostnameScan retrives most recent scan from database.
 func (db *SQLDatabase) GetHostnameScan(hostname string) (checker.HostnameResult, error) {
 	result := checker.HostnameResult{
-		Hostname:    hostname,
-		ResultGroup: &checker.ResultGroup{},
+		Hostname: hostname,
+		Result:   &checker.Result{},
 	}
 	var rawScanData []byte
 	err := db.conn.QueryRow(`SELECT timestamp, status, scandata FROM hostname_scans

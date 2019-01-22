@@ -104,10 +104,10 @@ func TestPolicyMatch(t *testing.T) {
 func TestNoConnection(t *testing.T) {
 	result := testChecker.CheckHostname("", "example.com")
 
-	expected := ResultGroup{
+	expected := Result{
 		Status: 3,
-		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 3, nil},
+		Checks: map[string]Result{
+			"connectivity": {"connectivity", 3, nil, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -119,11 +119,11 @@ func TestNoTLS(t *testing.T) {
 
 	result := testChecker.CheckHostname("", ln.Addr().String())
 
-	expected := ResultGroup{
+	expected := Result{
 		Status: 2,
-		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 2, nil},
+		Checks: map[string]Result{
+			"connectivity": {"connectivity", 0, nil, nil},
+			"starttls":     {"starttls", 2, nil, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -139,13 +139,13 @@ func TestSelfSigned(t *testing.T) {
 
 	result := testChecker.CheckHostname("", ln.Addr().String())
 
-	expected := ResultGroup{
+	expected := Result{
 		Status: 2,
-		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 0, nil},
-			"certificate":  {"certificate", 2, nil},
-			"version":      {"version", 0, nil},
+		Checks: map[string]Result{
+			"connectivity": {"connectivity", 0, nil, nil},
+			"starttls":     {"starttls", 0, nil, nil},
+			"certificate":  {"certificate", 2, nil, nil},
+			"version":      {"version", 0, nil, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -165,13 +165,13 @@ func TestNoTLS12(t *testing.T) {
 
 	result := testChecker.CheckHostname("", ln.Addr().String())
 
-	expected := ResultGroup{
+	expected := Result{
 		Status: 2,
-		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 0, nil},
-			"certificate":  {"certificate", 2, nil},
-			"version":      {"version", 1, nil},
+		Checks: map[string]Result{
+			"connectivity": {"connectivity", 0, nil, nil},
+			"starttls":     {"starttls", 0, nil, nil},
+			"certificate":  {"certificate", 2, nil, nil},
+			"version":      {"version", 1, nil, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -197,13 +197,13 @@ func TestSuccessWithFakeCA(t *testing.T) {
 	addrParts := strings.Split(ln.Addr().String(), ":")
 	port := addrParts[len(addrParts)-1]
 	result := testChecker.CheckHostname("", "localhost:"+port)
-	expected := ResultGroup{
+	expected := Result{
 		Status: 0,
-		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 0, nil},
-			"certificate":  {"certificate", 0, nil},
-			"version":      {"version", 0, nil},
+		Checks: map[string]Result{
+			"connectivity": {"connectivity", 0, nil, nil},
+			"starttls":     {"starttls", 0, nil, nil},
+			"certificate":  {"certificate", 0, nil, nil},
+			"version":      {"version", 0, nil, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -272,13 +272,13 @@ func TestFailureWithBadHostname(t *testing.T) {
 	addrParts := strings.Split(ln.Addr().String(), ":")
 	port := addrParts[len(addrParts)-1]
 	result := testChecker.CheckHostname("", "localhost:"+port)
-	expected := ResultGroup{
+	expected := Result{
 		Status: 2,
-		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 0, nil},
-			"certificate":  {"certificate", 2, nil},
-			"version":      {"version", 0, nil},
+		Checks: map[string]Result{
+			"connectivity": {"connectivity", 0, nil, nil},
+			"starttls":     {"starttls", 0, nil, nil},
+			"certificate":  {"certificate", 2, nil, nil},
+			"version":      {"version", 0, nil, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -338,7 +338,7 @@ func containsCipherSuite(result []uint16, want uint16) bool {
 }
 
 // compareStatuses compares the status for the HostnameResult and each Check with a desired value
-func compareStatuses(t *testing.T, expected ResultGroup, result HostnameResult) {
+func compareStatuses(t *testing.T, expected Result, result HostnameResult) {
 	if result.Status != expected.Status {
 		t.Errorf("hostname status = %d, want %d", result.Status, expected.Status)
 	}

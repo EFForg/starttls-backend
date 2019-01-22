@@ -22,28 +22,30 @@ func SetStatus(oldStatus CheckStatus, newStatus CheckStatus) CheckStatus {
 	return oldStatus
 }
 
-// CheckResult the result of a singular check. It's agnostic to the nature
+// Result the result of a singular check. It's agnostic to the nature
 // of the check performed, and simply stores a reference to the check's name,
 // a summary of what the check should do, as well as any error, failure, or
 // warning messages associated.
-type CheckResult struct {
-	Name     string      `json:"name"`
-	Status   CheckStatus `json:"status"`
-	Messages []string    `json:"messages,omitempty"`
+type Result struct {
+	Name     string            `json:"name"`
+	Status   CheckStatus       `json:"status"`
+	Messages []string          `json:"messages,omitempty"`
+	Checks   map[string]Result `json:"checks,omitempty"`
 }
 
-// Ensures the Messages field is initialized.
-func (c *CheckResult) ensureInit() {
-	if c.Messages == nil {
-		c.Messages = make([]string, 0)
+func NewResult(name string) *Result {
+	return &Result{
+		Name:     name,
+		Status:   Success,
+		Messages: make([]string, 0),
+		Checks:   make(map[string]Result),
 	}
 }
 
 // Error adds an error message to this check result.
 // The Error status will override any other existing status for this check.
 // Typically, when a check encounters an error, it stops executing.
-func (c *CheckResult) Error(format string, a ...interface{}) CheckResult {
-	c.ensureInit()
+func (c *Result) Error(format string, a ...interface{}) Result {
 	c.Status = SetStatus(c.Status, Error)
 	c.Messages = append(c.Messages, fmt.Sprintf("Error: "+format, a...))
 	return *c
@@ -52,8 +54,7 @@ func (c *CheckResult) Error(format string, a ...interface{}) CheckResult {
 // Failure adds a failure message to this check result.
 // The Failure status will override any Status other than Error.
 // Whenever Failure is called, the entire check is failed.
-func (c *CheckResult) Failure(format string, a ...interface{}) CheckResult {
-	c.ensureInit()
+func (c *Result) Failure(format string, a ...interface{}) Result {
 	c.Status = SetStatus(c.Status, Failure)
 	c.Messages = append(c.Messages, fmt.Sprintf("Failure: "+format, a...))
 	return *c
@@ -61,30 +62,22 @@ func (c *CheckResult) Failure(format string, a ...interface{}) CheckResult {
 
 // Warning adds a warning message to this check result.
 // The Warning status only supercedes the Success status.
-func (c *CheckResult) Warning(format string, a ...interface{}) CheckResult {
-	c.ensureInit()
+func (c *Result) Warning(format string, a ...interface{}) Result {
 	c.Status = SetStatus(c.Status, Warning)
 	c.Messages = append(c.Messages, fmt.Sprintf("Warning: "+format, a...))
 	return *c
 }
 
-// Success simply sets the status of CheckResult to a Success.
+// Success simply sets the status of Result to a Success.
 // Status is set if no other status has been declared on this check.
-func (c *CheckResult) Success() CheckResult {
-	c.ensureInit()
+func (c *Result) Success() Result {
 	c.Status = SetStatus(c.Status, Success)
 	return *c
 }
 
-// ResultGroup wraps the results of a security check against a particular hostname.
-type ResultGroup struct {
-	Status CheckStatus            `json:"status"`
-	Checks map[string]CheckResult `json:"checks"`
-}
-
 // Returns result of specified check.
 // If called before that check occurs, returns false.
-func (r ResultGroup) checkSucceeded(checkName string) bool {
+func (r *Result) subcheckSucceeded(checkName string) bool {
 	if result, ok := r.Checks[checkName]; ok {
 		return result.Status == Success
 	}
@@ -92,8 +85,8 @@ func (r ResultGroup) checkSucceeded(checkName string) bool {
 }
 
 // Wrapping helper function to set the status of this hostname.
-func (r *ResultGroup) addCheck(checkResult CheckResult) {
+func (r *Result) addCheck(checkResult Result) {
 	r.Checks[checkResult.Name] = checkResult
-	// SetStatus sets ResultGroup's status to the most severe of any individual check
+	// SetStatus sets Result's status to the most severe of any individual check
 	r.Status = SetStatus(r.Status, checkResult.Status)
 }

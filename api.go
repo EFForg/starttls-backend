@@ -84,8 +84,8 @@ func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
 }
 
 // Checks the policy status of this domain.
-func (api API) policyCheck(domain string) checker.CheckResult {
-	result := checker.CheckResult{Name: "policylist"}
+func (api API) policyCheck(domain string) checker.Result {
+	result := checker.Result{Name: "policylist"}
 	if _, err := api.List.Get(domain); err == nil {
 		return result.Success()
 	}
@@ -107,8 +107,8 @@ func (api API) policyCheck(domain string) checker.CheckResult {
 // Performs policyCheck asynchronously.
 // Should be safe since Database is safe for concurrent use, and so
 // is List.
-func asyncPolicyCheck(api API, domain string) <-chan checker.CheckResult {
-	result := make(chan checker.CheckResult)
+func asyncPolicyCheck(api API, domain string) <-chan checker.Result {
+	result := make(chan checker.Result)
 	go func() { result <- api.policyCheck(domain) }()
 	return result
 }
@@ -123,7 +123,7 @@ func defaultCheck(api API, domain string) (checker.DomainResult, error) {
 		Timeout: 3 * time.Second,
 	}
 	result := c.CheckDomain(domain, nil)
-	result.ExtraResults = make(map[string]checker.CheckResult)
+	result.ExtraResults = make(map[string]checker.Result)
 	result.ExtraResults["policylist"] = <-policyChan
 	return result, nil
 }

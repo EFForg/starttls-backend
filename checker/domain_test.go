@@ -19,25 +19,25 @@ var mxLookup = map[string][]string{
 }
 
 // Fake hostname checks :)
-var hostnameResults = map[string]ResultGroup{
-	"noconnection": ResultGroup{
-		Status: 3,
-		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 3, nil},
+var hostnameResults = map[string]Result{
+	"noconnection": Result{
+		Status: Error,
+		Checks: map[string]Result{
+			"connectivity": {"connectivity", Error, nil, nil},
 		},
 	},
-	"nostarttls": ResultGroup{
-		Status: 2,
-		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 2, nil},
+	"nostarttls": Result{
+		Status: Failure,
+		Checks: map[string]Result{
+			"connectivity": {"connectivity", 0, nil, nil},
+			"starttls":     {"starttls", Failure, nil, nil},
 		},
 	},
-	"nostarttlsconnect": ResultGroup{
-		Status: 3,
-		Checks: map[string]CheckResult{
-			"connectivity": {"connectivity", 0, nil},
-			"starttls":     {"starttls", 3, nil},
+	"nostarttlsconnect": Result{
+		Status: Error,
+		Checks: map[string]Result{
+			"connectivity": {"connectivity", 0, nil, nil},
+			"starttls":     {"starttls", Error, nil, nil},
 		},
 	},
 }
@@ -56,8 +56,8 @@ func mockLookupMX(domain string) ([]*net.MX, error) {
 func mockCheckHostname(domain string, hostname string) HostnameResult {
 	if result, ok := hostnameResults[hostname]; ok {
 		return HostnameResult{
-			ResultGroup: &result,
-			Timestamp:   time.Now(),
+			Result:    &result,
+			Timestamp: time.Now(),
 		}
 	}
 	// For caching test: "changes" result changes after first scan
@@ -66,13 +66,13 @@ func mockCheckHostname(domain string, hostname string) HostnameResult {
 	}
 	// by default return successful check
 	return HostnameResult{
-		ResultGroup: &ResultGroup{
+		Result: &Result{
 			Status: 0,
-			Checks: map[string]CheckResult{
-				"connectivity": {"connectivity", 0, nil},
-				"starttls":     {"starttls", 0, nil},
-				"certificate":  {"certificate", 0, nil},
-				"version":      {"version", 0, nil},
+			Checks: map[string]Result{
+				"connectivity": {"connectivity", 0, nil, nil},
+				"starttls":     {"starttls", 0, nil, nil},
+				"certificate":  {"certificate", 0, nil, nil},
+				"version":      {"version", 0, nil, nil},
 			},
 		},
 		Timestamp: time.Now(),
