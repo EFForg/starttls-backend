@@ -6,7 +6,7 @@ import (
 	"github.com/EFForg/starttls-backend/checker"
 )
 
-const CurrentVersion = 1
+const ScanVersion = 1
 
 // Scan stores the result of a scan of a domain
 type Scan struct {

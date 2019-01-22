@@ -107,6 +107,7 @@ func (c *Checker) CheckDomain(domain string, expectedHostnames []string) DomainR
 		Domain:          domain,
 		MxHostnames:     expectedHostnames,
 		HostnameResults: make(map[string]HostnameResult),
+		ExtraResults:    make(map[string]Result),
 	}
 	// 1. Look up hostnames
 	// 2. Perform and aggregate checks from those hostnames.
@@ -147,5 +148,7 @@ func (c *Checker) CheckDomain(domain string, expectedHostnames []string) DomainR
 		}
 		result = result.setStatus(DomainStatus(hostnameResult.Status))
 	}
+	result.ExtraResults["mta-sts"] = checkMTASTS(query.Domain, result.HostnameResults)
+	result.setStatus(result.ExtraResults["mta-sts"].Status)
 	return result
 }
