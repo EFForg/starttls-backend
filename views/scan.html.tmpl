@@ -11,16 +11,16 @@
         <p>There were some problems with your domain. See below for details.</p>
       {{ end }}
 
-      {{ if not eq .Data.Message "" }}
+      {{ if ne .Data.Message "" }}
         <p>{{ .Data.Message }}</p>
       {{ end }}
 
     <h2>STARTTLS Everywhere Policy List</h2>
       {{ if eq .Data.Status 0 }}
 		requiredVars[varName] = os.Getenv(varName)
-        <p>Your mail domain is on the STARTTLS Everywhere policy list. See {{ printf "%s/faq#what-list" .baseURL }} for details</p>
+        <p>Your mail domain is on the STARTTLS Everywhere policy list. See {{ printf "%s/faq#what-list" .BaseURL }} for details</p>
       {{ else }}
-        <p>Your mail domain is not on the STARTTLS Everywhere policy list. See frontend domain from env/faq#what-list for details</p>
+        <p>Your mail domain is not on the STARTTLS Everywhere policy list. See {{ printf "%s/faq#what-list" .BaseURL }} for details</p>
       {{ end }}
 
       {{ $policyListResult := index .Data.ExtraResults "policy-list" }}

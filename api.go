@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -366,10 +367,15 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 
 func writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
 	type htmlResponder interface {
-		WriteHTML(w http.ResponseWriter) error
+		WriteHTML(io.Writer) error
 	}
 	if responder, ok := apiResponse.Response.(htmlResponder); ok {
-		responder.WriteHTML(w)
+		err := responder.WriteHTML(w)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else if apiResponse.Message != "" {
+		http.Error(w, apiResponse.Message, apiResponse.StatusCode)
 	} else {
 		http.Error(w, "HTML is not supported for this action.", http.StatusUnsupportedMediaType)
 	}

@@ -20,11 +20,14 @@ type Scan struct {
 func (s Scan) WriteHTML(w io.Writer) error {
 	data := struct {
 		Scan
-		baseURL string
+		BaseURL string
 	}{
 		Scan:    s,
-		baseURL: os.Getenv("FRONTEND_WEBSITE_LINK"),
+		BaseURL: os.Getenv("FRONTEND_WEBSITE_LINK"),
 	}
-	tmpl := template.Must(template.ParseFiles("../views/scan.html.tmpl"))
+	tmpl, err := template.ParseFiles("views/scan.html.tmpl")
+	if err != nil {
+		return err
+	}
 	return tmpl.Execute(w, data)
 }
