@@ -35,6 +35,9 @@ func TestScanHTML(t *testing.T) {
 		t.Errorf("HTML POST to api/scan failed with error %d", resp.StatusCode)
 	}
 	body, _ := ioutil.ReadAll(resp.Body)
+	if !strings.Contains(strings.ToLower(string(body)), "<html") {
+		t.Errorf("Response should contain scan domain, got %s", string(body))
+	}
 	if !strings.Contains(string(body), "eff.org") {
 		t.Errorf("Response should contain scan domain, got %s", string(body))
 	}

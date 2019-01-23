@@ -1,35 +1,35 @@
 <html>
   <body>
-    <h1>Scan results for {{ .Domain }}</h1>
+    <h1>Scan results for {{ .Response.Domain }}</h1>
     <p><em>You're viewing unstyled results. You can enable Javascript to view styled content.</em></p>
     <h2>Summary</h2>
-      {{ if eq .Data.Status 0 }}
+      {{ if eq .Response.Data.Status 0 }}
         <p>Congratulations, your domain passed all checks.</p>
-      {{ else if eq .Data.Status 1 }}
+      {{ else if eq .Response.Data.Status 1 }}
         <p>Your domain passed all checks with some warnings. See below for details.</p>
       {{ else }}
         <p>There were some problems with your domain. See below for details.</p>
       {{ end }}
 
-      {{ if ne .Data.Message "" }}
-        <p>{{ .Data.Message }}</p>
+      {{ if ne .Response.Data.Message "" }}
+        <p>{{ .Response.Data.Message }}</p>
       {{ end }}
 
     <h2>STARTTLS Everywhere Policy List</h2>
-      {{ if eq .Data.Status 0 }}
+      {{ if eq .Response.Data.Status 0 }}
 		requiredVars[varName] = os.Getenv(varName)
         <p>Your mail domain is on the STARTTLS Everywhere policy list. See {{ printf "%s/faq#what-list" .BaseURL }} for details</p>
       {{ else }}
         <p>Your mail domain is not on the STARTTLS Everywhere policy list. See {{ printf "%s/faq#what-list" .BaseURL }} for details</p>
       {{ end }}
 
-      {{ $policyListResult := index .Data.ExtraResults "policy-list" }}
+      {{ $policyListResult := index .Response.Data.ExtraResults "policy-list" }}
       {{ range $message := $policyListResult.Messages }}
         <p> {{ $message }}</p>
       {{ end}}
 
     <h2>Mailboxes</h2>
-    {{ range $hostname, $result := .Data.HostnameResults }}
+    {{ range $hostname, $result := .Response.Data.HostnameResults }}
       <h3>{{ $hostname }}</h3>
       <ul>
         {{ range $check, $checkResult := $result.Checks }}

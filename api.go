@@ -3,9 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
+	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -63,9 +64,10 @@ type EmailSender interface {
 
 // APIResponse wraps all the responses from this API.
 type APIResponse struct {
-	StatusCode int         `json:"status_code"`
-	Message    string      `json:"message"`
-	Response   interface{} `json:"response"`
+	StatusCode   int         `json:"status_code"`
+	Message      string      `json:"message"`
+	Response     interface{} `json:"response"`
+	TemplatePath string      `json:"omit"`
 }
 
 type apiHandler func(r *http.Request) APIResponse
@@ -80,7 +82,9 @@ func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
 			packet := raven.NewPacket(response.Message, raven.NewHttp(r))
 			raven.Capture(packet, nil)
 		}
-		if strings.Contains(r.Header.Get("accept"), "text/html") {
+		// @TODO use error templates for html errors
+		if strings.Contains(r.Header.Get("accept"), "text/html") &&
+			response.TemplatePath != "" {
 			writeHTML(w, response)
 		} else {
 			writeJSON(w, response)
@@ -150,7 +154,11 @@ func (api API) Scan(r *http.Request) APIResponse {
 		// 0. If last scan was recent, return cached scan.
 		scan, err := api.Database.GetLatestScan(domain)
 		if err == nil && time.Now().Before(scan.Timestamp.Add(cacheScanTime)) {
-			return APIResponse{StatusCode: http.StatusOK, Response: scan}
+			return APIResponse{
+				StatusCode:   http.StatusOK,
+				Response:     scan,
+				TemplatePath: "views/scan.html.tmpl",
+			}
 		}
 		// 1. Conduct scan via starttls-checker
 		scanData, err := api.CheckDomain(api, domain)
@@ -167,7 +175,11 @@ func (api API) Scan(r *http.Request) APIResponse {
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
-		return APIResponse{StatusCode: http.StatusOK, Response: scan}
+		return APIResponse{
+			StatusCode:   http.StatusOK,
+			Response:     scan,
+			TemplatePath: "views/scan.html.tmpl",
+		}
 		// GET: Just fetch the most recent scan
 	} else if r.Method == http.MethodGet {
 		scan, err := api.Database.GetLatestScan(domain)
@@ -360,17 +372,24 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 }
 
 func writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
-	type htmlResponder interface {
-		WriteHTML(io.Writer) error
+	// Add some additional useful fields for use in templates.
+	data := struct {
+		APIResponse
+		BaseURL string
+	}{
+		APIResponse: apiResponse,
+		BaseURL:     os.Getenv("FRONTEND_WEBSITE_LINK"),
 	}
-	if responder, ok := apiResponse.Response.(htmlResponder); ok {
-		err := responder.WriteHTML(w)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else if apiResponse.Message != "" {
-		http.Error(w, apiResponse.Message, apiResponse.StatusCode)
-	} else {
-		http.Error(w, "HTML is not supported for this action.", http.StatusUnsupportedMediaType)
+	tmpl, err := template.ParseFiles(apiResponse.TemplatePath)
+	if err != nil {
+		http.Error(w, "Internal error: could not parse template.", http.StatusInternalServerError)
+		return
+	}
+	err = tmpl.Execute(w, data)
+	// We can't write a 500 status header if tmpl.Execute fails because Execute
+	// may have already written to the status and body of w.
+	// @TODO make sure this logs to Raven
+	if err != nil {
+		log.Fatal(err)
 	}
 }
