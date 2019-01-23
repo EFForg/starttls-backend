@@ -11,32 +11,15 @@ import (
 	"github.com/EFForg/starttls-backend/models"
 )
 
-func htmlPost(path string, data url.Values) (*http.Response, error) {
-	req, err := http.NewRequest("POST", server.URL+path, strings.NewReader(data.Encode()))
-	if err != nil {
-		return &http.Response{}, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("accept", "text/html")
-	return http.DefaultClient.Do(req)
-}
-
 func TestScanHTML(t *testing.T) {
 	defer teardown()
 
 	// Request a scan!
 	data := url.Values{}
 	data.Set("domain", "eff.org")
-	resp, err := htmlPost("/api/scan", data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Errorf("HTML POST to api/scan failed with error %d", resp.StatusCode)
-	}
-	body, _ := ioutil.ReadAll(resp.Body)
-	if !strings.Contains(strings.ToLower(string(body)), "<html") {
-		t.Errorf("Response should contain scan domain, got %s", string(body))
+	body, status := testHTMLPost("/api/scan", data, t)
+	if status != http.StatusOK {
+		t.Errorf("HTML POST to api/scan failed with error %d", status)
 	}
 	if !strings.Contains(string(body), "eff.org") {
 		t.Errorf("Response should contain scan domain, got %s", string(body))

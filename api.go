@@ -276,7 +276,11 @@ func (api API) Queue(r *http.Request) APIResponse {
 		// 2. Create token for domain
 		token, err := api.Database.PutToken(domain)
 		if err != nil {
-			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
+			return APIResponse{
+				StatusCode:   http.StatusInternalServerError,
+				Message:      err.Error(),
+				TemplatePath: "views/domain.html.tmpl",
+			}
 		}
 
 		// 3. Send email
@@ -286,14 +290,22 @@ func (api API) Queue(r *http.Request) APIResponse {
 			return APIResponse{StatusCode: http.StatusInternalServerError,
 				Message: "Unable to send validation e-mail"}
 		}
-		return APIResponse{StatusCode: http.StatusOK, Response: domainData}
+		return APIResponse{
+			StatusCode:   http.StatusOK,
+			Response:     domainData,
+			TemplatePath: "views/domain.html.tmpl",
+		}
 		// GET: Retrieve domain status from queue
 	} else if r.Method == http.MethodGet {
 		status, err := api.Database.GetDomain(domain)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusNotFound, Message: err.Error()}
 		}
-		return APIResponse{StatusCode: http.StatusOK, Response: status}
+		return APIResponse{
+			StatusCode:   http.StatusOK,
+			Response:     status,
+			TemplatePath: "views/domain.html.tmpl",
+		}
 	} else {
 		return APIResponse{StatusCode: http.StatusMethodNotAllowed,
 			Message: "/api/queue only accepts POST and GET requests"}
@@ -382,6 +394,7 @@ func writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
 	}
 	tmpl, err := template.ParseFiles(apiResponse.TemplatePath)
 	if err != nil {
+		log.Fatal(err)
 		http.Error(w, "Internal error: could not parse template.", http.StatusInternalServerError)
 		return
 	}
