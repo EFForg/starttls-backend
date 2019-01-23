@@ -1,0 +1,19 @@
+<html>
+  <body>
+    {{ if or (eq .Response.State "unknown") (eq .Response.State "") }}
+      Something went wrong - your domain was not submitted to the STARTTLS policy list.
+    {{ end }}
+    {{ if eq .Response.State "unvalidated" }}
+      Thank you for submitting your domain. Please check postmaster@{{ .Response.Name }} to validate that you control the domain.
+    {{ end }}
+    {{ if eq .Response.State "queued" }}
+      Thank you for submitting your domain. Your domain is queued to be reviewed and added to the STARTTLS policy list.
+    {{ end }}
+    {{ if eq .Response.State "failed" }}
+      Your domain does not qualify for addition to the STARTTLS policy list. Please visit {{ .BaseURL }} to review your domain's status and correct any issues.
+    {{ end }}
+    {{ if eq .Response.State "added" }}
+      Your domain is already on the STARTTLS policy list. Thanks for helping to make e-mail more secure.
+    {{ end }}
+  </body>
+</html>
