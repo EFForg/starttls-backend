@@ -22,7 +22,7 @@ func SetStatus(oldStatus CheckStatus, newStatus CheckStatus) CheckStatus {
 	return oldStatus
 }
 
-// Result the result of a singular check. It's agnostic to the nature
+// Result is the result of a singular check. It's agnostic to the nature
 // of the check performed, and simply stores a reference to the check's name,
 // a summary of what the check should do, as well as any error, failure, or
 // warning messages associated.
@@ -33,6 +33,7 @@ type Result struct {
 	Checks   map[string]Result `json:"checks,omitempty"`
 }
 
+// NewResult constructs a base result object and returns its pointer.
 func NewResult(name string) *Result {
 	return &Result{
 		Name:     name,
@@ -45,34 +46,34 @@ func NewResult(name string) *Result {
 // Error adds an error message to this check result.
 // The Error status will override any other existing status for this check.
 // Typically, when a check encounters an error, it stops executing.
-func (c *Result) Error(format string, a ...interface{}) Result {
-	c.Status = SetStatus(c.Status, Error)
-	c.Messages = append(c.Messages, fmt.Sprintf("Error: "+format, a...))
-	return *c
+func (r *Result) Error(format string, a ...interface{}) Result {
+	r.Status = SetStatus(r.Status, Error)
+	r.Messages = append(r.Messages, fmt.Sprintf("Error: "+format, a...))
+	return *r
 }
 
 // Failure adds a failure message to this check result.
 // The Failure status will override any Status other than Error.
 // Whenever Failure is called, the entire check is failed.
-func (c *Result) Failure(format string, a ...interface{}) Result {
-	c.Status = SetStatus(c.Status, Failure)
-	c.Messages = append(c.Messages, fmt.Sprintf("Failure: "+format, a...))
-	return *c
+func (r *Result) Failure(format string, a ...interface{}) Result {
+	r.Status = SetStatus(r.Status, Failure)
+	r.Messages = append(r.Messages, fmt.Sprintf("Failure: "+format, a...))
+	return *r
 }
 
 // Warning adds a warning message to this check result.
 // The Warning status only supercedes the Success status.
-func (c *Result) Warning(format string, a ...interface{}) Result {
-	c.Status = SetStatus(c.Status, Warning)
-	c.Messages = append(c.Messages, fmt.Sprintf("Warning: "+format, a...))
-	return *c
+func (r *Result) Warning(format string, a ...interface{}) Result {
+	r.Status = SetStatus(r.Status, Warning)
+	r.Messages = append(r.Messages, fmt.Sprintf("Warning: "+format, a...))
+	return *r
 }
 
 // Success simply sets the status of Result to a Success.
 // Status is set if no other status has been declared on this check.
-func (c *Result) Success() Result {
-	c.Status = SetStatus(c.Status, Success)
-	return *c
+func (r *Result) Success() Result {
+	r.Status = SetStatus(r.Status, Success)
+	return *r
 }
 
 // Returns result of specified check.
