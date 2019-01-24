@@ -400,15 +400,14 @@ func writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
 	}
 	tmpl, err := template.ParseFiles(apiResponse.TemplatePath)
 	if err != nil {
-		log.Fatal(err)
+		raven.CaptureError(err, nil)
 		http.Error(w, "Internal error: could not parse template.", http.StatusInternalServerError)
 		return
 	}
 	err = tmpl.Execute(w, data)
 	// We can't write a 500 status header if tmpl.Execute fails because Execute
 	// may have already written to the status and body of w.
-	// @TODO make sure this logs to Raven
 	if err != nil {
-		log.Fatal(err)
+		raven.CaptureError(err, nil)
 	}
 }
