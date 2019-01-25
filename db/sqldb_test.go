@@ -304,8 +304,8 @@ func TestPutAndIsBlacklistedEmail(t *testing.T) {
 
 func TestGetHostnameScan(t *testing.T) {
 	database.ClearTables()
-	checksMap := make(map[string]checker.Result)
-	checksMap["test"] = checker.Result{}
+	checksMap := make(map[string]*checker.Result)
+	checksMap["test"] = &checker.Result{}
 	now := time.Now()
 	database.PutHostnameScan("hello",
 		checker.HostnameResult{
