@@ -1,41 +1,40 @@
 <html>
   <body>
     <h1>Scan results for {{ .Response.Domain }}</h1>
-    <p><em>You're viewing unstyled results. You can enable Javascript to view styled content.</em></p>
-    <h2>Summary</h2>
-      {{ if eq .Response.Data.Status 0 }}
-        <p>Congratulations, your domain passed all checks.</p>
-      {{ else if eq .Response.Data.Status 1 }}
-        <p>Your domain passed all checks with some warnings. See below for details.</p>
-      {{ else }}
-        <p>There were some problems with your domain. See below for details.</p>
-      {{ end }}
+    <em>You're viewing unstyled results. You can enable Javascript to view styled content.</em>
 
-      {{ if ne .Response.Data.Message "" }}
-        <p>{{ .Response.Data.Message }}</p>
-      {{ end }}
+    <h2>Summary</h2>
+    {{ if eq .Response.Data.Status 0 }}
+      <p>Congratulations, your domain passed all checks.</p>
+    {{ else if eq .Response.Data.Status 1 }}
+      <p>Your domain passed all checks with some warnings. See below for details.</p>
+    {{ else }}
+      <p>There were some problems with your domain. See below for details.</p>
+    {{ end }}
+
+    <p>{{ .Response.Data.Message }}</p>
 
     <h2>STARTTLS Everywhere Policy List</h2>
-      {{ if eq .Response.Data.Status 0 }}
-		requiredVars[varName] = os.Getenv(varName)
-        <p>Your mail domain is on the STARTTLS Everywhere policy list. See {{ printf "%s/faq#what-list" .BaseURL }} for details</p>
-      {{ else }}
-        <p>Your mail domain is not on the STARTTLS Everywhere policy list. See {{ printf "%s/faq#what-list" .BaseURL }} for details</p>
+    {{ $r := index .Response.Data.ExtraResults "policylist" }}
+    {{ $r.Description }}: <strong>{{ $r.StatusText }}</strong>
+    <ul>
+      {{ range $_, $message := $r.Messages }}
+        <li>{{ $message }}<li>
       {{ end }}
-
-      {{ $policyListResult := index .Response.Data.ExtraResults "policy-list" }}
-      {{ range $message := $policyListResult.Messages }}
-        <p> {{ $message }}</p>
-      {{ end}}
+    </ul>
 
     <h2>Mailboxes</h2>
-    {{ range $hostname, $result := .Response.Data.HostnameResults }}
+    {{ range $hostname, $hostnameResult := .Response.Data.HostnameResults }}
       <h3>{{ $hostname }}</h3>
       <ul>
-        {{ range $check, $checkResult := $result.Checks }}
+        {{ range $_, $r := $hostnameResult.Checks }}
           <li>
-            <h4>{{ $checkResult.StatusText }}</h3>
-            <p>{{ $checkResult.Description }}
+            {{ $r.Description }}: <strong>{{ $r.StatusText }}</strong>
+            <ul>
+              {{ range $_, $message := $r.Messages }}
+                <li>{{ $message }}<li>
+              {{ end }}
+            </ul>
           </li>
         {{ end }}
       </ul>

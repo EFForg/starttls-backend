@@ -93,8 +93,8 @@ func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
 }
 
 // Checks the policy status of this domain.
-func (api API) policyCheck(domain string) checker.CheckResult {
-	result := checker.CheckResult{CheckType: checker.CheckType{Name: "policylist"}}
+func (api API) policyCheck(domain string) *checker.Result {
+	result := checker.Result{Name: checker.PolicyList}
 	if _, err := api.List.Get(domain); err == nil {
 		return result.Success()
 	}
@@ -400,6 +400,7 @@ func writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
 	}
 	tmpl, err := template.ParseFiles(apiResponse.TemplatePath)
 	if err != nil {
+		log.Println(err)
 		raven.CaptureError(err, nil)
 		http.Error(w, "Internal error: could not parse template.", http.StatusInternalServerError)
 		return
@@ -408,6 +409,7 @@ func writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
 	// We can't write a 500 status header if tmpl.Execute fails because Execute
 	// may have already written to the status and body of w.
 	if err != nil {
+		log.Println(err)
 		raven.CaptureError(err, nil)
 	}
 }

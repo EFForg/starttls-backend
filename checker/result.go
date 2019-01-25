@@ -1,6 +1,9 @@
 package checker
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // CheckStatus is an enum encoding the status of the overall check.
 type CheckStatus int32
@@ -12,6 +15,17 @@ const (
 	Failure CheckStatus = 2
 	Error   CheckStatus = 3
 )
+
+var statusText = map[CheckStatus]string{
+	Success: "Success",
+	Warning: "Warning",
+	Failure: "Failure",
+	Error:   "Error",
+}
+
+func (r Result) StatusText() string {
+	return statusText[r.Status]
+}
 
 // SetStatus the resulting status of combining old & new. The order of priority
 // for CheckStatus goes: Error > Failure > Warning > Success
@@ -90,4 +104,44 @@ func (r *Result) addCheck(checkResult *Result) {
 	r.Checks[checkResult.Name] = checkResult
 	// SetStatus sets Result's status to the most severe of any individual check
 	r.Status = SetStatus(r.Status, checkResult.Status)
+}
+
+const (
+	Connectivity     = "connectivity"
+	STARTTLS         = "starttls"
+	Version          = "version"
+	Certificate      = "certificate"
+	MTASTS           = "mta-sts"
+	MTASTSText       = "mta-sts-text"
+	MTASTSPolicyFile = "mta-sts-policy-file"
+	PolicyList       = "policylist"
+)
+
+var checkNames = map[string]string{
+	Connectivity:     "Server connectivity",
+	STARTTLS:         "Support for STARTTLS",
+	Version:          "Secure version of TLS",
+	Certificate:      "Valid certificate",
+	MTASTS:           "Implementation of MTA-STS",
+	MTASTSText:       "Correct MTA-STS DNS record",
+	MTASTSPolicyFile: "Correct MTA-STS policy file",
+	PolicyList:       "Status on EFF's STARTTLS Everywhere policy list",
+}
+
+func (r Result) Description() string {
+	return checkNames[r.Name]
+}
+
+func (r Result) MarshalJSON() ([]byte, error) {
+	// FakeResult lets us access the default json.Marshall result for Result.
+	type FakeResult Result
+	return json.Marshal(struct {
+		FakeResult
+		StatusText  string `json:"status_text,omitempty"`
+		Description string `json:"description,omitempty"`
+	}{
+		FakeResult:  FakeResult(r),
+		StatusText:  r.StatusText(),
+		Description: r.Description(),
+	})
 }

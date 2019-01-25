@@ -139,28 +139,8 @@ func validateMTASTSMXs(policyFileMXs []string, dnsMXs map[string]HostnameResult,
 }
 
 func checkMTASTS(domain string, hostnameResults map[string]HostnameResult) *Result {
-	result := MakeResult("mta-sts")
+	result := MakeResult(MTASTS)
 	result.addCheck(checkMTASTSRecord(domain))
 	result.addCheck(checkMTASTSPolicyFile(domain, hostnameResults))
 	return result
 }
-
-// Types of MTA-STS checks supported
-var (
-	MTASTSText CheckType = CheckType{
-		Name: "mta-sts-text",
-		StatusText: StatusText{
-			Success: "",
-			Failure: "",
-		},
-		Description: ``,
-	}
-	MTASTSPolicyFile CheckType = CheckType{
-		Name: "mta-sts-policy-file",
-		StatusText: StatusText{
-			Success: "",
-			Failure: "",
-		},
-		Description: ``,
-	}
-)
