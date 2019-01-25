@@ -47,7 +47,7 @@ func TestValidateMTASTSRecord(t *testing.T) {
 		{[]string{"v=spf1 a -all"}, Failure},
 	}
 	for _, test := range tests {
-		result := validateMTASTSRecord(test.txt, CheckResult{})
+		result := validateMTASTSRecord(test.txt, &Result{})
 		if result.Status != test.status {
 			t.Errorf("validateMTASTSRecord(%v) = %v", test.txt, result)
 		}
@@ -67,7 +67,7 @@ func TestValidateMTASTSPolicyFile(t *testing.T) {
 		{"version: STSv1\nmode: start_turtles\nmax_age:100000\nmx: foo.example.com\nmx: bar.example.com\n", Failure},
 	}
 	for _, test := range tests {
-		result, _ := validateMTASTSPolicyFile(test.txt, CheckResult{})
+		result, _ := validateMTASTSPolicyFile(test.txt, &Result{})
 		if result.Status != test.status {
 			t.Errorf("validateMTASTSPolicyFile(%v) = %v", test.txt, result)
 		}
@@ -76,20 +76,20 @@ func TestValidateMTASTSPolicyFile(t *testing.T) {
 
 func TestValidateMTASTSMXs(t *testing.T) {
 	goodHostnameResult := HostnameResult{
-		ResultGroup: &ResultGroup{
+		Result: &Result{
 			Status: 3,
-			Checks: map[string]CheckResult{
-				"connectivity": {Connectivity, 0, nil},
-				"starttls":     {STARTTLS, 0, nil},
+			Checks: map[string]*Result{
+				"connectivity": {Connectivity, 0, nil, nil},
+				"starttls":     {STARTTLS, 0, nil, nil},
 			},
 		},
 	}
 	noSTARTTLSHostnameResult := HostnameResult{
-		ResultGroup: &ResultGroup{
+		Result: &Result{
 			Status: 3,
-			Checks: map[string]CheckResult{
-				"connectivity": {Connectivity, 0, nil},
-				"starttls":     {STARTTLS, 3, nil},
+			Checks: map[string]*Result{
+				"connectivity": {Connectivity, 0, nil, nil},
+				"starttls":     {STARTTLS, 3, nil, nil},
 			},
 		},
 	}
@@ -125,9 +125,9 @@ func TestValidateMTASTSMXs(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		result := validateMTASTSMXs(test.policyFileMXs, test.dnsMXs, CheckResult{})
+		result := validateMTASTSMXs(test.policyFileMXs, test.dnsMXs, &Result{})
 		if result.Status != test.status {
-			t.Errorf("validateMTASTSMXs(%v, %v, %v) = %v", test.policyFileMXs, test.dnsMXs, CheckResult{}, result)
+			t.Errorf("validateMTASTSMXs(%v, %v, %v) = %v", test.policyFileMXs, test.dnsMXs, Result{}, result)
 		}
 	}
 }

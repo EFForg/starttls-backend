@@ -25,6 +25,8 @@ func TestMain(m *testing.M) {
 
 const testTimeout = 250 * time.Millisecond
 
+var testChecker = Checker{Timeout: testTimeout}
+
 // Code follows pattern from crypto/tls/generate_cert.go
 // to generate a cert from a PEM-encoded RSA private key.
 func createCert(keyData string, commonName string) string {
@@ -100,12 +102,12 @@ func TestPolicyMatch(t *testing.T) {
 }
 
 func TestNoConnection(t *testing.T) {
-	result := CheckHostname("", "example.com", testTimeout)
+	result := testChecker.CheckHostname("", "example.com")
 
-	expected := ResultGroup{
+	expected := Result{
 		Status: 3,
-		Checks: map[string]CheckResult{
-			"connectivity": {Connectivity, 3, nil},
+		Checks: map[string]*Result{
+			"connectivity": {Connectivity, 3, nil, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -115,13 +117,13 @@ func TestNoTLS(t *testing.T) {
 	ln := smtpListenAndServe(t, &tls.Config{})
 	defer ln.Close()
 
-	result := CheckHostname("", ln.Addr().String(), testTimeout)
+	result := testChecker.CheckHostname("", ln.Addr().String())
 
-	expected := ResultGroup{
+	expected := Result{
 		Status: 2,
-		Checks: map[string]CheckResult{
-			"connectivity": {Connectivity, 0, nil},
-			"starttls":     {STARTTLS, 2, nil},
+		Checks: map[string]*Result{
+			"connectivity": {Connectivity, 0, nil, nil},
+			"starttls":     {STARTTLS, 2, nil, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -135,15 +137,15 @@ func TestSelfSigned(t *testing.T) {
 	ln := smtpListenAndServe(t, &tls.Config{Certificates: []tls.Certificate{cert}})
 	defer ln.Close()
 
-	result := CheckHostname("", ln.Addr().String(), testTimeout)
+	result := testChecker.CheckHostname("", ln.Addr().String())
 
-	expected := ResultGroup{
+	expected := Result{
 		Status: 2,
-		Checks: map[string]CheckResult{
-			"connectivity": {Connectivity, 0, nil},
-			"starttls":     {STARTTLS, 0, nil},
-			"certificate":  {Certificate, 2, nil},
-			"version":      {Version, 0, nil},
+		Checks: map[string]*Result{
+			"connectivity": {Connectivity, 0, nil, nil},
+			"starttls":     {STARTTLS, 0, nil, nil},
+			"certificate":  {Certificate, 2, nil, nil},
+			"version":      {Version, 0, nil, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -161,15 +163,15 @@ func TestNoTLS12(t *testing.T) {
 	})
 	defer ln.Close()
 
-	result := CheckHostname("", ln.Addr().String(), testTimeout)
+	result := testChecker.CheckHostname("", ln.Addr().String())
 
-	expected := ResultGroup{
+	expected := Result{
 		Status: 2,
-		Checks: map[string]CheckResult{
-			"connectivity": {Connectivity, 0, nil},
-			"starttls":     {STARTTLS, 0, nil},
-			"certificate":  {Certificate, 2, nil},
-			"version":      {Version, 1, nil},
+		Checks: map[string]*Result{
+			"connectivity": {Connectivity, 0, nil, nil},
+			"starttls":     {STARTTLS, 0, nil, nil},
+			"certificate":  {Certificate, 2, nil, nil},
+			"version":      {Version, 1, nil, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -194,14 +196,14 @@ func TestSuccessWithFakeCA(t *testing.T) {
 	// conserving the port number.
 	addrParts := strings.Split(ln.Addr().String(), ":")
 	port := addrParts[len(addrParts)-1]
-	result := CheckHostname("", "localhost:"+port, testTimeout)
-	expected := ResultGroup{
+	result := testChecker.CheckHostname("", "localhost:"+port)
+	expected := Result{
 		Status: 0,
-		Checks: map[string]CheckResult{
-			"connectivity": {Connectivity, 0, nil},
-			"starttls":     {STARTTLS, 0, nil},
-			"certificate":  {Certificate, 0, nil},
-			"version":      {Version, 0, nil},
+		Checks: map[string]*Result{
+			"connectivity": {Connectivity, 0, nil, nil},
+			"starttls":     {STARTTLS, 0, nil, nil},
+			"certificate":  {Certificate, 0, nil, nil},
+			"version":      {Version, 0, nil, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -269,14 +271,14 @@ func TestFailureWithBadHostname(t *testing.T) {
 	// conserving the port number.
 	addrParts := strings.Split(ln.Addr().String(), ":")
 	port := addrParts[len(addrParts)-1]
-	result := CheckHostname("", "localhost:"+port, testTimeout)
-	expected := ResultGroup{
+	result := testChecker.CheckHostname("", "localhost:"+port)
+	expected := Result{
 		Status: 2,
-		Checks: map[string]CheckResult{
-			"connectivity": {Connectivity, 0, nil},
-			"starttls":     {STARTTLS, 0, nil},
-			"certificate":  {Certificate, 2, nil},
-			"version":      {Version, 0, nil},
+		Checks: map[string]*Result{
+			"connectivity": {Connectivity, 0, nil, nil},
+			"starttls":     {STARTTLS, 0, nil, nil},
+			"certificate":  {Certificate, 2, nil, nil},
+			"version":      {Version, 0, nil, nil},
 		},
 	}
 	compareStatuses(t, expected, result)
@@ -309,7 +311,7 @@ func TestAdvertisedCiphers(t *testing.T) {
 
 	ln := smtpListenAndServe(t, tlsConfig)
 	defer ln.Close()
-	CheckHostname("", ln.Addr().String(), testTimeout)
+	testChecker.CheckHostname("", ln.Addr().String())
 
 	// Partial list of ciphers we want to support
 	expectedCipherSuites := []struct {
@@ -336,7 +338,7 @@ func containsCipherSuite(result []uint16, want uint16) bool {
 }
 
 // compareStatuses compares the status for the HostnameResult and each Check with a desired value
-func compareStatuses(t *testing.T, expected ResultGroup, result HostnameResult) {
+func compareStatuses(t *testing.T, expected Result, result HostnameResult) {
 	if result.Status != expected.Status {
 		t.Errorf("hostname status = %d, want %d", result.Status, expected.Status)
 	}

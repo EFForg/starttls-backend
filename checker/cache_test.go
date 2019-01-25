@@ -6,10 +6,10 @@ import (
 )
 
 func TestSimpleCacheMap(t *testing.T) {
-	cache := CreateSimpleCache(time.Hour)
+	cache := MakeSimpleCache(time.Hour)
 	err := cache.PutHostnameScan("anything", HostnameResult{
-		ResultGroup: &ResultGroup{Status: 3},
-		Timestamp:   time.Now(),
+		Result:    &Result{Status: 3},
+		Timestamp: time.Now(),
 	})
 	if err != nil {
 		t.Errorf("Expected scan put to succeed: %v", err)
@@ -24,10 +24,10 @@ func TestSimpleCacheMap(t *testing.T) {
 }
 
 func TestSimpleCacheExpires(t *testing.T) {
-	cache := CreateSimpleCache(0)
+	cache := MakeSimpleCache(0)
 	cache.PutHostnameScan("anything", HostnameResult{
-		ResultGroup: &ResultGroup{Status: 3},
-		Timestamp:   time.Now(),
+		Result:    &Result{Status: 3},
+		Timestamp: time.Now(),
 	})
 	_, err := cache.GetHostnameScan("anything")
 	if err == nil {

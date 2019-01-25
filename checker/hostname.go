@@ -12,7 +12,7 @@ import (
 
 // HostnameResult wraps the results of a security check against a particular hostname.
 type HostnameResult struct {
-	*ResultGroup
+	*Result
 	Domain    string    `json:"domain"`
 	Hostname  string    `json:"hostname"`
 	Timestamp time.Time `json:"-"`
@@ -94,8 +94,8 @@ func smtpDialWithTimeout(hostname string, timeout time.Duration) (*smtp.Client, 
 }
 
 // Simply tries to StartTLS with the server.
-func checkStartTLS(client *smtp.Client) CheckResult {
-	result := CheckResult{CheckType: STARTTLS}
+func checkStartTLS(client *smtp.Client) *Result {
+	result := MakeResult(STARTTLS)
 	ok, _ := client.Extension("StartTLS")
 	if !ok {
 		return result.Failure("Server does not advertise support for STARTTLS.")
@@ -140,8 +140,8 @@ var certRoots *x509.CertPool
 
 // Checks that the certificate presented is valid for a particular hostname, unexpired,
 // and chains to a trusted root.
-func checkCert(client *smtp.Client, domain, hostname string) CheckResult {
-	result := CheckResult{CheckType: Certificate}
+func checkCert(client *smtp.Client, domain, hostname string) *Result {
+	result := MakeResult(Certificate)
 	state, ok := client.TLSConnectionState()
 	if !ok {
 		return result.Error("TLS not initiated properly.")
@@ -168,8 +168,8 @@ func tlsConfigForCipher(ciphers []uint16) tls.Config {
 }
 
 // Checks to see that insecure ciphers are disabled.
-func checkTLSCipher(hostname string, timeout time.Duration) CheckResult {
-	result := CheckResult{CheckType: CheckType{Name: "cipher"}}
+func checkTLSCipher(hostname string, timeout time.Duration) *Result {
+	result := MakeResult(CheckType{Name: "cipher"})
 	badCiphers := []uint16{
 		tls.TLS_RSA_WITH_RC4_128_SHA,
 		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
@@ -187,8 +187,8 @@ func checkTLSCipher(hostname string, timeout time.Duration) CheckResult {
 	return result.Success()
 }
 
-func checkTLSVersion(client *smtp.Client, hostname string, timeout time.Duration) CheckResult {
-	result := CheckResult{CheckType: Version}
+func checkTLSVersion(client *smtp.Client, hostname string, timeout time.Duration) *Result {
+	result := MakeResult(Version)
 
 	// Check the TLS version of the existing connection.
 	tlsConnectionState, ok := client.TLSConnectionState()
@@ -221,20 +221,22 @@ func checkTLSVersion(client *smtp.Client, hostname string, timeout time.Duration
 // CheckHostname performs a series of checks against a hostname for an email domain.
 // `domain` is the mail domain that this server serves email for.
 // `hostname` is the hostname for this server.
-func CheckHostname(domain string, hostname string, timeout time.Duration) HostnameResult {
+func (c *Checker) CheckHostname(domain string, hostname string) HostnameResult {
+	if c.checkHostname != nil {
+		// Allow the Checker to mock this function.
+		return c.checkHostname(domain, hostname)
+	}
+
 	result := HostnameResult{
-		Domain:   domain,
-		Hostname: hostname,
-		ResultGroup: &ResultGroup{
-			Status: Success,
-			Checks: make(map[string]CheckResult),
-		},
+		Domain:    domain,
+		Hostname:  hostname,
+		Result:    MakeResult(CheckType{Name: "hostname"}),
 		Timestamp: time.Now(),
 	}
 
 	// Connect to the SMTP server and use that connection to perform as many checks as possible.
-	connectivityResult := CheckResult{CheckType: Connectivity}
-	client, err := smtpDialWithTimeout(hostname, timeout)
+	connectivityResult := MakeResult(Connectivity)
+	client, err := smtpDialWithTimeout(hostname, c.timeout())
 	if err != nil {
 		result.addCheck(connectivityResult.Error("Could not establish connection: %v", err))
 		return result
@@ -250,7 +252,7 @@ func CheckHostname(domain string, hostname string, timeout time.Duration) Hostna
 	// result.addCheck(checkTLSCipher(hostname))
 
 	// Creates a new connection to check for SSLv2/3 support because we can't call starttls twice.
-	result.addCheck(checkTLSVersion(client, hostname, timeout))
+	result.addCheck(checkTLSVersion(client, hostname, c.timeout()))
 
 	return result
 }
