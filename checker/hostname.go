@@ -95,7 +95,7 @@ func smtpDialWithTimeout(hostname string, timeout time.Duration) (*smtp.Client, 
 
 // Simply tries to StartTLS with the server.
 func checkStartTLS(client *smtp.Client) *Result {
-	result := NewResult("starttls")
+	result := MakeResult("starttls")
 	ok, _ := client.Extension("StartTLS")
 	if !ok {
 		return result.Failure("Server does not advertise support for STARTTLS.")
@@ -141,7 +141,7 @@ var certRoots *x509.CertPool
 // Checks that the certificate presented is valid for a particular hostname, unexpired,
 // and chains to a trusted root.
 func checkCert(client *smtp.Client, domain, hostname string) *Result {
-	result := NewResult("certificate")
+	result := MakeResult("certificate")
 	state, ok := client.TLSConnectionState()
 	if !ok {
 		return result.Error("TLS not initiated properly.")
@@ -169,7 +169,7 @@ func tlsConfigForCipher(ciphers []uint16) tls.Config {
 
 // Checks to see that insecure ciphers are disabled.
 func checkTLSCipher(hostname string, timeout time.Duration) *Result {
-	result := NewResult("cipher")
+	result := MakeResult("cipher")
 	badCiphers := []uint16{
 		tls.TLS_RSA_WITH_RC4_128_SHA,
 		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
@@ -188,7 +188,7 @@ func checkTLSCipher(hostname string, timeout time.Duration) *Result {
 }
 
 func checkTLSVersion(client *smtp.Client, hostname string, timeout time.Duration) *Result {
-	result := NewResult("version")
+	result := MakeResult("version")
 
 	// Check the TLS version of the existing connection.
 	tlsConnectionState, ok := client.TLSConnectionState()
@@ -230,12 +230,12 @@ func (c *Checker) CheckHostname(domain string, hostname string) HostnameResult {
 	result := HostnameResult{
 		Domain:    domain,
 		Hostname:  hostname,
-		Result:    NewResult("hostnames"),
+		Result:    MakeResult("hostnames"),
 		Timestamp: time.Now(),
 	}
 
 	// Connect to the SMTP server and use that connection to perform as many checks as possible.
-	connectivityResult := NewResult("connectivity")
+	connectivityResult := MakeResult("connectivity")
 	client, err := smtpDialWithTimeout(hostname, c.timeout())
 	if err != nil {
 		result.addCheck(connectivityResult.Error("Could not establish connection: %v", err))

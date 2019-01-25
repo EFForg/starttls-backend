@@ -33,8 +33,8 @@ type Result struct {
 	Checks   map[string]*Result `json:"checks,omitempty"`
 }
 
-// NewResult constructs a base result object and returns its pointer.
-func NewResult(name string) *Result {
+// MakeResult constructs a base result object and returns its pointer.
+func MakeResult(name string) *Result {
 	return &Result{
 		Name:     name,
 		Status:   Success,

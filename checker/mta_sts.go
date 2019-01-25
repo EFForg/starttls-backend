@@ -40,7 +40,7 @@ func getKeyValuePairs(record string, lineDelimiter string,
 }
 
 func checkMTASTSRecord(domain string) *Result {
-	result := NewResult("mta-sts-txt")
+	result := MakeResult("mta-sts-txt")
 	records, err := net.LookupTXT(fmt.Sprintf("_mta-sts.%s", domain))
 	if err != nil {
 		return result.Failure("Couldn't find MTA-STS TXT record: %v", err)
@@ -63,7 +63,7 @@ func validateMTASTSRecord(records []string, result *Result) *Result {
 }
 
 func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameResult) *Result {
-	result := NewResult("policy-file")
+	result := MakeResult("policy-file")
 	client := &http.Client{
 		// Don't follow redirects.
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -139,7 +139,7 @@ func validateMTASTSMXs(policyFileMXs []string, dnsMXs map[string]HostnameResult,
 }
 
 func checkMTASTS(domain string, hostnameResults map[string]HostnameResult) *Result {
-	result := NewResult("mta-sts")
+	result := MakeResult("mta-sts")
 	result.addCheck(checkMTASTSRecord(domain))
 	result.addCheck(checkMTASTSPolicyFile(domain, hostnameResults))
 	return result
