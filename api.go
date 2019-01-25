@@ -116,7 +116,7 @@ func asyncPolicyCheck(api API, domain string) <-chan checker.Result {
 func defaultCheck(api API, domain string) (checker.DomainResult, error) {
 	policyChan := asyncPolicyCheck(api, domain)
 	c := checker.Checker{
-		Cache: checker.ScanCache{
+		Cache: &checker.ScanCache{
 			ScanStore:  api.Database,
 			ExpireTime: 5 * time.Minute,
 		},

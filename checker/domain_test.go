@@ -105,7 +105,7 @@ func performTests(t *testing.T, tests []domainTestCase) {
 func performTestsWithCacheTimeout(t *testing.T, tests []domainTestCase, cacheExpiry time.Duration) {
 	c := Checker{
 		Timeout:       time.Second,
-		Cache:         CreateSimpleCache(cacheExpiry),
+		Cache:         MakeSimpleCache(cacheExpiry),
 		lookupMX:      mockLookupMX,
 		checkHostname: mockCheckHostname,
 	}

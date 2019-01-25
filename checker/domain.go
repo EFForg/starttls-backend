@@ -69,7 +69,7 @@ func lookupMXWithTimeout(domain string, timeout time.Duration) ([]*net.MX, error
 }
 
 // lookupHostnames retrieves the MX hostnames associated with a domain.
-func (c Checker) lookupHostnames(domain string) ([]string, error) {
+func (c *Checker) lookupHostnames(domain string) ([]string, error) {
 	domainASCII, err := idna.ToASCII(domain)
 	if err != nil {
 		return nil, fmt.Errorf("domain name %s couldn't be converted to ASCII", domain)
@@ -102,7 +102,7 @@ func (c Checker) lookupHostnames(domain string) ([]string, error) {
 //   `domain` is the mail domain to perform the lookup on.
 //   `mxHostnames` is the list of expected hostnames.
 //     If `mxHostnames` is nil, we don't validate the DNS lookup.
-func (c Checker) CheckDomain(domain string, expectedHostnames []string) DomainResult {
+func (c *Checker) CheckDomain(domain string, expectedHostnames []string) DomainResult {
 	result := DomainResult{
 		Domain:          domain,
 		MxHostnames:     expectedHostnames,

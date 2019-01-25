@@ -221,7 +221,7 @@ func checkTLSVersion(client *smtp.Client, hostname string, timeout time.Duration
 // CheckHostname performs a series of checks against a hostname for an email domain.
 // `domain` is the mail domain that this server serves email for.
 // `hostname` is the hostname for this server.
-func (c Checker) CheckHostname(domain string, hostname string) HostnameResult {
+func (c *Checker) CheckHostname(domain string, hostname string) HostnameResult {
 	if c.checkHostname != nil {
 		// Allow the Checker to mock this function.
 		return c.checkHostname(domain, hostname)

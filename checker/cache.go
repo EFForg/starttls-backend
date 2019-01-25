@@ -56,8 +56,8 @@ func (l *SimpleStore) PutHostnameScan(hostname string, result HostnameResult) er
 	return nil
 }
 
-// CreateSimpleCache creates a cache with a SimpleStore backing it.
-func CreateSimpleCache(expiryTime time.Duration) ScanCache {
+// MakeSimpleCache creates a cache with a SimpleStore backing it.
+func MakeSimpleCache(expiryTime time.Duration) *ScanCache {
 	store := SimpleStore{m: make(map[string]HostnameResult)}
-	return ScanCache{ScanStore: &store, ExpireTime: expiryTime}
+	return &ScanCache{ScanStore: &store, ExpireTime: expiryTime}
 }
