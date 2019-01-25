@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
+	"github.com/EFForg/starttls-backend/models"
+
 	// Imports postgresql driver for database/sql
 	_ "github.com/lib/pq"
 )
@@ -76,8 +78,8 @@ func (db *SQLDatabase) GetTokenByDomain(domain string) (string, error) {
 
 // PutToken generates and inserts a token into the database for a particular
 // domain, and returns the resulting token row.
-func (db *SQLDatabase) PutToken(domain string) (TokenData, error) {
-	tokenData := TokenData{
+func (db *SQLDatabase) PutToken(domain string) (models.Token, error) {
+	token := models.Token{
 		Domain:  domain,
 		Token:   randToken(),
 		Expires: time.Now().Add(time.Duration(time.Hour * 72)),
@@ -85,24 +87,25 @@ func (db *SQLDatabase) PutToken(domain string) (TokenData, error) {
 	}
 	_, err := db.conn.Exec("INSERT INTO tokens(domain, token, expires) VALUES($1, $2, $3) "+
 		"ON CONFLICT (domain) DO UPDATE SET token=$2, expires=$3, used=FALSE",
-		domain, tokenData.Token, tokenData.Expires.UTC().Format(sqlTimeFormat))
+		domain, token.Token, token.Expires.UTC().Format(sqlTimeFormat))
 	if err != nil {
-		return TokenData{}, err
+		return models.Token{}, err
 	}
-	return tokenData, nil
+	return token, nil
 }
 
 // SCAN DB FUNCTIONS
 
 // PutScan inserts a new scan for a particular domain into the database.
-func (db *SQLDatabase) PutScan(scanData ScanData) error {
-	byteArray, err := json.Marshal(scanData.Data)
+func (db *SQLDatabase) PutScan(scan models.Scan) error {
+	// @TODO marshall scan adds extra fields - need a custom obj for this
+	byteArray, err := json.Marshal(scan.Data)
 	if err != nil {
 		return err
 	}
 	// Serialize scanData.Data for insertion into SQLdb!
 	_, err = db.conn.Exec("INSERT INTO scans(domain, scandata, timestamp) VALUES($1, $2, $3)",
-		scanData.Domain, string(byteArray), scanData.Timestamp.UTC().Format(sqlTimeFormat))
+		scan.Domain, string(byteArray), scan.Timestamp.UTC().Format(sqlTimeFormat))
 	return err
 }
 
@@ -113,9 +116,9 @@ SELECT domain, scandata, timestamp FROM scans
 
 // GetLatestScan retrieves the most recent scan performed on a particular email
 // domain.
-func (db SQLDatabase) GetLatestScan(domain string) (ScanData, error) {
+func (db SQLDatabase) GetLatestScan(domain string) (models.Scan, error) {
 	var rawScanData []byte
-	result := ScanData{}
+	result := models.Scan{}
 	err := db.conn.QueryRow(mostRecentQuery, domain).Scan(
 		&result.Domain, &rawScanData, &result.Timestamp)
 	if err != nil {
@@ -126,16 +129,16 @@ func (db SQLDatabase) GetLatestScan(domain string) (ScanData, error) {
 }
 
 // GetAllScans retrieves all the scans performed for a particular domain.
-func (db SQLDatabase) GetAllScans(domain string) ([]ScanData, error) {
+func (db SQLDatabase) GetAllScans(domain string) ([]models.Scan, error) {
 	rows, err := db.conn.Query(
 		"SELECT domain, scandata, timestamp FROM scans WHERE domain=$1", domain)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	scans := []ScanData{}
+	scans := []models.Scan{}
 	for rows.Next() {
-		var scan ScanData
+		var scan models.Scan
 		var rawScanData []byte
 		if err := rows.Scan(&scan.Domain, &rawScanData, &scan.Timestamp); err != nil {
 			return nil, err
@@ -152,19 +155,19 @@ func (db SQLDatabase) GetAllScans(domain string) ([]ScanData, error) {
 // not yet exist in the database, we initialize it with StateUnvalidated.
 // Subsequent puts with the same domain updates the row with the information in
 // the object provided.
-func (db *SQLDatabase) PutDomain(domainData DomainData) error {
+func (db *SQLDatabase) PutDomain(domain models.Domain) error {
 	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status) "+
 		"VALUES($1, $2, $3, $4) "+
 		"ON CONFLICT (domain) DO UPDATE SET status=$5",
-		domainData.Name, domainData.Email, strings.Join(domainData.MXs[:], ","),
-		StateUnvalidated, domainData.State)
+		domain.Name, domain.Email, strings.Join(domain.MXs[:], ","),
+		models.StateUnvalidated, domain.State)
 	return err
 }
 
 // GetDomain retrieves the status and information associated with a particular
 // mailserver domain.
-func (db SQLDatabase) GetDomain(domain string) (DomainData, error) {
-	data := DomainData{}
+func (db SQLDatabase) GetDomain(domain string) (models.Domain, error) {
+	data := models.Domain{}
 	var rawMXs string
 	err := db.conn.QueryRow("SELECT domain, email, data, status, last_updated FROM domains WHERE domain=$1",
 		domain).Scan(
@@ -177,16 +180,16 @@ func (db SQLDatabase) GetDomain(domain string) (DomainData, error) {
 }
 
 // GetDomains retrieves all the domains which match a particular state.
-func (db SQLDatabase) GetDomains(state DomainState) ([]DomainData, error) {
+func (db SQLDatabase) GetDomains(state models.DomainState) ([]models.Domain, error) {
 	rows, err := db.conn.Query(
 		"SELECT domain, email, data, status, last_updated FROM domains WHERE status=$1", state)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	domains := []DomainData{}
+	domains := []models.Domain{}
 	for rows.Next() {
-		var domain DomainData
+		var domain models.Domain
 		var rawMXs string
 		if err := rows.Scan(&domain.Name, &domain.Email, &rawMXs, &domain.State, &domain.LastUpdated); err != nil {
 			return nil, err
@@ -243,7 +246,7 @@ func (db SQLDatabase) ClearTables() error {
 // DB whose policies should be validated.
 func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 	domains := []string{}
-	data, err := db.GetDomains(StateQueued)
+	data, err := db.GetDomains(models.StateQueued)
 	if err != nil {
 		return domains, err
 	}

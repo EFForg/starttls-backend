@@ -12,6 +12,7 @@ import (
 
 	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/db"
+	"github.com/EFForg/starttls-backend/models"
 	"github.com/EFForg/starttls-backend/policy"
 	"github.com/getsentry/raven-go"
 )
@@ -56,7 +57,7 @@ type PolicyList interface {
 type EmailSender interface {
 	// SendValidation sends a validation e-mail for a particular domain,
 	// with a particular validation token.
-	SendValidation(*db.DomainData, string) error
+	SendValidation(*models.Domain, string) error
 }
 
 // APIResponse wraps all the responses from this API.
@@ -92,12 +93,12 @@ func (api API) policyCheck(domain string) checker.CheckResult {
 	if err != nil {
 		return result.Failure("Domain %s is not on the policy list.", domain)
 	}
-	if domainData.State == db.StateAdded {
+	if domainData.State == models.StateAdded {
 		log.Println("Warning: Domain was StateAdded in DB but was not found on the policy list.")
 		return result.Success()
-	} else if domainData.State == db.StateQueued {
+	} else if domainData.State == models.StateQueued {
 		return result.Warning("Domain %s is queued to be added to the policy list.", domain)
-	} else if domainData.State == db.StateUnvalidated {
+	} else if domainData.State == models.StateUnvalidated {
 		return result.Warning("The policy addition request for %s is waiting on email validation", domain)
 	}
 	return result.Failure("Domain %s is not on the policy list.", domain)
@@ -127,7 +128,7 @@ func defaultCheck(api API, domain string) (checker.DomainResult, error) {
 //        Scans domain and returns data from it.
 //   GET /api/scan?domain=<domain>
 //        Retrieves most recent scan for domain.
-// Both set a db.ScanData JSON as the response.
+// Both set a models.Scan JSON as the response.
 func (api API) Scan(r *http.Request) APIResponse {
 	domain, err := getASCIIDomain(r)
 	if err != nil {
@@ -151,17 +152,17 @@ func (api API) Scan(r *http.Request) APIResponse {
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
-		scandata := db.ScanData{
+		scan = models.Scan{
 			Domain:    domain,
 			Data:      rawScandata,
 			Timestamp: time.Now(),
 		}
 		// 2. Put scan into DB
-		err = api.Database.PutScan(scandata)
+		err = api.Database.PutScan(scan)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
-		return APIResponse{StatusCode: http.StatusOK, Response: scandata}
+		return APIResponse{StatusCode: http.StatusOK, Response: scan}
 		// GET: Just fetch the most recent scan
 	} else if r.Method == http.MethodGet {
 		scan, err := api.Database.GetLatestScan(domain)
@@ -180,8 +181,8 @@ const MaxHostnames = 8
 
 // Extracts relevant parameters from http.Request for a POST to /api/queue
 // TODO: also validate hostnames as FQDNs.
-func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
-	domainData := db.DomainData{Name: domain, State: db.StateUnvalidated}
+func getDomainParams(r *http.Request, domain string) (models.Domain, error) {
+	domainData := models.Domain{Name: domain, State: models.StateUnvalidated}
 	email, err := getParam("email", r)
 	if err == nil {
 		domainData.Email = email
@@ -211,10 +212,10 @@ func getDomainParams(r *http.Request, domain string) (db.DomainData, error) {
 //   POST /api/queue?domain=<domain>
 //        domain: Mail domain to queue a TLS policy for.
 //        hostnames: List of MX hostnames to put into this domain's TLS policy. Up to 8.
-//        Sets db.DomainData object as response.
+//        Sets models.Domain object as response.
 //        email (optional): Contact email associated with domain.
 //   GET  /api/queue?domain=<domain>
-//        Sets db.DomainData object as response.
+//        Sets models.Domain object as response.
 func (api API) Queue(r *http.Request) APIResponse {
 	// Retrieve domain param
 	domain, err := getASCIIDomain(r)
@@ -305,10 +306,10 @@ func (api API) Validate(r *http.Request) APIResponse {
 	if err != nil {
 		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 	}
-	err = api.Database.PutDomain(db.DomainData{
+	err = api.Database.PutDomain(models.Domain{
 		Name:  domainData.Name,
 		Email: domainData.Email,
-		State: db.StateQueued,
+		State: models.StateQueued,
 	})
 	if err != nil {
 		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
