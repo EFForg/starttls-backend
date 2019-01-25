@@ -27,9 +27,8 @@ func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
 	mux.HandleFunc("/sns", handleSESNotification(api.Database))
 
 	mux.HandleFunc("/api/scan", apiWrapper(api.Scan))
-	// Throttle the queue endpoint more aggressively so we don't send junk e-mail.
 	mux.Handle("/api/queue",
-		throttleHandler(time.Hour, 3, http.HandlerFunc(apiWrapper(api.Queue))))
+		throttleHandler(time.Hour, 20, http.HandlerFunc(apiWrapper(api.Queue))))
 	mux.HandleFunc("/api/validate", apiWrapper(api.Validate))
 	mux.HandleFunc("/api/ping", pingHandler)
 
