@@ -2,6 +2,7 @@ package checker
 
 import (
 	"fmt"
+	"net"
 	"testing"
 	"time"
 )
@@ -41,19 +42,18 @@ var hostnameResults = map[string]ResultGroup{
 	},
 }
 
-// Mock implementation for lookup and checker
-
-type mockLookup struct{}
-type mockChecker struct{}
-
-func (*mockLookup) lookupHostname(domain string, _ time.Duration) ([]string, error) {
+func mockLookupMX(domain string) ([]*net.MX, error) {
 	if domain == "error" {
 		return nil, fmt.Errorf("No MX records found")
 	}
-	return mxLookup[domain], nil
+	result := []*net.MX{}
+	for _, host := range mxLookup[domain] {
+		result = append(result, &net.MX{Host: host})
+	}
+	return result, nil
 }
 
-func (*mockChecker) checkHostname(domain string, hostname string, _ time.Duration) HostnameResult {
+func mockCheckHostname(domain string, hostname string) HostnameResult {
 	if result, ok := hostnameResults[hostname]; ok {
 		return HostnameResult{
 			ResultGroup: &result,
@@ -103,20 +103,19 @@ func performTests(t *testing.T, tests []domainTestCase) {
 }
 
 func performTestsWithCacheTimeout(t *testing.T, tests []domainTestCase, cacheExpiry time.Duration) {
-	cache := CreateSimpleCache(cacheExpiry)
+	c := Checker{
+		Timeout:       time.Second,
+		Cache:         MakeSimpleCache(cacheExpiry),
+		lookupMX:      mockLookupMX,
+		checkHostname: mockCheckHostname,
+	}
 	for _, test := range tests {
 		if test.expectedHostnames == nil {
 			test.expectedHostnames = mxLookup[test.domain]
 		}
-		got := performCheck(DomainQuery{
-			Domain:            test.domain,
-			ExpectedHostnames: test.expectedHostnames,
-			hostnameLookup:    &mockLookup{},
-			hostnameChecker:   &mockChecker{},
-		}, time.Second, cache).Status
+		got := c.CheckDomain(test.domain, test.expectedHostnames).Status
 		test.check(t, got)
 	}
-
 }
 
 // Test cases.

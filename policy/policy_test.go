@@ -75,8 +75,13 @@ func TestDomainsToValidate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Encoutnered %v", err)
 	}
-	if !reflect.DeepEqual([]string{"eff.org", "example.com"}, domains) {
-		t.Errorf("Expected eff.org and example.com to be returned")
+	if len(updatedList.Policies) != len(domains) {
+		t.Fatalf("Expected domains to validate to match policy list, got %s", domains)
+	}
+	for _, domain := range domains {
+		if _, exists := updatedList.Policies[domain]; !exists {
+			t.Fatalf("Expected domains to validate to match policy list, got %s", domains)
+		}
 	}
 }
 
