@@ -47,7 +47,7 @@ type DomainResult struct {
 	// Expected MX hostnames supplied by the caller of CheckDomain.
 	MxHostnames []string `json:"mx_hostnames,omitempty"`
 	// Extra global results
-	ExtraResults map[string]CheckResult `json:"extra_results,omitempty"`
+	ExtraResults map[string]Result `json:"extra_results,omitempty"`
 }
 
 // Class satisfies raven's Interface interface.
