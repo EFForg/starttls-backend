@@ -1,6 +1,7 @@
 package checker
 
 import (
+	"encoding/json"
 	"fmt"
 )
 
@@ -14,6 +15,17 @@ const (
 	Failure CheckStatus = 2
 	Error   CheckStatus = 3
 )
+
+var statusText = map[CheckStatus]string{
+	Success: "Success",
+	Warning: "Warning",
+	Failure: "Failure",
+	Error:   "Error",
+}
+
+func (r Result) StatusText() string {
+	return statusText[r.Status]
+}
 
 // SetStatus the resulting status of combining old & new. The order of priority
 // for CheckStatus goes: Error > Failure > Warning > Success
@@ -29,19 +41,19 @@ func SetStatus(oldStatus CheckStatus, newStatus CheckStatus) CheckStatus {
 // a summary of what the check should do, as well as any error, failure, or
 // warning messages associated.
 type Result struct {
-	CheckType `json:"name"`
-	Status    CheckStatus        `json:"status"`
-	Messages  []string           `json:"messages,omitempty"`
-	Checks    map[string]*Result `json:"checks,omitempty"`
+	Name     string             `json:"name"`
+	Status   CheckStatus        `json:"status"`
+	Messages []string           `json:"messages,omitempty"`
+	Checks   map[string]*Result `json:"checks,omitempty"`
 }
 
 // MakeResult constructs a base result object and returns its pointer.
-func MakeResult(checkType CheckType) *Result {
+func MakeResult(name string) *Result {
 	return &Result{
-		CheckType: checkType,
-		Status:    Success,
-		Messages:  make([]string, 0),
-		Checks:    make(map[string]*Result),
+		Name:     name,
+		Status:   Success,
+		Messages: make([]string, 0),
+		Checks:   make(map[string]*Result),
 	}
 }
 
@@ -94,13 +106,42 @@ func (r *Result) addCheck(checkResult *Result) {
 	r.Status = SetStatus(r.Status, checkResult.Status)
 }
 
-// CheckType stores descriptive information about a single type of check that
-// can be performed by the Checker.
-type CheckType struct {
-	Name string
-	StatusText
-	Description string
+const (
+	Connectivity     = "connectivity"
+	STARTTLS         = "starttls"
+	Version          = "version"
+	Certificate      = "certificate"
+	MTASTS           = "mta-sts"
+	MTASTSText       = "mta-sts-text"
+	MTASTSPolicyFile = "mta-sts-policy-file"
+	PolicyList       = "policylist"
+)
+
+var checkNames = map[string]string{
+	Connectivity:     "Server connectivity",
+	STARTTLS:         "Support for STARTTLS",
+	Version:          "Secure version of TLS",
+	Certificate:      "Valid of certificate",
+	MTASTS:           "Implementation of MTA-STS",
+	MTASTSText:       "Correct MTA-STS DNS record",
+	MTASTSPolicyFile: "Correct MTA-STS policy file",
+	PolicyList:       "Status on EFF's STARTTLS Everywhere policy list",
 }
 
-// StatusText maps CheckStatus codes to human-readable strings.
-type StatusText map[CheckStatus]string
+func (r Result) Name_() string {
+	return checkNames[r.Name]
+}
+
+func (r Result) MarshalJSON() ([]byte, error) {
+	// FakeResult lets us access the default json.Marshall result for Result.
+	type FakeResult Result
+	return json.Marshal(struct {
+		FakeResult
+		StatusText  string `json:"status_text,omitempty"`
+		Description string `json:"description,omitempty"`
+	}{
+		FakeResult:  FakeResult(r),
+		StatusText:  r.StatusText(),
+		Description: r.Name_(),
+	})
+}
