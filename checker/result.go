@@ -5,18 +5,18 @@ import (
 	"fmt"
 )
 
-// CheckStatus is an enum encoding the status of the overall check.
-type CheckStatus int32
+// Status is an enum encoding the status of the overall check.
+type Status int32
 
 // Values for CheckStatus
 const (
-	Success CheckStatus = 0
-	Warning CheckStatus = 1
-	Failure CheckStatus = 2
-	Error   CheckStatus = 3
+	Success Status = 0
+	Warning Status = 1
+	Failure Status = 2
+	Error   Status = 3
 )
 
-var statusText = map[CheckStatus]string{
+var statusText = map[Status]string{
 	Success: "Success",
 	Warning: "Warning",
 	Failure: "Failure",
@@ -29,7 +29,7 @@ func (r Result) StatusText() string {
 
 // SetStatus the resulting status of combining old & new. The order of priority
 // for CheckStatus goes: Error > Failure > Warning > Success
-func SetStatus(oldStatus CheckStatus, newStatus CheckStatus) CheckStatus {
+func SetStatus(oldStatus Status, newStatus Status) Status {
 	if newStatus > oldStatus {
 		return newStatus
 	}
@@ -42,7 +42,7 @@ func SetStatus(oldStatus CheckStatus, newStatus CheckStatus) CheckStatus {
 // warning messages associated.
 type Result struct {
 	Name     string             `json:"name"`
-	Status   CheckStatus        `json:"status"`
+	Status   Status             `json:"status"`
 	Messages []string           `json:"messages,omitempty"`
 	Checks   map[string]*Result `json:"checks,omitempty"`
 }
