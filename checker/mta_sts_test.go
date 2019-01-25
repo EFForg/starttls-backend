@@ -38,7 +38,7 @@ func TestGetKeyValuePairs(t *testing.T) {
 func TestValidateMTASTSRecord(t *testing.T) {
 	tests := []struct {
 		txt    []string
-		status CheckStatus
+		status Status
 	}{
 		{[]string{"v=STSv1; id=1234", "v=STSv1; id=5678"}, Failure},
 		{[]string{"v=STSv1; id=20171114T070707;"}, Success},
@@ -57,7 +57,7 @@ func TestValidateMTASTSRecord(t *testing.T) {
 func TestValidateMTASTSPolicyFile(t *testing.T) {
 	tests := []struct {
 		txt    string
-		status CheckStatus
+		status Status
 	}{
 		{"version: STSv1\nmode: enforce\nmax_age:100000\nmx: foo.example.com\nmx: bar.example.com\n", Success},
 		// Support UTF-8
@@ -96,7 +96,7 @@ func TestValidateMTASTSMXs(t *testing.T) {
 	tests := []struct {
 		policyFileMXs []string
 		dnsMXs        map[string]HostnameResult
-		status        CheckStatus
+		status        Status
 	}{
 		{
 			[]string{"mail.example.com"},
