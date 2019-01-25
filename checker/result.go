@@ -27,10 +27,10 @@ func SetStatus(oldStatus CheckStatus, newStatus CheckStatus) CheckStatus {
 // a summary of what the check should do, as well as any error, failure, or
 // warning messages associated.
 type Result struct {
-	Name     string            `json:"name"`
-	Status   CheckStatus       `json:"status"`
-	Messages []string          `json:"messages,omitempty"`
-	Checks   map[string]Result `json:"checks,omitempty"`
+	Name     string             `json:"name"`
+	Status   CheckStatus        `json:"status"`
+	Messages []string           `json:"messages,omitempty"`
+	Checks   map[string]*Result `json:"checks,omitempty"`
 }
 
 // NewResult constructs a base result object and returns its pointer.
@@ -39,41 +39,41 @@ func NewResult(name string) *Result {
 		Name:     name,
 		Status:   Success,
 		Messages: make([]string, 0),
-		Checks:   make(map[string]Result),
+		Checks:   make(map[string]*Result),
 	}
 }
 
 // Error adds an error message to this check result.
 // The Error status will override any other existing status for this check.
 // Typically, when a check encounters an error, it stops executing.
-func (r *Result) Error(format string, a ...interface{}) Result {
+func (r *Result) Error(format string, a ...interface{}) *Result {
 	r.Status = SetStatus(r.Status, Error)
 	r.Messages = append(r.Messages, fmt.Sprintf("Error: "+format, a...))
-	return *r
+	return r
 }
 
 // Failure adds a failure message to this check result.
 // The Failure status will override any Status other than Error.
 // Whenever Failure is called, the entire check is failed.
-func (r *Result) Failure(format string, a ...interface{}) Result {
+func (r *Result) Failure(format string, a ...interface{}) *Result {
 	r.Status = SetStatus(r.Status, Failure)
 	r.Messages = append(r.Messages, fmt.Sprintf("Failure: "+format, a...))
-	return *r
+	return r
 }
 
 // Warning adds a warning message to this check result.
 // The Warning status only supercedes the Success status.
-func (r *Result) Warning(format string, a ...interface{}) Result {
+func (r *Result) Warning(format string, a ...interface{}) *Result {
 	r.Status = SetStatus(r.Status, Warning)
 	r.Messages = append(r.Messages, fmt.Sprintf("Warning: "+format, a...))
-	return *r
+	return r
 }
 
 // Success simply sets the status of Result to a Success.
 // Status is set if no other status has been declared on this check.
-func (r *Result) Success() Result {
+func (r *Result) Success() *Result {
 	r.Status = SetStatus(r.Status, Success)
-	return *r
+	return r
 }
 
 // Returns result of specified check.
@@ -86,7 +86,7 @@ func (r *Result) subcheckSucceeded(checkName string) bool {
 }
 
 // Wrapping helper function to set the status of this hostname.
-func (r *Result) addCheck(checkResult Result) {
+func (r *Result) addCheck(checkResult *Result) {
 	r.Checks[checkResult.Name] = checkResult
 	// SetStatus sets Result's status to the most severe of any individual check
 	r.Status = SetStatus(r.Status, checkResult.Status)

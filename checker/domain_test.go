@@ -22,20 +22,20 @@ var mxLookup = map[string][]string{
 var hostnameResults = map[string]Result{
 	"noconnection": Result{
 		Status: Error,
-		Checks: map[string]Result{
+		Checks: map[string]*Result{
 			"connectivity": {"connectivity", Error, nil, nil},
 		},
 	},
 	"nostarttls": Result{
 		Status: Failure,
-		Checks: map[string]Result{
+		Checks: map[string]*Result{
 			"connectivity": {"connectivity", 0, nil, nil},
 			"starttls":     {"starttls", Failure, nil, nil},
 		},
 	},
 	"nostarttlsconnect": Result{
 		Status: Error,
-		Checks: map[string]Result{
+		Checks: map[string]*Result{
 			"connectivity": {"connectivity", 0, nil, nil},
 			"starttls":     {"starttls", Error, nil, nil},
 		},
@@ -68,7 +68,7 @@ func mockCheckHostname(domain string, hostname string) HostnameResult {
 	return HostnameResult{
 		Result: &Result{
 			Status: 0,
-			Checks: map[string]Result{
+			Checks: map[string]*Result{
 				"connectivity": {"connectivity", 0, nil, nil},
 				"starttls":     {"starttls", 0, nil, nil},
 				"certificate":  {"certificate", 0, nil, nil},

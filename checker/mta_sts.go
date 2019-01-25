@@ -39,8 +39,8 @@ func getKeyValuePairs(record string, lineDelimiter string,
 	return parsed
 }
 
-func checkMTASTSRecord(domain string) Result {
-	result := Result{Name: "mta-sts-txt"}
+func checkMTASTSRecord(domain string) *Result {
+	result := NewResult("mta-sts-txt")
 	records, err := net.LookupTXT(fmt.Sprintf("_mta-sts.%s", domain))
 	if err != nil {
 		return result.Failure("Couldn't find MTA-STS TXT record: %v", err)
@@ -48,7 +48,7 @@ func checkMTASTSRecord(domain string) Result {
 	return validateMTASTSRecord(records, result)
 }
 
-func validateMTASTSRecord(records []string, result Result) Result {
+func validateMTASTSRecord(records []string, result *Result) *Result {
 	records = filterByPrefix(records, "v=STSv1")
 	if len(records) != 1 {
 		return result.Failure("exactly 1 MTA-STS TXT record required, found %d", len(records))
@@ -62,8 +62,8 @@ func validateMTASTSRecord(records []string, result Result) Result {
 	return result.Success()
 }
 
-func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameResult) Result {
-	result := Result{Name: "policy_file"}
+func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameResult) *Result {
+	result := NewResult("policy-file")
 	client := &http.Client{
 		// Don't follow redirects.
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -96,7 +96,7 @@ func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameRes
 	return validateMTASTSMXs(strings.Split(policy["mx"], " "), hostnameResults, result)
 }
 
-func validateMTASTSPolicyFile(body string, result Result) (Result, map[string]string) {
+func validateMTASTSPolicyFile(body string, result *Result) (*Result, map[string]string) {
 	policy := getKeyValuePairs(body, "\n", ":")
 
 	if policy["version"] != "STSv1" {
@@ -121,7 +121,7 @@ func validateMTASTSPolicyFile(body string, result Result) (Result, map[string]st
 }
 
 func validateMTASTSMXs(policyFileMXs []string, dnsMXs map[string]HostnameResult,
-	result Result) Result {
+	result *Result) *Result {
 	for dnsMX, dnsMXResult := range dnsMXs {
 		if !dnsMXResult.couldConnect() {
 			// Ignore hostnames we couldn't connect to, they may be spam traps.
@@ -138,11 +138,8 @@ func validateMTASTSMXs(policyFileMXs []string, dnsMXs map[string]HostnameResult,
 	return result
 }
 
-func checkMTASTS(domain string, hostnameResults map[string]HostnameResult) Result {
-	result := Result{
-		Status: Success,
-		Checks: make(map[string]Result),
-	}
+func checkMTASTS(domain string, hostnameResults map[string]HostnameResult) *Result {
+	result := NewResult("mta-sts")
 	result.addCheck(checkMTASTSRecord(domain))
 	result.addCheck(checkMTASTSPolicyFile(domain, hostnameResults))
 	return result

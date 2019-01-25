@@ -84,7 +84,7 @@ func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
 }
 
 // Checks the policy status of this domain.
-func (api API) policyCheck(domain string) checker.Result {
+func (api API) policyCheck(domain string) *checker.Result {
 	result := checker.Result{Name: "policylist"}
 	if _, err := api.List.Get(domain); err == nil {
 		return result.Success()
@@ -109,7 +109,7 @@ func (api API) policyCheck(domain string) checker.Result {
 // is List.
 func asyncPolicyCheck(api API, domain string) <-chan checker.Result {
 	result := make(chan checker.Result)
-	go func() { result <- api.policyCheck(domain) }()
+	go func() { result <- *api.policyCheck(domain) }()
 	return result
 }
 

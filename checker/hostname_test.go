@@ -106,7 +106,7 @@ func TestNoConnection(t *testing.T) {
 
 	expected := Result{
 		Status: 3,
-		Checks: map[string]Result{
+		Checks: map[string]*Result{
 			"connectivity": {"connectivity", 3, nil, nil},
 		},
 	}
@@ -121,7 +121,7 @@ func TestNoTLS(t *testing.T) {
 
 	expected := Result{
 		Status: 2,
-		Checks: map[string]Result{
+		Checks: map[string]*Result{
 			"connectivity": {"connectivity", 0, nil, nil},
 			"starttls":     {"starttls", 2, nil, nil},
 		},
@@ -141,7 +141,7 @@ func TestSelfSigned(t *testing.T) {
 
 	expected := Result{
 		Status: 2,
-		Checks: map[string]Result{
+		Checks: map[string]*Result{
 			"connectivity": {"connectivity", 0, nil, nil},
 			"starttls":     {"starttls", 0, nil, nil},
 			"certificate":  {"certificate", 2, nil, nil},
@@ -167,7 +167,7 @@ func TestNoTLS12(t *testing.T) {
 
 	expected := Result{
 		Status: 2,
-		Checks: map[string]Result{
+		Checks: map[string]*Result{
 			"connectivity": {"connectivity", 0, nil, nil},
 			"starttls":     {"starttls", 0, nil, nil},
 			"certificate":  {"certificate", 2, nil, nil},
@@ -199,7 +199,7 @@ func TestSuccessWithFakeCA(t *testing.T) {
 	result := testChecker.CheckHostname("", "localhost:"+port)
 	expected := Result{
 		Status: 0,
-		Checks: map[string]Result{
+		Checks: map[string]*Result{
 			"connectivity": {"connectivity", 0, nil, nil},
 			"starttls":     {"starttls", 0, nil, nil},
 			"certificate":  {"certificate", 0, nil, nil},
@@ -274,7 +274,7 @@ func TestFailureWithBadHostname(t *testing.T) {
 	result := testChecker.CheckHostname("", "localhost:"+port)
 	expected := Result{
 		Status: 2,
-		Checks: map[string]Result{
+		Checks: map[string]*Result{
 			"connectivity": {"connectivity", 0, nil, nil},
 			"starttls":     {"starttls", 0, nil, nil},
 			"certificate":  {"certificate", 2, nil, nil},
