@@ -104,13 +104,13 @@ func (db *SQLDatabase) PutScan(scan models.Scan) error {
 		return err
 	}
 	// Serialize scanData.Data for insertion into SQLdb!
-	_, err = db.conn.Exec("INSERT INTO scans(domain, scandata, timestamp) VALUES($1, $2, $3)",
-		scan.Domain, string(byteArray), scan.Timestamp.UTC().Format(sqlTimeFormat))
+	_, err = db.conn.Exec("INSERT INTO scans(domain, scandata, timestamp, version) VALUES($1, $2, $3, $4)",
+		scan.Domain, string(byteArray), scan.Timestamp.UTC().Format(sqlTimeFormat), scan.Version)
 	return err
 }
 
 const mostRecentQuery = `
-SELECT domain, scandata, timestamp FROM scans
+SELECT domain, scandata, timestamp, version FROM scans
     WHERE timestamp = (SELECT MAX(timestamp) FROM scans WHERE domain=$1)
 `
 
@@ -120,7 +120,7 @@ func (db SQLDatabase) GetLatestScan(domain string) (models.Scan, error) {
 	var rawScanData []byte
 	result := models.Scan{}
 	err := db.conn.QueryRow(mostRecentQuery, domain).Scan(
-		&result.Domain, &rawScanData, &result.Timestamp)
+		&result.Domain, &rawScanData, &result.Timestamp, &result.Version)
 	if err != nil {
 		return result, err
 	}
@@ -131,7 +131,7 @@ func (db SQLDatabase) GetLatestScan(domain string) (models.Scan, error) {
 // GetAllScans retrieves all the scans performed for a particular domain.
 func (db SQLDatabase) GetAllScans(domain string) ([]models.Scan, error) {
 	rows, err := db.conn.Query(
-		"SELECT domain, scandata, timestamp FROM scans WHERE domain=$1", domain)
+		"SELECT domain, scandata, timestamp, version FROM scans WHERE domain=$1", domain)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (db SQLDatabase) GetAllScans(domain string) ([]models.Scan, error) {
 	for rows.Next() {
 		var scan models.Scan
 		var rawScanData []byte
-		if err := rows.Scan(&scan.Domain, &rawScanData, &scan.Timestamp); err != nil {
+		if err := rows.Scan(&scan.Domain, &rawScanData, &scan.Timestamp, &scan.Version); err != nil {
 			return nil, err
 		}
 		err = json.Unmarshal(rawScanData, &scan.Data)

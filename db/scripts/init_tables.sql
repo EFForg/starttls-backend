@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS scans
     id          SERIAL PRIMARY KEY,
     domain      TEXT NOT NULL,
     scandata    TEXT NOT NULL,
-    timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    version     INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS hostname_scans
@@ -70,3 +71,4 @@ CREATE TRIGGER update_change_timestamp BEFORE UPDATE
     ON domains FOR EACH ROW EXECUTE PROCEDURE
     update_changetimestamp_column();
 
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 0;

@@ -123,8 +123,9 @@ func defaultCheck(api API, domain string) (checker.DomainResult, error) {
 		Timeout: 3 * time.Second,
 	}
 	result := c.CheckDomain(domain, nil)
-	result.ExtraResults = make(map[string]checker.Result)
-	result.ExtraResults["policylist"] = <-policyChan
+	result.ExtraResults = make(map[string]*checker.Result)
+	policyResult := <-policyChan
+	result.ExtraResults["policylist"] = &policyResult
 	return result, nil
 }
 
@@ -148,9 +149,10 @@ func (api API) Scan(r *http.Request) APIResponse {
 	}
 	// POST: Force scan to be conducted
 	if r.Method == http.MethodPost {
-		// 0. If last scan was recent, return cached scan.
+		// 0. If last scan was recent and on same scan version, return cached scan.
 		scan, err := api.Database.GetLatestScan(domain)
-		if err == nil && time.Now().Before(scan.Timestamp.Add(cacheScanTime)) {
+		if err == nil && scan.Version == models.ScanVersion &&
+			time.Now().Before(scan.Timestamp.Add(cacheScanTime)) {
 			return APIResponse{StatusCode: http.StatusOK, Response: scan}
 		}
 		// 1. Conduct scan via starttls-checker
@@ -162,6 +164,7 @@ func (api API) Scan(r *http.Request) APIResponse {
 			Domain:    domain,
 			Data:      rawScandata,
 			Timestamp: time.Now(),
+			Version:   models.ScanVersion,
 		}
 		// 2. Put scan into DB
 		err = api.Database.PutScan(scan)

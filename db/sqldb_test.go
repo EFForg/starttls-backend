@@ -51,10 +51,20 @@ func TestPutScan(t *testing.T) {
 		Domain:    "dummy.com",
 		Data:      checker.DomainResult{Domain: "dummy.com"},
 		Timestamp: time.Now(),
+		Version:   2,
 	}
 	err := database.PutScan(dummyScan)
 	if err != nil {
-		t.Errorf("PutScan failed: %v\n", err)
+		t.Fatalf("PutScan failed: %v\n", err)
+	}
+	scan, err := database.GetLatestScan("dummy.com")
+	if err != nil {
+		t.Fatalf("GetLatestScan failed: %v\n", err)
+	}
+	if dummyScan.Domain != scan.Domain || dummyScan.Data.Domain != scan.Data.Domain ||
+		dummyScan.Version != scan.Version ||
+		dummyScan.Timestamp.Unix() != dummyScan.Timestamp.Unix() {
+		t.Errorf("Expected %v and %v to be the same\n", dummyScan, scan)
 	}
 }
 

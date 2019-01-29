@@ -42,6 +42,10 @@ var hostnameResults = map[string]Result{
 	},
 }
 
+func mockCheckMTASTS(domain string, hostnameResults map[string]HostnameResult) Result {
+	return Result{Status: Success}
+}
+
 func mockLookupMX(domain string) ([]*net.MX, error) {
 	if domain == "error" {
 		return nil, fmt.Errorf("No MX records found")
@@ -104,10 +108,11 @@ func performTests(t *testing.T, tests []domainTestCase) {
 
 func performTestsWithCacheTimeout(t *testing.T, tests []domainTestCase, cacheExpiry time.Duration) {
 	c := Checker{
-		Timeout:       time.Second,
-		Cache:         MakeSimpleCache(cacheExpiry),
-		lookupMX:      mockLookupMX,
-		checkHostname: mockCheckHostname,
+		Timeout:             time.Second,
+		Cache:               MakeSimpleCache(cacheExpiry),
+		lookupMX:            mockLookupMX,
+		checkHostname:       mockCheckHostname,
+		checkMTASTSOverride: mockCheckMTASTS,
 	}
 	for _, test := range tests {
 		if test.expectedHostnames == nil {
