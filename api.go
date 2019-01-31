@@ -123,7 +123,6 @@ func defaultCheck(api API, domain string) (checker.DomainResult, error) {
 		Timeout: 3 * time.Second,
 	}
 	result := c.CheckDomain(domain, nil)
-	result.ExtraResults = make(map[string]*checker.Result)
 	policyResult := <-policyChan
 	result.ExtraResults["policylist"] = &policyResult
 	return result, nil

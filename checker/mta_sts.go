@@ -73,10 +73,10 @@ func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameRes
 	policyURL := fmt.Sprintf("https://mta-sts.%s/.well-known/mta-sts.txt", domain)
 	resp, err := client.Get(policyURL)
 	if err != nil {
-		return result.Failure("Couldn't find policy file: %v", err)
+		return result.Failure("Couldn't find policy file at %s", policyURL)
 	}
 	if resp.StatusCode != 200 {
-		return result.Failure("Couldn't get policy file: %s", resp.Status)
+		return result.Failure("Couldn't get policy file: %s returned %s", policyURL, resp.Status)
 	}
 	// Media type should be text/plain, ignoring other Content-Type parms.
 	// Format: Content-Type := type "/" subtype *[";" parameter]
