@@ -57,7 +57,7 @@ func (d DomainResult) Class() string {
 }
 
 func (d DomainResult) setStatus(status DomainStatus) DomainResult {
-	d.Status = DomainStatus(SetStatus(CheckStatus(d.Status), CheckStatus(status)))
+	d.Status = DomainStatus(SetStatus(Status(d.Status), Status(status)))
 	return d
 }
 

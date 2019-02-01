@@ -16,3 +16,13 @@ type Scan struct {
 	Timestamp time.Time            `json:"timestamp"` // Time at which this scan was conducted
 	Version   uint32               `json:"version"`   // Version counter
 }
+
+// CanAddToPolicyList returns true if the domain owner should be prompted to
+// add their domain to the STARTTLS Everywhere Policy List.
+func (s Scan) CanAddToPolicyList() bool {
+	if policyResult, ok := s.Data.ExtraResults[checker.PolicyList]; ok {
+		return s.Data.Status == checker.DomainSuccess &&
+			policyResult.Status == checker.Failure
+	}
+	return false
+}

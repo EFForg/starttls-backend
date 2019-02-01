@@ -28,11 +28,11 @@ func (h HostnameResult) checkSucceeded(checkName string) bool {
 }
 
 func (h HostnameResult) couldConnect() bool {
-	return h.checkSucceeded("connectivity")
+	return h.checkSucceeded(Connectivity)
 }
 
 func (h HostnameResult) couldSTARTTLS() bool {
-	return h.checkSucceeded("starttls")
+	return h.checkSucceeded(STARTTLS)
 }
 
 // Modelled after policyMatches in Appendix B of the MTA-STS RFC 8641.
@@ -95,7 +95,7 @@ func smtpDialWithTimeout(hostname string, timeout time.Duration) (*smtp.Client, 
 
 // Simply tries to StartTLS with the server.
 func checkStartTLS(client *smtp.Client) *Result {
-	result := MakeResult("starttls")
+	result := MakeResult(STARTTLS)
 	ok, _ := client.Extension("StartTLS")
 	if !ok {
 		return result.Failure("Server does not advertise support for STARTTLS.")
@@ -141,7 +141,7 @@ var certRoots *x509.CertPool
 // Checks that the certificate presented is valid for a particular hostname, unexpired,
 // and chains to a trusted root.
 func checkCert(client *smtp.Client, domain, hostname string) *Result {
-	result := MakeResult("certificate")
+	result := MakeResult(Certificate)
 	state, ok := client.TLSConnectionState()
 	if !ok {
 		return result.Error("TLS not initiated properly.")
@@ -188,7 +188,7 @@ func checkTLSCipher(hostname string, timeout time.Duration) *Result {
 }
 
 func checkTLSVersion(client *smtp.Client, hostname string, timeout time.Duration) *Result {
-	result := MakeResult("version")
+	result := MakeResult(Version)
 
 	// Check the TLS version of the existing connection.
 	tlsConnectionState, ok := client.TLSConnectionState()
@@ -235,7 +235,7 @@ func (c *Checker) CheckHostname(domain string, hostname string) HostnameResult {
 	}
 
 	// Connect to the SMTP server and use that connection to perform as many checks as possible.
-	connectivityResult := MakeResult("connectivity")
+	connectivityResult := MakeResult(Connectivity)
 	client, err := smtpDialWithTimeout(hostname, c.timeout())
 	if err != nil {
 		result.addCheck(connectivityResult.Error("Could not establish connection: %v", err))

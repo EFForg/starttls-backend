@@ -3,8 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -62,9 +64,10 @@ type EmailSender interface {
 
 // APIResponse wraps all the responses from this API.
 type APIResponse struct {
-	StatusCode int         `json:"status_code"`
-	Message    string      `json:"message"`
-	Response   interface{} `json:"response"`
+	StatusCode   int         `json:"status_code"`
+	Message      string      `json:"message"`
+	Response     interface{} `json:"response"`
+	TemplatePath string      `json:"-"`
 }
 
 type apiHandler func(r *http.Request) APIResponse
@@ -72,20 +75,21 @@ type apiHandler func(r *http.Request) APIResponse
 func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		response := api(r)
-		if response.StatusCode != http.StatusOK {
-			http.Error(w, response.Message, response.StatusCode)
-		}
 		if response.StatusCode == http.StatusInternalServerError {
 			packet := raven.NewPacket(response.Message, raven.NewHttp(r))
 			raven.Capture(packet, nil)
 		}
-		writeJSON(w, response)
+		if strings.Contains(r.Header.Get("accept"), "text/html") {
+			writeHTML(w, response)
+		} else {
+			writeJSON(w, response)
+		}
 	}
 }
 
 // Checks the policy status of this domain.
 func (api API) policyCheck(domain string) *checker.Result {
-	result := checker.Result{Name: "policylist"}
+	result := checker.Result{Name: checker.PolicyList}
 	if _, err := api.List.Get(domain); err == nil {
 		return result.Success()
 	}
@@ -152,16 +156,20 @@ func (api API) Scan(r *http.Request) APIResponse {
 		scan, err := api.Database.GetLatestScan(domain)
 		if err == nil && scan.Version == models.ScanVersion &&
 			time.Now().Before(scan.Timestamp.Add(cacheScanTime)) {
-			return APIResponse{StatusCode: http.StatusOK, Response: scan}
+			return APIResponse{
+				StatusCode:   http.StatusOK,
+				Response:     scan,
+				TemplatePath: "views/scan.html.tmpl",
+			}
 		}
 		// 1. Conduct scan via starttls-checker
-		rawScandata, err := api.CheckDomain(api, domain)
+		scanData, err := api.CheckDomain(api, domain)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
 		scan = models.Scan{
 			Domain:    domain,
-			Data:      rawScandata,
+			Data:      scanData,
 			Timestamp: time.Now(),
 			Version:   models.ScanVersion,
 		}
@@ -170,7 +178,11 @@ func (api API) Scan(r *http.Request) APIResponse {
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}
-		return APIResponse{StatusCode: http.StatusOK, Response: scan}
+		return APIResponse{
+			StatusCode:   http.StatusOK,
+			Response:     scan,
+			TemplatePath: "views/scan.html.tmpl",
+		}
 		// GET: Just fetch the most recent scan
 	} else if r.Method == http.MethodGet {
 		scan, err := api.Database.GetLatestScan(domain)
@@ -277,14 +289,23 @@ func (api API) Queue(r *http.Request) APIResponse {
 			return APIResponse{StatusCode: http.StatusInternalServerError,
 				Message: "Unable to send validation e-mail"}
 		}
-		return APIResponse{StatusCode: http.StatusOK, Response: domainData}
+		// domainData.State = Unvalidated
+		// or queued?
+		return APIResponse{
+			StatusCode: http.StatusOK,
+			Response:   fmt.Sprintf("Thank you for submitting your domain. Please check postmaster@%s to validate that you control the domain.", domain),
+		}
 		// GET: Retrieve domain status from queue
+		// JSON only
 	} else if r.Method == http.MethodGet {
 		status, err := api.Database.GetDomain(domain)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusNotFound, Message: err.Error()}
 		}
-		return APIResponse{StatusCode: http.StatusOK, Response: status}
+		return APIResponse{
+			StatusCode: http.StatusOK,
+			Response:   status,
+		}
 	} else {
 		return APIResponse{StatusCode: http.StatusMethodNotAllowed,
 			Message: "/api/queue only accepts POST and GET requests"}
@@ -351,13 +372,43 @@ func getParam(param string, r *http.Request) (string, error) {
 
 // Writes `v` as a JSON object to http.ResponseWriter `w`. If an error
 // occurs, writes `http.StatusInternalServerError` to `w`.
-func writeJSON(w http.ResponseWriter, v interface{}) {
+func writeJSON(w http.ResponseWriter, apiResponse APIResponse) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	b, err := json.MarshalIndent(v, "", "  ")
+	w.WriteHeader(apiResponse.StatusCode)
+	b, err := json.MarshalIndent(apiResponse, "", "  ")
 	if err != nil {
 		msg := fmt.Sprintf("Internal error: could not format JSON. (%s)\n", err)
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 	fmt.Fprintf(w, "%s\n", b)
+}
+
+func writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
+	// Add some additional useful fields for use in templates.
+	if apiResponse.TemplatePath == "" {
+		apiResponse.TemplatePath = "views/default.html.tmpl"
+	}
+	data := struct {
+		APIResponse
+		BaseURL    string
+		StatusText string
+	}{
+		APIResponse: apiResponse,
+		BaseURL:     os.Getenv("FRONTEND_WEBSITE_LINK"),
+		StatusText:  http.StatusText(apiResponse.StatusCode),
+	}
+	tmpl, err := template.ParseFiles(apiResponse.TemplatePath)
+	if err != nil {
+		log.Println(err)
+		raven.CaptureError(err, nil)
+		http.Error(w, "Internal error: could not parse template.", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(apiResponse.StatusCode)
+	err = tmpl.Execute(w, data)
+	if err != nil {
+		log.Println(err)
+		raven.CaptureError(err, nil)
+	}
 }

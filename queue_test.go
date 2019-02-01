@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/EFForg/starttls-backend/models"
@@ -21,6 +22,30 @@ func validQueueData(scan bool) url.Values {
 	data.Add("hostnames", ".example.com")
 	data.Add("hostnames", "mx.example.com")
 	return data
+}
+
+func TestQueueHTML(t *testing.T) {
+	defer teardown()
+
+	body, status := testHTMLPost("/api/queue", validQueueData(true), t)
+	if status != http.StatusOK {
+		t.Errorf("HTML POST to api/queue failed with error %d", status)
+	}
+	if !strings.Contains(string(body), "Thank you for submitting your domain") {
+		t.Errorf("Response should describe domain status, got %s", string(body))
+	}
+}
+
+func TestQueueErrorHTML(t *testing.T) {
+	defer teardown()
+
+	body, status := testHTMLPost("/api/queue", url.Values{}, t)
+	if status != http.StatusBadRequest {
+		t.Errorf("HTML POST status should be %d, got %d", http.StatusBadRequest, status)
+	}
+	if !strings.Contains(string(body), "Bad Request") {
+		t.Errorf("Response should contain failed status text, got %s", string(body))
+	}
 }
 
 func TestGetDomainHidesEmail(t *testing.T) {

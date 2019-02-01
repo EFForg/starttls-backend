@@ -1,0 +1,47 @@
+<html>
+  <body>
+    <h1>Scan results for {{ .Response.Domain }}</h1>
+    <em>You're viewing unstyled results. You can enable Javascript to view styled content.</em>
+
+    <h2>Summary</h2>
+    {{ if eq .Response.Data.Status 0 }}
+      <p>Congratulations, your domain passed all checks.</p>
+    {{ else if eq .Response.Data.Status 1 }}
+      <p>Your domain passed all checks with some warnings. See below for details.</p>
+    {{ else }}
+      <p>There were some problems with your domain. See below for details.</p>
+    {{ end }}
+
+    <p>{{ .Response.Data.Message }}</p>
+
+    <h2>STARTTLS Everywhere Policy List</h2>
+    {{ with index .Response.Data.ExtraResults "policylist" }}
+      {{ .Description }}: <strong>{{ .StatusText }}</strong>
+      <ul>
+        {{ range $_, $message := .Messages }}
+          <li>{{ $message }}</li>
+        {{ end }}
+      </ul>
+    {{ end }}
+    {{ if .Response.CanAddToPolicyList }}
+        <a href="{{ .BaseURL }}/add-domain">Add your email domain the STARTTLS Everywhere Policy List</a>
+    {{ end }}
+
+    <h2>Mailboxes</h2>
+    {{ range $hostname, $hostnameResult := .Response.Data.HostnameResults }}
+      <h3>{{ $hostname }}</h3>
+      <ul>
+        {{ range $_, $r := $hostnameResult.Checks }}
+          <li>
+            {{ $r.Description }}: <strong>{{ $r.StatusText }}</strong>
+            <ul>
+              {{ range $_, $message := $r.Messages }}
+                <li>{{ $message }}<li>
+              {{ end }}
+            </ul>
+          </li>
+        {{ end }}
+      </ul>
+    {{ end }}
+  </body>
+</html>

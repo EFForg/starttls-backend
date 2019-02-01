@@ -4,12 +4,79 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/models"
 )
+
+func TestScanHTMLRequest(t *testing.T) {
+	defer teardown()
+
+	// Request a scan!
+	data := url.Values{}
+	data.Set("domain", "eff.org")
+	body, status := testHTMLPost("/api/scan", data, t)
+	if status != http.StatusOK {
+		t.Errorf("HTML POST to api/scan failed with error %d", status)
+	}
+	if !strings.Contains(string(body), "eff.org") {
+		t.Errorf("Response should contain scan domain, got %s", string(body))
+	}
+}
+
+func TestScanWriteHTML(t *testing.T) {
+	scan := models.Scan{
+		Domain: "example.com",
+		Data: checker.DomainResult{
+			Domain: "example.com",
+			Status: checker.DomainSuccess,
+			HostnameResults: map[string]checker.HostnameResult{
+				"example.com": checker.HostnameResult{
+					Domain:   "example.com",
+					Hostname: "mx.example.com",
+					Result: &checker.Result{
+						Checks: map[string]*checker.Result{
+							checker.Connectivity: checker.MakeResult(checker.Connectivity),
+							checker.STARTTLS:     checker.MakeResult(checker.STARTTLS),
+							checker.Certificate:  checker.MakeResult(checker.Certificate),
+							checker.Version:      checker.MakeResult(checker.Version),
+						},
+					},
+				},
+			},
+			PreferredHostnames: []string{"mx.example.com"},
+			ExtraResults: map[string]*checker.Result{
+				checker.PolicyList: checker.MakeResult(checker.PolicyList),
+			},
+		},
+		Timestamp: time.Now(),
+		Version:   1,
+	}
+	response := APIResponse{
+		StatusCode:   http.StatusOK,
+		Response:     scan,
+		TemplatePath: "views/scan.html.tmpl",
+	}
+
+	w := httptest.NewRecorder()
+	writeHTML(w, response)
+	resp := w.Result()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.ToLower(string(body)), "</html") {
+		t.Errorf("Failed to write full HTML, got %s", string(body))
+	}
+	if strings.Contains(strings.ToLower(string(body)), "Add your email domain") {
+		t.Errorf("Should be prompted to join policy list, got %s", string(body))
+	}
+}
 
 // Tests basic scanning workflow.
 // Requests a scan for a particular domain, and
