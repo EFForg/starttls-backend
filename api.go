@@ -60,6 +60,7 @@ type EmailSender interface {
 	// SendValidation sends a validation e-mail for a particular domain,
 	// with a particular validation token.
 	SendValidation(*models.Domain, string) error
+	SendSubscriptionValidation(string, string, string) error
 }
 
 // APIResponse wraps all the responses from this API.
@@ -207,7 +208,7 @@ func getDomainParams(r *http.Request, domain string) (models.Domain, error) {
 	if err == nil {
 		domainData.Email = email
 	} else {
-		domainData.Email = validationAddress(&domainData)
+		domainData.Email = validationAddress(domainData.Name)
 	}
 
 	for _, hostname := range r.PostForm["hostnames"] {

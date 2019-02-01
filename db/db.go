@@ -37,6 +37,14 @@ type Database interface {
 	GetHostnameScan(string) (checker.HostnameResult, error)
 	// Enters a hostname scan.
 	PutHostnameScan(string, checker.HostnameResult) error
+	// Creates a subscription object and returns a randomly generated token
+	PutSubscription(string, string) (string, error)
+	// Remove subscription with a particular (domain, email) pair
+	RemoveSubscription(string, string) error
+	// Confirms a subscription token and returns the associated model object
+	ConfirmSubscription(string) (models.Subscription, error)
+	// Get all security subscriptions
+	GetSubscriptions() ([]models.Subscription, error)
 	ClearTables() error
 }
 

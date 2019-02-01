@@ -29,6 +29,18 @@ type emailConfig struct {
 	database           db.Database
 }
 
+const subValidationEmailSubject = "Email validation for STARTTLS security subscriptions"
+const subValidationEmailTemplate = `
+Hey there!
+
+It looks like you requested *%[1]s* to be added to our email security subscription service, where we'll email you human-readable reports if we notice anything weird about your mailserver configuration.
+
+As you requested, we'll send future reports to your contact email at %[2]s. If this was you, visit
+
+ %[4]s/subscribe/confirm?token=%[3]s
+
+to confirm! If this wasn't you, please let us know at starttls-policy@eff.org.
+`
 const validationEmailSubject = "Email validation for STARTTLS Policy List submission"
 const validationEmailTemplate = `
 Hey there!
@@ -88,8 +100,8 @@ func makeEmailConfigFromEnv(database db.Database) (emailConfig, error) {
 	return c, nil
 }
 
-func validationAddress(domain *models.Domain) string {
-	return fmt.Sprintf("postmaster@%s", domain.Name)
+func validationAddress(domain string) string {
+	return fmt.Sprintf("postmaster@%s", domain)
 }
 
 func validationEmailText(domain string, contactEmail string, hostnames []string, token string, website string) string {
@@ -102,7 +114,14 @@ func validationEmailText(domain string, contactEmail string, hostnames []string,
 func (c emailConfig) SendValidation(domain *models.Domain, token string) error {
 	emailContent := validationEmailText(domain.Name, domain.Email, domain.MXs, token,
 		c.website)
-	return c.sendEmail(validationEmailSubject, emailContent, validationAddress(domain))
+	return c.sendEmail(validationEmailSubject, emailContent, validationAddress(domain.Name))
+}
+
+// SendSubscriptionValidation sends a validation e-mail for the domain's postmaster account.
+// The validation link is generated using a token.
+func (c emailConfig) SendSubscriptionValidation(domain string, email string, token string) error {
+	emailContent := fmt.Sprintf(subValidationEmailTemplate, domain, email, token, c.website)
+	return c.sendEmail(subValidationEmailSubject, emailContent, validationAddress(domain))
 }
 
 func (c emailConfig) sendEmail(subject string, body string, address string) error {

@@ -46,6 +46,15 @@ CREATE TABLE IF NOT EXISTS blacklisted_emails
     timestamp   TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS subscriptions
+(
+    domain       TEXT NOT NULL,
+    email        TEXT NOT NULL,
+    token        VARCHAR(255) NOT NULL,
+    confirmed    BOOLEAN DEFAULT FALSE,
+    timestamp    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Schema change: add "last_updated" timestamp column if it doesn't exist.
 
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP;

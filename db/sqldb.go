@@ -299,3 +299,26 @@ func (db *SQLDatabase) PutHostnameScan(hostname string, result checker.HostnameR
                                 VALUES($1, $2, $3)`, hostname, result.Status, string(data))
 	return err
 }
+
+// PutSubscription creates a subscription in the database and returns a randomly generated
+// token for the email confirmation.
+// If this email, domain pair already has a confirmed subscription, return an error.
+func (db *SQLDatabase) PutSubscription(domain string, email string) (string, error) {
+	return "", nil
+}
+
+// RemoveSubscription removes a subscription with a particular (domain, email) pair.
+func (db *SQLDatabase) RemoveSubscription(domain string, email string) error {
+	return nil
+}
+
+// ConfirmSubscription confirms a subscription token. If the token has expired or
+// we can't find the token, returns an error.
+func (db *SQLDatabase) ConfirmSubscription(token string) (models.Subscription, error) {
+	return models.Subscription{}, nil
+}
+
+// GetSubscriptions retrieves all confirmed subscriptions.
+func (db *SQLDatabase) GetSubscriptions() ([]models.Subscription, error) {
+	return []models.Subscription{}, nil
+}

@@ -29,6 +29,10 @@ func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
 	mux.HandleFunc("/api/scan", apiWrapper(api.Scan))
 	mux.Handle("/api/queue",
 		throttleHandler(time.Hour, 20, http.HandlerFunc(apiWrapper(api.Queue))))
+	mux.Handle("/api/subscribe",
+		throttleHandler(time.Hour, 20, http.HandlerFunc(apiWrapper(api.Subscribe))))
+	mux.HandleFunc("/api/subscribe/confirm", apiWrapper(api.SubscribeConfirm))
+	mux.HandleFunc("/api/subscribe/remove", apiWrapper(api.SubscribeRemove))
 	mux.HandleFunc("/api/validate", apiWrapper(api.Validate))
 	mux.HandleFunc("/api/ping", pingHandler)
 
