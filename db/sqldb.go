@@ -304,18 +304,30 @@ func (db *SQLDatabase) PutHostnameScan(hostname string, result checker.HostnameR
 // token for the email confirmation.
 // If this email, domain pair already has a confirmed subscription, return an error.
 func (db *SQLDatabase) PutSubscription(domain string, email string) (string, error) {
-	return "", nil
+	var count int
+	row := db.conn.QueryRow("SELECT COUNT(*) FROM subscriptions where domain=$1 and email=$2", domain, email)
+	err := row.Scan(&count)
+	if count > 0 {
+		return "", err
+	}
+	token := randToken()
+	_, err = db.conn.Exec(`INSERT INTO subscriptions(domain, email, token)
+                                VALUES($1, $2, $3)`, domain, email, token)
+	return token, err
 }
 
 // RemoveSubscription removes a subscription with a particular (domain, email) pair.
 func (db *SQLDatabase) RemoveSubscription(domain string, email string) error {
-	return nil
+	_, err := db.conn.Exec(`DELETE FROM subscriptions WHERE domain=$1 AND email=$2`, domain, email)
+	return err
 }
 
 // ConfirmSubscription confirms a subscription token. If the token has expired or
 // we can't find the token, returns an error.
 func (db *SQLDatabase) ConfirmSubscription(token string) (models.Subscription, error) {
-	return models.Subscription{}, nil
+	sub := models.Subscription{}
+	err := db.conn.QueryRow("UPDATE subscriptions SET confirmed=TRUE where token=$1 AND confirmed=FALSE RETURNING domain, email", token).Scan(&sub.Domain, &sub.Email)
+	return sub, err
 }
 
 // GetSubscriptions retrieves all confirmed subscriptions.
