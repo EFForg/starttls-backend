@@ -1,6 +1,7 @@
 package checker
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -9,6 +10,34 @@ import (
 	"strconv"
 	"strings"
 )
+
+// HostnameResult wraps the results of a security check against a particular hostname.
+type MTASTSResult struct {
+	*Result
+	Policy string `json:"policy"`
+	Mode   string `json:"mode"`
+}
+
+// MakeMTASTSResult constructs a base result object and returns its pointer.
+func MakeMTASTSResult(name string) *MTASTSResult {
+	return &MTASTSResult{
+		Result: MakeResult(name),
+	}
+}
+
+func (m MTASTSResult) MarshalJSON() ([]byte, error) {
+	// type FakeMTASTSResult MTASTSResult
+	type FakeResult Result
+	return json.Marshal(struct {
+		FakeResult
+		Policy string `json:"policy"`
+		Mode   string `json:"mode"`
+	}{
+		FakeResult: FakeResult(*m.Result),
+		Policy:     m.Policy,
+		Mode:       m.Mode,
+	})
+}
 
 func filterByPrefix(records []string, prefix string) []string {
 	filtered := []string{}
@@ -62,7 +91,7 @@ func validateMTASTSRecord(records []string, result *Result) *Result {
 	return result.Success()
 }
 
-func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameResult) *Result {
+func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameResult) (*Result, string, string) {
 	result := MakeResult(MTASTSPolicyFile)
 	client := &http.Client{
 		// Don't follow redirects.
@@ -73,30 +102,31 @@ func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameRes
 	policyURL := fmt.Sprintf("https://mta-sts.%s/.well-known/mta-sts.txt", domain)
 	resp, err := client.Get(policyURL)
 	if err != nil {
-		return result.Failure("Couldn't find policy file at %s", policyURL)
+		return result.Failure("Couldn't find policy file at %s", policyURL), "", ""
 	}
 	if resp.StatusCode != 200 {
-		return result.Failure("Couldn't get policy file: %s returned %s", policyURL, resp.Status)
+		return result.Failure("Couldn't get policy file: %s returned %s", policyURL, resp.Status), "", ""
 	}
 	// Media type should be text/plain, ignoring other Content-Type parms.
 	// Format: Content-Type := type "/" subtype *[";" parameter]
 	for _, contentType := range resp.Header["Content-Type"] {
 		contentType := strings.ToLower(contentType)
 		if strings.HasPrefix(contentType, "text/plain") {
-			return result.Warning("Media type must be text/plain")
+			return result.Warning("Media type must be text/plain"), "", ""
 		}
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return result.Error("Couldn't read policy file: %v", err)
+		return result.Error("Couldn't read policy file: %v", err), "", ""
 	}
 
-	result, policy := validateMTASTSPolicyFile(string(body), result)
-	return validateMTASTSMXs(strings.Split(policy["mx"], " "), hostnameResults, result)
+	policy := validateMTASTSPolicyFile(string(body), result)
+	validateMTASTSMXs(strings.Split(policy["mx"], " "), hostnameResults, result)
+	return result, string(body), policy["mode"]
 }
 
-func validateMTASTSPolicyFile(body string, result *Result) (*Result, map[string]string) {
+func validateMTASTSPolicyFile(body string, result *Result) map[string]string {
 	policy := getKeyValuePairs(body, "\n", ":")
 
 	if policy["version"] != "STSv1" {
@@ -117,11 +147,11 @@ func validateMTASTSPolicyFile(body string, result *Result) (*Result, map[string]
 		result.Failure("max_age must be a positive integer <= 31557600")
 	}
 
-	return result.Success(), policy
+	return policy
 }
 
 func validateMTASTSMXs(policyFileMXs []string, dnsMXs map[string]HostnameResult,
-	result *Result) *Result {
+	result *Result) {
 	for dnsMX, dnsMXResult := range dnsMXs {
 		if !dnsMXResult.couldConnect() {
 			// Ignore hostnames we couldn't connect to, they may be spam traps.
@@ -135,12 +165,14 @@ func validateMTASTSMXs(policyFileMXs []string, dnsMXs map[string]HostnameResult,
 				dnsMX)
 		}
 	}
-	return result
 }
 
-func (c Checker) checkMTASTS(domain string, hostnameResults map[string]HostnameResult) *Result {
-	result := MakeResult(MTASTS)
+func (c Checker) checkMTASTS(domain string, hostnameResults map[string]HostnameResult) *MTASTSResult {
+	result := MakeMTASTSResult(MTASTS)
 	result.addCheck(checkMTASTSRecord(domain))
-	result.addCheck(checkMTASTSPolicyFile(domain, hostnameResults))
+	policyResult, policy, mode := checkMTASTSPolicyFile(domain, hostnameResults)
+	result.addCheck(policyResult)
+	result.Policy = policy
+	result.Mode = mode
 	return result
 }
