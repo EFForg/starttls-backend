@@ -18,21 +18,12 @@ type HostnameResult struct {
 	Timestamp time.Time `json:"-"`
 }
 
-// Returns result of specified check.
-// If called before that check occurs, returns false.
-func (h HostnameResult) checkSucceeded(checkName string) bool {
-	if result, ok := h.Checks[checkName]; ok {
-		return result.Status == Success
-	}
-	return false
-}
-
 func (h HostnameResult) couldConnect() bool {
-	return h.checkSucceeded(Connectivity)
+	return h.subcheckSucceeded(Connectivity)
 }
 
 func (h HostnameResult) couldSTARTTLS() bool {
-	return h.checkSucceeded(STARTTLS)
+	return h.subcheckSucceeded(STARTTLS)
 }
 
 // Modelled after policyMatches in Appendix B of the MTA-STS RFC 8641.
