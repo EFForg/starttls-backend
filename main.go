@@ -91,6 +91,28 @@ func loadDontScan() map[string]bool {
 	return domainset
 }
 
+type subscriptionStore struct {
+	database db.Database
+}
+
+func (s *subscriptionStore) DomainsToValidate() ([]string, error) {
+	subs, err := s.database.GetSubscriptions()
+	domains := make([]string, 0)
+	if err != nil {
+		return domains, err
+	}
+	for _, sub := range subs {
+		if sub.Confirmed {
+			domains = append(domains, sub.Domain)
+		}
+	}
+	return domains, nil
+}
+
+func (s *subscriptionStore) HostnamesForDomain(domain string) ([]string, error) {
+	return []string{}, nil
+}
+
 func main() {
 	raven.SetDSN(os.Getenv("SENTRY_URL"))
 
@@ -126,5 +148,11 @@ func main() {
 		validator := validator.Validator{Name: "Queued Domains", Store: db}
 		go validator.Start()
 	}
+	if os.Getenv("VALIDATE_SUBSCRIBED") == "1" {
+		log.Println("[Starting subscription validator]")
+		validator := validator.Validator{Name: "Subscriptions", Store: &subscriptionStore{database: db}}
+		go validator.Start()
+	}
+
 	ServePublicEndpoints(&api, &cfg)
 }
