@@ -14,7 +14,7 @@ import (
 // MTASTSResult represents the result of a check for inbound MTA-STS support.
 type MTASTSResult struct {
 	*Result
-	Policy string `json:"policy"`
+	Policy string `json:"policy"` // Text of MTA-STS policy file
 	Mode   string `json:"mode"`
 }
 
