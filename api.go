@@ -45,6 +45,7 @@ type API struct {
 	List        PolicyList
 	DontScan    map[string]bool
 	Emailer     EmailSender
+	Templates   map[string]*template.Template
 }
 
 // PolicyList interface wraps a policy-list like structure.
@@ -68,22 +69,22 @@ type APIResponse struct {
 	StatusCode   int         `json:"status_code"`
 	Message      string      `json:"message"`
 	Response     interface{} `json:"response"`
-	TemplatePath string      `json:"-"`
+	templateName string      `json:"-"`
 }
 
 type apiHandler func(r *http.Request) APIResponse
 
-func apiWrapper(api apiHandler) func(w http.ResponseWriter, r *http.Request) {
+func (api *API) wrapper(handler apiHandler) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		response := api(r)
+		response := handler(r)
 		if response.StatusCode == http.StatusInternalServerError {
 			packet := raven.NewPacket(response.Message, raven.NewHttp(r))
 			raven.Capture(packet, nil)
 		}
 		if strings.Contains(r.Header.Get("accept"), "text/html") {
-			writeHTML(w, response)
+			api.writeHTML(w, response)
 		} else {
-			writeJSON(w, response)
+			api.writeJSON(w, response)
 		}
 	}
 }
@@ -160,7 +161,7 @@ func (api API) Scan(r *http.Request) APIResponse {
 			return APIResponse{
 				StatusCode:   http.StatusOK,
 				Response:     scan,
-				TemplatePath: "views/scan.html.tmpl",
+				templateName: "scan",
 			}
 		}
 		// 1. Conduct scan via starttls-checker
@@ -182,7 +183,7 @@ func (api API) Scan(r *http.Request) APIResponse {
 		return APIResponse{
 			StatusCode:   http.StatusOK,
 			Response:     scan,
-			TemplatePath: "views/scan.html.tmpl",
+			templateName: "scan",
 		}
 		// GET: Just fetch the most recent scan
 	} else if r.Method == http.MethodGet {
@@ -373,7 +374,7 @@ func getParam(param string, r *http.Request) (string, error) {
 
 // Writes `v` as a JSON object to http.ResponseWriter `w`. If an error
 // occurs, writes `http.StatusInternalServerError` to `w`.
-func writeJSON(w http.ResponseWriter, apiResponse APIResponse) {
+func (api *API) writeJSON(w http.ResponseWriter, apiResponse APIResponse) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(apiResponse.StatusCode)
 	b, err := json.MarshalIndent(apiResponse, "", "  ")
@@ -385,11 +386,22 @@ func writeJSON(w http.ResponseWriter, apiResponse APIResponse) {
 	fmt.Fprintf(w, "%s\n", b)
 }
 
-func writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
-	// Add some additional useful fields for use in templates.
-	if apiResponse.TemplatePath == "" {
-		apiResponse.TemplatePath = "views/default.html.tmpl"
+func (api *API) parseTemplates() {
+	names := []string{"default", "scan"}
+	api.Templates = make(map[string]*template.Template)
+	for _, name := range names {
+		path := fmt.Sprintf("views/%s.html.tmpl", name)
+		tmpl, err := template.ParseFiles(path)
+		if err != nil {
+			raven.CaptureError(err, nil)
+			log.Fatal(err)
+		}
+		api.Templates[name] = tmpl
 	}
+}
+
+func (api *API) writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
+	// Add some additional useful fields for use in templates.
 	data := struct {
 		APIResponse
 		BaseURL    string
@@ -399,15 +411,18 @@ func writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
 		BaseURL:     os.Getenv("FRONTEND_WEBSITE_LINK"),
 		StatusText:  http.StatusText(apiResponse.StatusCode),
 	}
-	tmpl, err := template.ParseFiles(apiResponse.TemplatePath)
-	if err != nil {
-		log.Println(err)
+	if apiResponse.templateName == "" {
+		apiResponse.templateName = "default"
+	}
+	tmpl, ok := api.Templates[apiResponse.templateName]
+	if !ok {
+		err := fmt.Errorf("Template not found: %s", apiResponse.templateName)
 		raven.CaptureError(err, nil)
-		http.Error(w, "Internal error: could not parse template.", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(apiResponse.StatusCode)
-	err = tmpl.Execute(w, data)
+	err := tmpl.Execute(w, data)
 	if err != nil {
 		log.Println(err)
 		raven.CaptureError(err, nil)

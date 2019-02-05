@@ -26,14 +26,14 @@ func pingHandler(w http.ResponseWriter, r *http.Request) {
 func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
 	mux.HandleFunc("/sns", handleSESNotification(api.Database))
 
-	mux.HandleFunc("/api/scan", apiWrapper(api.Scan))
+	mux.HandleFunc("/api/scan", api.wrapper(api.Scan))
 	mux.Handle("/api/queue",
-		throttleHandler(time.Hour, 20, http.HandlerFunc(apiWrapper(api.Queue))))
+		throttleHandler(time.Hour, 20, http.HandlerFunc(api.wrapper(api.Queue))))
 	mux.Handle("/api/subscribe",
-		throttleHandler(time.Hour, 20, http.HandlerFunc(apiWrapper(api.Subscribe))))
-	mux.HandleFunc("/api/subscribe/confirm", apiWrapper(api.SubscribeConfirm))
-	mux.HandleFunc("/api/subscribe/remove", apiWrapper(api.SubscribeRemove))
-	mux.HandleFunc("/api/validate", apiWrapper(api.Validate))
+		throttleHandler(time.Hour, 20, http.HandlerFunc(api.wrapper(api.Subscribe))))
+	mux.HandleFunc("/api/subscribe/confirm", api.wrapper(api.SubscribeConfirm))
+	mux.HandleFunc("/api/subscribe/remove", api.wrapper(api.SubscribeRemove))
+	mux.HandleFunc("/api/validate", api.wrapper(api.Validate))
 	mux.HandleFunc("/api/ping", pingHandler)
 
 	return middleware(mux)
@@ -115,6 +115,7 @@ func main() {
 		DontScan:    loadDontScan(),
 		Emailer:     emailConfig,
 	}
+	api.parseTemplates()
 	if os.Getenv("VALIDATE_LIST") == "1" {
 		log.Println("[Starting list validator]")
 		go validator.ValidateRegularly(list, 24*time.Hour)

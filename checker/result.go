@@ -146,8 +146,8 @@ func (r Result) MarshalJSON() ([]byte, error) {
 		StatusText  string `json:"status_text,omitempty"`
 		Description string `json:"description,omitempty"`
 	}{
+		Description: r.Description(),
 		FakeResult:  FakeResult(r),
 		StatusText:  r.StatusText(),
-		Description: r.Description(),
 	})
 }

@@ -1,9 +1,22 @@
 package checker
 
 import (
+	"bytes"
+	"encoding/json"
 	"reflect"
 	"testing"
 )
+
+func TestMarshalMTASTSJSON(t *testing.T) {
+	r := MakeMTASTSResult(MTASTS)
+	m, err := json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(m, []byte("\"policy\":\"")) {
+		t.Errorf("Marshalled result should contain policy, got %s", string(m))
+	}
+}
 
 func TestGetKeyValuePairs(t *testing.T) {
 	tests := []struct {
@@ -67,7 +80,8 @@ func TestValidateMTASTSPolicyFile(t *testing.T) {
 		{"version: STSv1\nmode: start_turtles\nmax_age:100000\nmx: foo.example.com\nmx: bar.example.com\n", Failure},
 	}
 	for _, test := range tests {
-		result, _ := validateMTASTSPolicyFile(test.txt, &Result{})
+		result := &Result{}
+		validateMTASTSPolicyFile(test.txt, result)
 		if result.Status != test.status {
 			t.Errorf("validateMTASTSPolicyFile(%v) = %v", test.txt, result)
 		}
@@ -125,7 +139,8 @@ func TestValidateMTASTSMXs(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		result := validateMTASTSMXs(test.policyFileMXs, test.dnsMXs, &Result{})
+		result := &Result{}
+		validateMTASTSMXs(test.policyFileMXs, test.dnsMXs, result)
 		if result.Status != test.status {
 			t.Errorf("validateMTASTSMXs(%v, %v, %v) = %v", test.policyFileMXs, test.dnsMXs, Result{}, result)
 		}
