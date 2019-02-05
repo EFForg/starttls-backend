@@ -9,12 +9,12 @@ import (
 
 func TestMarshalMTASTSJSON(t *testing.T) {
 	r := MakeMTASTSResult(MTASTS)
-	_, err := json.Marshal(r)
+	m, err := json.Marshal(r)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(marshalled, []byte("\"policy\":\"")) {
-		t.Errorf("Marshalled result should contain policy, got %s", string(marshalled))
+	if !bytes.Contains(m, []byte("\"policy\":\"")) {
+		t.Errorf("Marshalled result should contain policy, got %s", string(m))
 	}
 }
 

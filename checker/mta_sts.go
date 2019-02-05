@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// HostnameResult wraps the results of a security check against a particular hostname.
+// MTASTSResult represents the result of a check for inbound MTA-STS support.
 type MTASTSResult struct {
 	*Result
 	Policy string `json:"policy"`
@@ -25,6 +25,8 @@ func MakeMTASTSResult(name string) *MTASTSResult {
 	}
 }
 
+// MarshalJSON prevents MTASTSResult from inheriting the version of MarshalJSON
+// implemented by Result.
 func (m MTASTSResult) MarshalJSON() ([]byte, error) {
 	// type FakeMTASTSResult MTASTSResult
 	type FakeResult Result
