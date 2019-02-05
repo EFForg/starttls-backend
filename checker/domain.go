@@ -46,6 +46,8 @@ type DomainResult struct {
 	PreferredHostnames []string `json:"preferred_hostnames"`
 	// Expected MX hostnames supplied by the caller of CheckDomain.
 	MxHostnames []string `json:"mx_hostnames,omitempty"`
+	// Result of MTA-STS checks
+	MTASTSResult *MTASTSResult `json:"mta_sts"`
 	// Extra global results
 	ExtraResults map[string]*Result `json:"extra_results,omitempty"`
 }
@@ -148,7 +150,7 @@ func (c *Checker) CheckDomain(domain string, expectedHostnames []string) DomainR
 		}
 		result = result.setStatus(DomainStatus(hostnameResult.Status))
 	}
-	result.ExtraResults["mta-sts"] = c.checkMTASTS(domain, result.HostnameResults)
+	result.MTASTSResult = c.checkMTASTS(domain, result.HostnameResults)
 	// result.setStatus(DomainStatus(result.ExtraResults["mta-sts"].Status))
 	return result
 }
