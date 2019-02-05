@@ -238,6 +238,7 @@ func (db SQLDatabase) ClearTables() error {
 		fmt.Sprintf("DELETE FROM %s", db.cfg.DbTokenTable),
 		fmt.Sprintf("DELETE FROM %s", "hostname_scans"),
 		fmt.Sprintf("DELETE FROM %s", "blacklisted_emails"),
+		fmt.Sprintf("DELETE FROM %s", "subscriptions"),
 		fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1", db.cfg.DbScanTable),
 	})
 }
@@ -304,15 +305,19 @@ func (db *SQLDatabase) PutHostnameScan(hostname string, result checker.HostnameR
 // token for the email confirmation.
 // If this email, domain pair already has a confirmed subscription, return an error.
 func (db *SQLDatabase) PutSubscription(domain string, email string) (string, error) {
-	var count int
-	row := db.conn.QueryRow("SELECT COUNT(*) FROM subscriptions where domain=$1 and email=$2", domain, email)
-	err := row.Scan(&count)
-	if count > 0 {
-		return "", err
+	var confirmed bool
+	err := db.conn.QueryRow("SELECT confirmed FROM subscriptions where domain=$1 AND email=$2", domain, email).Scan(&confirmed)
+	if err == nil && confirmed {
+		return "", fmt.Errorf("domain %s and email %s already have a confirmed subscription", domain, email)
 	}
 	token := randToken()
-	_, err = db.conn.Exec(`INSERT INTO subscriptions(domain, email, token)
+	if err == nil && !confirmed {
+		_, err = db.conn.Exec(`UPDATE subscriptions SET token=$1 WHERE domain=$2 AND email=$3`,
+			token, domain, email)
+	} else {
+		_, err = db.conn.Exec(`INSERT INTO subscriptions(domain, email, token)
                                 VALUES($1, $2, $3)`, domain, email, token)
+	}
 	return token, err
 }
 
@@ -330,7 +335,21 @@ func (db *SQLDatabase) ConfirmSubscription(token string) (models.Subscription, e
 	return sub, err
 }
 
-// GetSubscriptions retrieves all confirmed subscriptions.
+// GetSubscriptions retrieves all subscriptions.
 func (db *SQLDatabase) GetSubscriptions() ([]models.Subscription, error) {
-	return []models.Subscription{}, nil
+	rows, err := db.conn.Query(
+		"SELECT domain, email, token, confirmed FROM subscriptions")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	subs := []models.Subscription{}
+	for rows.Next() {
+		var sub models.Subscription
+		if err := rows.Scan(&sub.Domain, &sub.Email, &sub.Token, &sub.Confirmed); err != nil {
+			return nil, err
+		}
+		subs = append(subs, sub)
+	}
+	return subs, nil
 }

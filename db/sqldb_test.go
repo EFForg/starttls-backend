@@ -335,3 +335,55 @@ func TestGetHostnameScan(t *testing.T) {
 		t.Errorf("Expected hostname scan to return correct data")
 	}
 }
+
+func TestConfirmSubscriptions(t *testing.T) {
+	database.ClearTables()
+	token, err := database.PutSubscription("abc.com", "hello@abc.com")
+	if err != nil {
+		t.Fatalf("Put subscription failed: %v", err)
+	}
+	sub, err := database.ConfirmSubscription(token)
+	if err != nil {
+		t.Fatalf("Confirm subscription failed: %v ", err)
+	}
+	if sub.Domain != "abc.com" || sub.Email != "hello@abc.com" {
+		t.Errorf("Expected subscription info to be abc.com and hello@abc.com, got %v", sub)
+	}
+}
+
+func TestPutConfirmedSubscription(t *testing.T) {
+	database.ClearTables()
+	token, _ := database.PutSubscription("abc.com", "hello@abc.com")
+	database.ConfirmSubscription(token)
+	token, err := database.PutSubscription("abc.com", "hello@abc.com")
+	if err == nil {
+		t.Errorf("Put subscription should have failed")
+	}
+}
+
+func TestPutUnconfirmedSubscription(t *testing.T) {
+	database.ClearTables()
+	database.PutSubscription("abc.com", "hello@abc.com")
+	_, err := database.PutSubscription("abc.com", "hello@abc.com")
+	if err != nil {
+		t.Fatalf("Put subscription failed when overwriting unconfirmed subscription: %v", err)
+	}
+	subs, _ := database.GetSubscriptions()
+	if len(subs) > 1 {
+		t.Errorf("Put subscription didn't update existing subscription")
+	}
+}
+
+func TestRemoveSubscriptions(t *testing.T) {
+	database.ClearTables()
+	token, _ := database.PutSubscription("abc.com", "hello@abc.com")
+	database.ConfirmSubscription(token)
+	err := database.RemoveSubscription("abc.com", "hello@abc.com")
+	if err != nil {
+		t.Fatalf("Remove subscription failed: %v", err)
+	}
+	subs, _ := database.GetSubscriptions()
+	if len(subs) != 0 {
+		t.Errorf("Subscription wasn't removed properly")
+	}
+}
