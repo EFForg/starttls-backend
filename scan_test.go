@@ -60,11 +60,11 @@ func TestScanWriteHTML(t *testing.T) {
 	response := APIResponse{
 		StatusCode:   http.StatusOK,
 		Response:     scan,
-		TemplatePath: "views/scan.html.tmpl",
+		templateName: "scan",
 	}
 
 	w := httptest.NewRecorder()
-	writeHTML(w, response)
+	api.writeHTML(w, response)
 	resp := w.Result()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
