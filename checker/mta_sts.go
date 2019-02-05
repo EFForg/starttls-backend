@@ -72,7 +72,7 @@ func checkMTASTSRecord(domain string) *Result {
 	result := MakeResult(MTASTSText)
 	records, err := net.LookupTXT(fmt.Sprintf("_mta-sts.%s", domain))
 	if err != nil {
-		return result.Failure("Couldn't find MTA-STS TXT record: %v", err)
+		return result.Failure("Couldn't find an MTA-STS TXT record: %v", err)
 	}
 	return validateMTASTSRecord(records, result)
 }
@@ -80,13 +80,13 @@ func checkMTASTSRecord(domain string) *Result {
 func validateMTASTSRecord(records []string, result *Result) *Result {
 	records = filterByPrefix(records, "v=STSv1")
 	if len(records) != 1 {
-		return result.Failure("exactly 1 MTA-STS TXT record required, found %d", len(records))
+		return result.Failure("Exactly 1 MTA-STS TXT record required, found %d", len(records))
 	}
 	record := getKeyValuePairs(records[0], ";", "=")
 
 	idPattern := regexp.MustCompile("^[a-zA-Z0-9]+$")
 	if !idPattern.MatchString(record["id"]) {
-		return result.Failure("invalid id %s", record["id"])
+		return result.Failure("Invalid id %s", record["id"])
 	}
 	return result.Success()
 }
