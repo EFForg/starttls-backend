@@ -118,11 +118,13 @@ func main() {
 	api.parseTemplates()
 	if os.Getenv("VALIDATE_LIST") == "1" {
 		log.Println("[Starting list validator]")
-		go validator.ValidateRegularly(list, 24*time.Hour)
+		validator := validator.Validator{Name: "Policy List", Store: list}
+		go validator.Start()
 	}
 	if os.Getenv("VALIDATE_QUEUED") == "1" {
 		log.Println("[Starting queued validator]")
-		go validator.ValidateRegularly(db, 24*time.Hour)
+		validator := validator.Validator{Name: "Queued Domains", Store: db}
+		go validator.Start()
 	}
 	ServePublicEndpoints(&api, &cfg)
 }

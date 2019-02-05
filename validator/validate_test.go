@@ -12,10 +12,6 @@ type mockDomainPolicyStore struct {
 	hostnames map[string][]string
 }
 
-func (m mockDomainPolicyStore) GetName() string {
-	return "mock"
-}
-
 func (m mockDomainPolicyStore) DomainsToValidate() ([]string, error) {
 	domains := []string{}
 	for domain := range m.hostnames {
@@ -28,15 +24,21 @@ func (m mockDomainPolicyStore) HostnamesForDomain(domain string) ([]string, erro
 	return m.hostnames[domain], nil
 }
 
+func mockValidate(domainMap map[string][]string, check performCheckFunc, report reportFailureFunc) {
+	mockStore := mockDomainPolicyStore{hostnames: domainMap}
+	validator := Validator{
+		Name: "mock", Interval: 100 * time.Millisecond, Store: mockStore,
+		checkPerformer: check, FailureReporter: report}
+	validator.Start()
+}
+
 func TestRegularValidationValidates(t *testing.T) {
 	called := make(chan bool)
 	fakeChecker := func(domain string, hostnames []string) checker.DomainResult {
 		called <- true
 		return checker.DomainResult{}
 	}
-	mock := mockDomainPolicyStore{
-		hostnames: map[string][]string{"a": []string{"hostname"}}}
-	go validateRegularly(mock, 100*time.Millisecond, fakeChecker, nil)
+	go mockValidate(map[string][]string{"a": []string{"hostname"}}, fakeChecker, nil)
 
 	select {
 	case <-called:
@@ -57,12 +59,10 @@ func TestRegularValidationReportsErrors(t *testing.T) {
 	fakeReporter := func(name string, domain string, result checker.DomainResult) {
 		reports <- domain
 	}
-	mock := mockDomainPolicyStore{
-		hostnames: map[string][]string{
-			"fail":   []string{"hostname"},
-			"error":  []string{"hostname"},
-			"normal": []string{"hostname"}}}
-	go validateRegularly(mock, 100*time.Millisecond, fakeChecker, fakeReporter)
+	go mockValidate(map[string][]string{
+		"fail":   []string{"hostname"},
+		"error":  []string{"hostname"},
+		"normal": []string{"hostname"}}, fakeChecker, fakeReporter)
 	recvd := make(map[string]bool)
 	numRecvd := 0
 	for numRecvd < 4 {
