@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -49,11 +48,9 @@ func (l mockList) Raw() policy.List {
 	return list
 }
 
-func (l mockList) Get(domain string) (policy.TLSPolicy, error) {
-	if _, ok := l.domains[domain]; ok {
-		return policy.TLSPolicy{Mode: "enforce", MXs: []string{"mx.fake.com"}}, nil
-	}
-	return policy.TLSPolicy{}, fmt.Errorf("no such domain on this list")
+func (l mockList) HasDomain(domain string) bool {
+	_, ok := l.domains[domain]
+	return ok
 }
 
 // Mock emailer

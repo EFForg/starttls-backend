@@ -52,7 +52,7 @@ type API struct {
 // The most important query you can perform is to fetch the policy
 // for a particular domain.
 type PolicyList interface {
-	Get(string) (policy.TLSPolicy, error)
+	HasDomain(string) bool
 	Raw() policy.List
 }
 
@@ -91,7 +91,7 @@ func (api *API) wrapper(handler apiHandler) func(w http.ResponseWriter, r *http.
 // Checks the policy status of this domain.
 func (api API) policyCheck(domain string) *checker.Result {
 	result := checker.Result{Name: checker.PolicyList}
-	if _, err := api.List.Get(domain); err == nil {
+	if api.List.HasDomain(domain) {
 		return result.Success()
 	}
 	domainData, err := api.Database.GetDomain(domain)
@@ -202,13 +202,17 @@ const MaxHostnames = 8
 
 // Extracts relevant parameters from http.Request for a POST to /api/queue
 // TODO: also validate hostnames as FQDNs.
-func getDomainParams(r *http.Request, domain string) (models.Domain, error) {
-	domainData := models.Domain{Name: domain, State: models.StateUnvalidated}
+func getDomainParams(r *http.Request) (models.Domain, error) {
+	name, err := getASCIIDomain(r)
+	if err != nil {
+		return models.Domain{}, err
+	}
+	domain := models.Domain{Name: name, State: models.StateUnvalidated}
 	email, err := getParam("email", r)
 	if err == nil {
-		domainData.Email = email
+		domain.Email = email
 	} else {
-		domainData.Email = validationAddress(&domainData)
+		domain.Email = validationAddress(&domain)
 	}
 
 	for _, hostname := range r.PostForm["hostnames"] {
@@ -216,90 +220,65 @@ func getDomainParams(r *http.Request, domain string) (models.Domain, error) {
 			continue
 		}
 		if !validDomainName(strings.TrimPrefix(hostname, ".")) {
-			return domainData, fmt.Errorf("hostname %s is invalid", hostname)
+			return domain, fmt.Errorf("hostname %s is invalid", hostname)
 		}
-		domainData.MXs = append(domainData.MXs, hostname)
+		domain.MXs = append(domain.MXs, hostname)
 	}
-	if len(domainData.MXs) == 0 {
-		return domainData, fmt.Errorf("no MX hostnames supplied for domain %s", domain)
+	if len(domain.MXs) == 0 {
+		return domain, fmt.Errorf("no MX hostnames supplied for domain %s", domain.Name)
 	}
-	if len(domainData.MXs) > MaxHostnames {
-		return domainData, fmt.Errorf("no more than 8 MX hostnames are permitted")
+	if len(domain.MXs) > MaxHostnames {
+		return domain, fmt.Errorf("no more than 8 MX hostnames are permitted")
 	}
-	return domainData, nil
+	return domain, nil
 }
 
 // Queue is the handler for /api/queue
 //   POST /api/queue?domain=<domain>
 //        domain: Mail domain to queue a TLS policy for.
+//				mta_sts: True if domain supports MTA-STS else false.
 //        hostnames: List of MX hostnames to put into this domain's TLS policy. Up to 8.
 //        Sets models.Domain object as response.
 //        email (optional): Contact email associated with domain.
 //   GET  /api/queue?domain=<domain>
 //        Sets models.Domain object as response.
 func (api API) Queue(r *http.Request) APIResponse {
-	// Retrieve domain param
-	domain, err := getASCIIDomain(r)
-	if err != nil {
-		return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
-	}
 	// POST: Insert this domain into the queue
 	if r.Method == http.MethodPost {
-		// 0. Check if scan occurred.
-		scan, err := api.Database.GetLatestScan(domain)
+		domain, err := getDomainParams(r)
 		if err != nil {
-			return APIResponse{
-				StatusCode: http.StatusBadRequest,
-				Message: "We haven't scanned this domain yet. " +
-					"Please use the STARTTLS checker to scan your domain's " +
-					"STARTTLS configuration so we can validate your submission",
-			}
+			return badRequest(err.Error())
 		}
-		if scan.Data.Status != 0 {
-			return APIResponse{
-				StatusCode: http.StatusBadRequest,
-				Message:    fmt.Sprintf("%s hasn't passed our STARTTLS security checks", domain),
-			}
-		}
-		// 0. Check to see it's not already queued
-		_, err = api.List.Get(domain)
-		if err == nil {
-			return APIResponse{
-				StatusCode: http.StatusBadRequest,
-				Message:    fmt.Sprintf("%s is already on the list!", domain)}
-		}
-		domainData, err := getDomainParams(r, domain)
-		if err != nil {
-			return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
+		// 0. Verify that we can queue the domain.
+		if ok, msg := domain.IsQueueable(api.Database, api.List); !ok {
+			return badRequest(msg)
 		}
 		// 1. Insert domain into DB
-		err = api.Database.PutDomain(domainData)
-		if err != nil {
-			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
+		if err = api.Database.PutDomain(domain); err != nil {
+			return serverError(err.Error())
 		}
 		// 2. Create token for domain
-		token, err := api.Database.PutToken(domain)
+		token, err := api.Database.PutToken(domain.Name)
 		if err != nil {
-			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
+			return serverError(err.Error())
 		}
-
 		// 3. Send email
-		err = api.Emailer.SendValidation(&domainData, token.Token)
-		if err != nil {
+		if err = api.Emailer.SendValidation(&domain, token.Token); err != nil {
 			log.Print(err)
-			return APIResponse{StatusCode: http.StatusInternalServerError,
-				Message: "Unable to send validation e-mail"}
+			return serverError("Unable to send validation e-mail")
 		}
-		// domainData.State = Unvalidated
-		// or queued?
 		return APIResponse{
 			StatusCode: http.StatusOK,
-			Response:   fmt.Sprintf("Thank you for submitting your domain. Please check postmaster@%s to validate that you control the domain.", domain),
+			Response:   fmt.Sprintf("Thank you for submitting your domain. Please check postmaster@%s to validate that you control the domain.", domain.Name),
 		}
-		// GET: Retrieve domain status from queue
-		// JSON only
-	} else if r.Method == http.MethodGet {
-		status, err := api.Database.GetDomain(domain)
+	}
+	// GET: Retrieve domain status from queue
+	if r.Method == http.MethodGet {
+		domainName, err := getASCIIDomain(r)
+		if err != nil {
+			return badRequest(err.Error())
+		}
+		status, err := api.Database.GetDomain(domainName)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusNotFound, Message: err.Error()}
 		}
@@ -307,10 +286,9 @@ func (api API) Queue(r *http.Request) APIResponse {
 			StatusCode: http.StatusOK,
 			Response:   status,
 		}
-	} else {
-		return APIResponse{StatusCode: http.StatusMethodNotAllowed,
-			Message: "/api/queue only accepts POST and GET requests"}
 	}
+	return APIResponse{StatusCode: http.StatusMethodNotAllowed,
+		Message: "/api/queue only accepts POST and GET requests"}
 }
 
 // Validate handles requests to /api/validate
@@ -425,5 +403,19 @@ func (api *API) writeHTML(w http.ResponseWriter, apiResponse APIResponse) {
 	if err != nil {
 		log.Println(err)
 		raven.CaptureError(err, nil)
+	}
+}
+
+func badRequest(format string, a ...interface{}) APIResponse {
+	return APIResponse{
+		StatusCode: http.StatusBadRequest,
+		Message:    fmt.Sprintf(format, a...),
+	}
+}
+
+func serverError(format string, a ...interface{}) APIResponse {
+	return APIResponse{
+		StatusCode: http.StatusInternalServerError,
+		Message:    fmt.Sprintf(format, a...),
 	}
 }
