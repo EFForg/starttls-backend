@@ -105,7 +105,7 @@ func (l *UpdatedList) Get(domain string) (TLSPolicy, error) {
 // HasDomain returns true if a domain is present on the policy list.
 func (l *UpdatedList) HasDomain(domain string) bool {
 	_, err := l.Get(domain)
-	return err != nil
+	return err == nil
 }
 
 // Raw returns a raw List struct, copied from the underlying one

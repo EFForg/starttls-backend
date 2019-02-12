@@ -38,6 +38,18 @@ func TestGetPolicy(t *testing.T) {
 	}
 }
 
+func TestHasDomain(t *testing.T) {
+	list := makeUpdatedList(mockFetchHTTP, time.Hour)
+
+	if list.HasDomain("not-on-the-List.com") {
+		t.Error("Calling HasDomain for an unListed domain should return false")
+	}
+
+	if !list.HasDomain("eff.org") {
+		t.Error("Calling HasDomain for a Listed domain should return true")
+	}
+}
+
 func TestFailedListUpdate(t *testing.T) {
 	list := makeUpdatedList(mockErroringFetchHTTP, time.Hour)
 	_, err := list.Get("eff.org")
