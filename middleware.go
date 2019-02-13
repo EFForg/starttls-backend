@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -44,6 +45,7 @@ func recoveryHandler(f http.Handler) http.Handler {
 
 		defer func() {
 			if err, ok := recover().(error); ok {
+				log.Println(err)
 				rvalStr := fmt.Sprint(err)
 				packet := raven.NewPacket(rvalStr, raven.NewException(err.(error), raven.GetOrNewStacktrace(err.(error), 2, 3, nil)), raven.NewHttp(r))
 				raven.Capture(packet, nil)

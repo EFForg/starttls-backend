@@ -115,6 +115,11 @@ func (c emailConfig) sendEmail(subject string, body string, address string) erro
 	}
 	message := fmt.Sprintf("From: %s\nTo: %s\nSubject: %s\n\n%s",
 		c.sender, address, subject, body)
+	if c.submissionHostname == "" {
+		log.Println("Warning: email host not configured, not sending email")
+		log.Println(message)
+		return nil
+	}
 	return smtp.SendMail(fmt.Sprintf("%s:%s", c.submissionHostname, c.port),
 		c.auth,
 		c.sender, []string{address}, []byte(message))
