@@ -74,7 +74,7 @@ func checkMTASTSRecord(domain string) *Result {
 	result := MakeResult(MTASTSText)
 	records, err := net.LookupTXT(fmt.Sprintf("_mta-sts.%s", domain))
 	if err != nil {
-		return result.Failure("Couldn't find an MTA-STS TXT record: %v", err)
+		return result.Failure("Couldn't find an MTA-STS TXT record: %v.", err)
 	}
 	return validateMTASTSRecord(records, result)
 }
@@ -82,13 +82,13 @@ func checkMTASTSRecord(domain string) *Result {
 func validateMTASTSRecord(records []string, result *Result) *Result {
 	records = filterByPrefix(records, "v=STSv1")
 	if len(records) != 1 {
-		return result.Failure("Exactly 1 MTA-STS TXT record required, found %d", len(records))
+		return result.Failure("Exactly 1 MTA-STS TXT record required, found %d.", len(records))
 	}
 	record := getKeyValuePairs(records[0], ";", "=")
 
 	idPattern := regexp.MustCompile("^[a-zA-Z0-9]+$")
 	if !idPattern.MatchString(record["id"]) {
-		return result.Failure("Invalid id %s", record["id"])
+		return result.Failure("Invalid MTA-STS TXT record id %s.", record["id"])
 	}
 	return result.Success()
 }
@@ -104,23 +104,23 @@ func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameRes
 	policyURL := fmt.Sprintf("https://mta-sts.%s/.well-known/mta-sts.txt", domain)
 	resp, err := client.Get(policyURL)
 	if err != nil {
-		return result.Failure("Couldn't find policy file at %s", policyURL), "", ""
+		return result.Failure("Couldn't find policy file at %s.", policyURL), "", ""
 	}
 	if resp.StatusCode != 200 {
-		return result.Failure("Couldn't get policy file: %s returned %s", policyURL, resp.Status), "", ""
+		return result.Failure("Couldn't get policy file: %s returned %s.", policyURL, resp.Status), "", ""
 	}
 	// Media type should be text/plain, ignoring other Content-Type parms.
 	// Format: Content-Type := type "/" subtype *[";" parameter]
 	for _, contentType := range resp.Header["Content-Type"] {
 		contentType := strings.ToLower(contentType)
 		if !strings.HasPrefix(contentType, "text/plain") {
-			return result.Warning("Media type must be text/plain"), "", ""
+			result.Warning("The media type specified by your policy file's Content-Type header should be text/plain.")
 		}
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return result.Error("Couldn't read policy file: %v", err), "", ""
+		return result.Error("Couldn't read policy file: %v.", err), "", ""
 	}
 
 	policy := validateMTASTSPolicyFile(string(body), result)
@@ -132,21 +132,25 @@ func validateMTASTSPolicyFile(body string, result *Result) map[string]string {
 	policy := getKeyValuePairs(body, "\n", ":")
 
 	if policy["version"] != "STSv1" {
-		result.Failure("Policy version must be STSv1")
+		result.Failure("Your MTA-STS policy file version must be STSv1.")
 	}
 
 	if policy["mode"] == "" {
-		result.Failure("Policy file must specify mode")
+		result.Failure("Your MTA-STS policy file must specify mode.")
 	}
-	if m := policy["mode"]; m != "enforce" && m != "testing" && m != "none" {
-		result.Failure("Mode must be one of 'enforce', 'testing', or 'none', got %s", m)
+	if m := policy["mode"]; m == "testing" {
+		result.Warning("You're still in \"testing\" mode; senders won't enforce TLS when connecting to your mailservers. We recommend switching from \"testing\" to \"enforce\" to get the full security benefits of MTA-STS, as long as it hasn't been affecting your deliverability.")
+	} else if m == "none" {
+		result.Failure("MTA-STS policy is in \"none\" mode; senders won't enforce TLS when connecting to your mailservers.")
+	} else if m != "enforce" {
+		result.Failure("Mode must be one of \"enforce\", \"testing\", or \"none\", got %s", m)
 	}
 
 	if policy["max_age"] == "" {
-		result.Failure("Policy file must specify max_age")
+		result.Failure("Your MTA-STS policy file must specify max_age.")
 	}
 	if i, err := strconv.Atoi(policy["max_age"]); err != nil || i <= 0 || i > 31557600 {
-		result.Failure("max_age must be a positive integer <= 31557600")
+		result.Failure("MTA-STS max_age must be a positive integer <= 31557600.")
 	}
 
 	return policy
