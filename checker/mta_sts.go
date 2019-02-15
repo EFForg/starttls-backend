@@ -14,14 +14,15 @@ import (
 // MTASTSResult represents the result of a check for inbound MTA-STS support.
 type MTASTSResult struct {
 	*Result
-	Policy string `json:"policy"` // Text of MTA-STS policy file
-	Mode   string `json:"mode"`
+	Policy string // Text of MTA-STS policy file
+	Mode   string
+	MXs    []string
 }
 
 // MakeMTASTSResult constructs a base result object and returns its pointer.
-func MakeMTASTSResult(name string) *MTASTSResult {
+func MakeMTASTSResult() *MTASTSResult {
 	return &MTASTSResult{
-		Result: MakeResult(name),
+		Result: MakeResult(MTASTS),
 	}
 }
 
@@ -32,12 +33,14 @@ func (m MTASTSResult) MarshalJSON() ([]byte, error) {
 	type FakeResult Result
 	return json.Marshal(struct {
 		FakeResult
-		Policy string `json:"policy"`
-		Mode   string `json:"mode"`
+		Policy string   `json:"policy"`
+		Mode   string   `json:"mode"`
+		MXs    []string `json:"mxs"`
 	}{
 		FakeResult: FakeResult(*m.Result),
 		Policy:     m.Policy,
 		Mode:       m.Mode,
+		MXs:        m.MXs,
 	})
 }
 
@@ -93,7 +96,7 @@ func validateMTASTSRecord(records []string, result *Result) *Result {
 	return result.Success()
 }
 
-func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameResult) (*Result, string, string) {
+func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameResult) (*Result, string, map[string]string) {
 	result := MakeResult(MTASTSPolicyFile)
 	client := &http.Client{
 		// Don't follow redirects.
@@ -104,10 +107,10 @@ func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameRes
 	policyURL := fmt.Sprintf("https://mta-sts.%s/.well-known/mta-sts.txt", domain)
 	resp, err := client.Get(policyURL)
 	if err != nil {
-		return result.Failure("Couldn't find policy file at %s.", policyURL), "", ""
+		return result.Failure("Couldn't find policy file at %s.", policyURL), "", map[string]string{}
 	}
 	if resp.StatusCode != 200 {
-		return result.Failure("Couldn't get policy file: %s returned %s.", policyURL, resp.Status), "", ""
+		return result.Failure("Couldn't get policy file: %s returned %s.", policyURL, resp.Status), "", map[string]string{}
 	}
 	// Media type should be text/plain, ignoring other Content-Type parms.
 	// Format: Content-Type := type "/" subtype *[";" parameter]
@@ -120,12 +123,12 @@ func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameRes
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return result.Error("Couldn't read policy file: %v.", err), "", ""
+		return result.Error("Couldn't read policy file: %v.", err), "", map[string]string{}
 	}
 
 	policy := validateMTASTSPolicyFile(string(body), result)
 	validateMTASTSMXs(strings.Split(policy["mx"], " "), hostnameResults, result)
-	return result, string(body), policy["mode"]
+	return result, string(body), policy
 }
 
 func validateMTASTSPolicyFile(body string, result *Result) map[string]string {
@@ -163,7 +166,7 @@ func validateMTASTSMXs(policyFileMXs []string, dnsMXs map[string]HostnameResult,
 			// Ignore hostnames we couldn't connect to, they may be spam traps.
 			continue
 		}
-		if !policyMatches(dnsMX, policyFileMXs) {
+		if !PolicyMatches(dnsMX, policyFileMXs) {
 			result.Warning("%s appears in the DNS record but not the MTA-STS policy file",
 				dnsMX)
 		} else if !dnsMXResult.couldSTARTTLS() {
@@ -174,11 +177,12 @@ func validateMTASTSMXs(policyFileMXs []string, dnsMXs map[string]HostnameResult,
 }
 
 func (c Checker) checkMTASTS(domain string, hostnameResults map[string]HostnameResult) *MTASTSResult {
-	result := MakeMTASTSResult(MTASTS)
+	result := MakeMTASTSResult()
 	result.addCheck(checkMTASTSRecord(domain))
-	policyResult, policy, mode := checkMTASTSPolicyFile(domain, hostnameResults)
+	policyResult, policy, policyMap := checkMTASTSPolicyFile(domain, hostnameResults)
 	result.addCheck(policyResult)
 	result.Policy = policy
-	result.Mode = mode
+	result.Mode = policyMap["mode"]
+	result.MXs = strings.Split(policyMap["mx"], " ")
 	return result
 }

@@ -185,3 +185,7 @@ func TestHostnameScanExpires(t *testing.T) {
 		{domain: "changes", expect: 4}}
 	performTestsWithCacheTimeout(t, tests, 0)
 }
+
+func TestNewSampleDomainResult(t *testing.T) {
+	NewSampleDomainResult("example.com")
+}

@@ -95,7 +95,7 @@ func TestPolicyMatch(t *testing.T) {
 
 	for _, test := range tests {
 		policy := []string{test.policyMX}
-		if got := policyMatches(test.hostname, policy); got != test.want {
+		if got := PolicyMatches(test.hostname, policy); got != test.want {
 			t.Errorf("policyMatch(%q, %q) = %v", test.hostname, policy, got)
 		}
 	}

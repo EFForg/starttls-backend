@@ -31,29 +31,8 @@ func TestScanHTMLRequest(t *testing.T) {
 
 func TestScanWriteHTML(t *testing.T) {
 	scan := models.Scan{
-		Domain: "example.com",
-		Data: checker.DomainResult{
-			Domain: "example.com",
-			Status: checker.DomainSuccess,
-			HostnameResults: map[string]checker.HostnameResult{
-				"example.com": checker.HostnameResult{
-					Domain:   "example.com",
-					Hostname: "mx.example.com",
-					Result: &checker.Result{
-						Checks: map[string]*checker.Result{
-							checker.Connectivity: checker.MakeResult(checker.Connectivity),
-							checker.STARTTLS:     checker.MakeResult(checker.STARTTLS),
-							checker.Certificate:  checker.MakeResult(checker.Certificate),
-							checker.Version:      checker.MakeResult(checker.Version),
-						},
-					},
-				},
-			},
-			PreferredHostnames: []string{"mx.example.com"},
-			ExtraResults: map[string]*checker.Result{
-				checker.PolicyList: checker.MakeResult(checker.PolicyList),
-			},
-		},
+		Domain:    "example.com",
+		Data:      checker.NewSampleDomainResult("example.com"),
 		Timestamp: time.Now(),
 		Version:   1,
 	}

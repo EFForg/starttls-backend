@@ -8,7 +8,7 @@ import (
 )
 
 func TestMarshalMTASTSJSON(t *testing.T) {
-	r := MakeMTASTSResult(MTASTS)
+	r := MakeMTASTSResult()
 	m, err := json.Marshal(r)
 	if err != nil {
 		t.Fatal(err)

@@ -22,7 +22,7 @@ var server *httptest.Server
 
 func mockCheckPerform(message string) func(API, string) (checker.DomainResult, error) {
 	return func(api API, domain string) (checker.DomainResult, error) {
-		return checker.DomainResult{Domain: domain, Message: message}, nil
+		return checker.NewSampleDomainResult(domain), nil
 	}
 }
 

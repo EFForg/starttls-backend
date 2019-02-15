@@ -26,3 +26,11 @@ func (s Scan) CanAddToPolicyList() bool {
 	}
 	return false
 }
+
+// SupportsMTASTS returns true if the Scan's MTA-STS check passed.
+func (s Scan) SupportsMTASTS() bool {
+	if s.Data.MTASTSResult == nil {
+		return false
+	}
+	return s.Data.MTASTSResult.Status == checker.Success
+}

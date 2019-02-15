@@ -145,7 +145,7 @@ func (c *Checker) CheckDomain(domain string, expectedHostnames []string) DomainR
 			return result.setStatus(DomainNoSTARTTLSFailure)
 		}
 		// Any of the connected hostnames don't have a match?
-		if expectedHostnames != nil && !policyMatches(hostname, expectedHostnames) {
+		if expectedHostnames != nil && !PolicyMatches(hostname, expectedHostnames) {
 			return result.setStatus(DomainBadHostnameFailure)
 		}
 		result = result.setStatus(DomainStatus(hostnameResult.Status))
@@ -153,4 +153,43 @@ func (c *Checker) CheckDomain(domain string, expectedHostnames []string) DomainR
 	result.MTASTSResult = c.checkMTASTS(domain, result.HostnameResults)
 	// result.setStatus(DomainStatus(result.ExtraResults["mta-sts"].Status))
 	return result
+}
+
+// NewSampleDomainResult returns a sample successful domain result for testing.
+// This is exported so other packages can use it in their integration tests.
+func NewSampleDomainResult(domain string) DomainResult {
+	hostname := "mx." + domain
+	return DomainResult{
+		Domain: domain,
+		Status: DomainSuccess,
+		HostnameResults: map[string]HostnameResult{
+			hostname: HostnameResult{
+				Domain:   domain,
+				Hostname: hostname,
+				Result: &Result{
+					Checks: map[string]*Result{
+						Connectivity: MakeResult(Connectivity),
+						STARTTLS:     MakeResult(STARTTLS),
+						Certificate:  MakeResult(Certificate),
+						Version:      MakeResult(Version),
+					},
+				},
+			},
+		},
+		PreferredHostnames: []string{hostname},
+		MTASTSResult: &MTASTSResult{
+			Result: &Result{
+				Status: Success,
+				Checks: map[string]*Result{
+					MTASTSText:       MakeResult(MTASTSText),
+					MTASTSPolicyFile: MakeResult(MTASTSPolicyFile),
+				},
+			},
+			Mode: "enforce",
+			MXs:  []string{"." + domain},
+		},
+		ExtraResults: map[string]*Result{
+			PolicyList: MakeResult(PolicyList),
+		},
+	}
 }

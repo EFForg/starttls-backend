@@ -19,7 +19,6 @@ func validQueueData(scan bool) url.Values {
 		http.PostForm(server.URL+"/api/scan", data)
 	}
 	data.Set("email", "testing@fake-email.org")
-	data.Add("hostnames", ".example.com")
 	data.Add("hostnames", "mx.example.com")
 	return data
 }
@@ -110,8 +109,8 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	if domain.State != "unvalidated" {
 		t.Fatalf("Initial state for domains should be 'unvalidated'")
 	}
-	if len(domain.MXs) != 2 {
-		t.Fatalf("Domain should have loaded two hostnames into policy")
+	if len(domain.MXs) != 1 {
+		t.Fatalf("Domain should have loaded one hostname into policy")
 	}
 
 	// 3. Validate domain token

@@ -26,9 +26,10 @@ func (h HostnameResult) couldSTARTTLS() bool {
 	return h.subcheckSucceeded(STARTTLS)
 }
 
-// Modelled after policyMatches in Appendix B of the MTA-STS RFC 8641.
+// PolicyMatches return true iff a given mx matches an array of patterns.
+// It is modelled after PolicyMatches in Appendix B of the MTA-STS RFC 8641.
 // Also used to validate hostnames on the STARTTLS Everywhere policy list.
-func policyMatches(mx string, patterns []string) bool {
+func PolicyMatches(mx string, patterns []string) bool {
 	mx = strings.TrimSuffix(mx, ".") // If FQDN, might end with .
 	mx = withoutPort(mx)             // If URL, might include port
 	mx = strings.ToLower(mx)         // Lowercase for comparison

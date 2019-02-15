@@ -207,7 +207,12 @@ func getDomainParams(r *http.Request) (models.Domain, error) {
 	if err != nil {
 		return models.Domain{}, err
 	}
-	domain := models.Domain{Name: name, State: models.StateUnvalidated}
+	mtasts := r.FormValue("mta-sts")
+	domain := models.Domain{
+		Name:       name,
+		MTASTSMode: mtasts,
+		State:      models.StateUnvalidated,
+	}
 	email, err := getParam("email", r)
 	if err == nil {
 		domain.Email = email
@@ -215,20 +220,22 @@ func getDomainParams(r *http.Request) (models.Domain, error) {
 		domain.Email = validationAddress(&domain)
 	}
 
-	for _, hostname := range r.PostForm["hostnames"] {
-		if len(hostname) == 0 {
-			continue
+	if mtasts != "on" {
+		for _, hostname := range r.PostForm["hostnames"] {
+			if len(hostname) == 0 {
+				continue
+			}
+			if !validDomainName(strings.TrimPrefix(hostname, ".")) {
+				return domain, fmt.Errorf("Hostname %s is invalid", hostname)
+			}
+			domain.MXs = append(domain.MXs, hostname)
 		}
-		if !validDomainName(strings.TrimPrefix(hostname, ".")) {
-			return domain, fmt.Errorf("hostname %s is invalid", hostname)
+		if len(domain.MXs) == 0 {
+			return domain, fmt.Errorf("No MX hostnames supplied for domain %s", domain.Name)
 		}
-		domain.MXs = append(domain.MXs, hostname)
-	}
-	if len(domain.MXs) == 0 {
-		return domain, fmt.Errorf("no MX hostnames supplied for domain %s", domain.Name)
-	}
-	if len(domain.MXs) > MaxHostnames {
-		return domain, fmt.Errorf("no more than 8 MX hostnames are permitted")
+		if len(domain.MXs) > MaxHostnames {
+			return domain, fmt.Errorf("No more than 8 MX hostnames are permitted")
+		}
 	}
 	return domain, nil
 }
@@ -236,7 +243,7 @@ func getDomainParams(r *http.Request) (models.Domain, error) {
 // Queue is the handler for /api/queue
 //   POST /api/queue?domain=<domain>
 //        domain: Mail domain to queue a TLS policy for.
-//				mta_sts: True if domain supports MTA-STS else false.
+//				mta_sts: "on" if domain supports MTA-STS, else "".
 //        hostnames: List of MX hostnames to put into this domain's TLS policy. Up to 8.
 //        Sets models.Domain object as response.
 //        email (optional): Contact email associated with domain.
@@ -250,9 +257,11 @@ func (api API) Queue(r *http.Request) APIResponse {
 			return badRequest(err.Error())
 		}
 		// 0. Verify that we can queue the domain.
-		if ok, msg := domain.IsQueueable(api.Database, api.List); !ok {
+		ok, msg, scan := domain.IsQueueable(api.Database, api.List)
+		if !ok {
 			return badRequest(msg)
 		}
+		domain.PopulateFromScan(scan)
 		// 1. Insert domain into DB
 		if err = api.Database.PutDomain(domain); err != nil {
 			return serverError(err.Error())
