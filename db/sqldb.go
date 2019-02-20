@@ -98,15 +98,50 @@ func (db *SQLDatabase) PutToken(domain string) (models.Token, error) {
 
 // PutScan inserts a new scan for a particular domain into the database.
 func (db *SQLDatabase) PutScan(scan models.Scan) error {
+	// Serialize scanData.Data for insertion into SQLdb!
 	// @TODO marshall scan adds extra fields - need a custom obj for this
 	byteArray, err := json.Marshal(scan.Data)
 	if err != nil {
 		return err
 	}
-	// Serialize scanData.Data for insertion into SQLdb!
-	_, err = db.conn.Exec("INSERT INTO scans(domain, scandata, timestamp, version) VALUES($1, $2, $3, $4)",
-		scan.Domain, string(byteArray), scan.Timestamp.UTC().Format(sqlTimeFormat), scan.Version)
+	// Extract MTA-STS Mode to column for querying by mode, eg. adoption stats.
+	// Note, this will include MTA-STS configurations that serve a parse-able
+	// policy file and define a mode but don't pass full validation.
+	mtastsMode := ""
+	if scan.Data.MTASTSResult != nil {
+		mtastsMode = scan.Data.MTASTSResult.Mode
+	}
+	_, err = db.conn.Exec("INSERT INTO scans(domain, scandata, timestamp, version, mta_sts_mode) VALUES($1, $2, $3, $4, $5)",
+		scan.Domain, string(byteArray), scan.Timestamp.UTC().Format(sqlTimeFormat), scan.Version, mtastsMode)
 	return err
+}
+
+func (db *SQLDatabase) GetMTASTSStats() (models.TimeSeries, error) {
+	query := `SELECT count(*), date(timestamp) AS date
+						FROM (
+							SELECT DISTINCT ON (domain) domain, timestamp, mta_sts_mode
+							FROM scans ORDER BY domain, timestamp DESC
+						) AS s
+						WHERE mta_sts_mode IN ('testing', 'enforce')
+						GROUP BY date(timestamp)`
+	rows, err := db.conn.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ts models.TimeSeries
+	ts = make(map[time.Time]int)
+	for rows.Next() {
+		var t time.Time
+		var count int
+		if err := rows.Scan(&count, &t); err != nil {
+			return nil, err
+		}
+		// @TODO think about timezones
+		ts[t.UTC()] = count
+	}
+	return ts, nil
 }
 
 const mostRecentQuery = `

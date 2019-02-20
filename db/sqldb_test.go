@@ -335,3 +335,71 @@ func TestGetHostnameScan(t *testing.T) {
 		t.Errorf("Expected hostname scan to return correct data")
 	}
 }
+
+func TestGetMTASTSStats(t *testing.T) {
+	database.ClearTables()
+	today := time.Now()
+	yesterday := today.Add(-24 * time.Hour)
+	tomorrow := today.Add(24 * time.Hour)
+
+	// Two scans today from example1.com
+	// The most recent scan showed no MTA-STS support, so neither scan should be
+	// counted.
+	s := models.Scan{
+		Domain:    "example1.com",
+		Data:      checker.NewSampleDomainResult("example1.com"),
+		Timestamp: yesterday,
+	}
+	database.PutScan(s)
+	s.Timestamp = today
+	s.Data.MTASTSResult.Mode = ""
+	database.PutScan(s)
+	expectStats(map[time.Time]int{}, t)
+
+	s.Timestamp = tomorrow
+	s.Data.MTASTSResult.Mode = "enforce"
+	database.PutScan(s)
+	expectStats(map[time.Time]int{tomorrow: 1}, t)
+
+	// Add another for yesterday, from a second domain.
+	s = models.Scan{
+		Domain:    "example2.com",
+		Data:      checker.NewSampleDomainResult("example2.com"),
+		Timestamp: yesterday,
+	}
+	database.PutScan(s)
+	// Add another for tomorrow, from a third domain.
+	s = models.Scan{
+		Domain:    "example3.com",
+		Data:      checker.NewSampleDomainResult("example3.com"),
+		Timestamp: tomorrow,
+	}
+	database.PutScan(s)
+	expectStats(map[time.Time]int{yesterday: 1, tomorrow: 2}, t)
+}
+
+func expectStats(ts models.TimeSeries, t *testing.T) {
+	// GetMTASTSStats returns dates only (no hours, minutes, seconds).
+	// We need to truncate the expected times and convert to UTC for comparison.
+	expected := make(map[time.Time]int)
+	for kOld, v := range ts {
+		k := kOld.UTC().Truncate(24 * time.Hour)
+		expected[k] = v
+	}
+	got, err := database.GetMTASTSStats()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(expected) != len(got) {
+		t.Errorf("Expected MTA-STS stats to be %v, got %v", expected, got)
+		return
+	}
+	for expKey, expVal := range expected {
+		// DB query returns dates only (no hours, minutes, seconds).
+		key := expKey.Truncate(24 * time.Hour)
+		if got[key] != expVal {
+			t.Errorf("Expected MTA-STS stats to be %v, got %v", expected, got)
+			return
+		}
+	}
+}
