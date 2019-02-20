@@ -27,16 +27,16 @@ CREATE TABLE IF NOT EXISTS hostname_scans
     scandata    TEXT NOT NULL
 );
 
-
 CREATE TABLE IF NOT EXISTS domains
 (
-    domain       TEXT NOT NULL UNIQUE PRIMARY KEY,
-    email        TEXT NOT NULL,
-    data         TEXT NOT NULL,
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status       VARCHAR(255) NOT NULL
+    domain        TEXT NOT NULL UNIQUE PRIMARY KEY,
+    email         TEXT NOT NULL,
+    data          TEXT NOT NULL,
+    last_updated  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    status        VARCHAR(255) NOT NULL,
+    queue_weeks   INTEGER DEFAULT 4,
+    testing_start TIMESTAMP
 );
-
 
 CREATE TABLE IF NOT EXISTS blacklisted_emails
 (
@@ -74,3 +74,8 @@ CREATE TRIGGER update_change_timestamp BEFORE UPDATE
 ALTER TABLE scans ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 0;
 
 ALTER TABLE scans ADD COLUMN IF NOT EXISTS mta_sts_mode TEXT DEFAULT '';
+
+ALTER TABLE domains ADD COLUMN IF NOT EXISTS queue_weeks INTEGER DEFAULT 4;
+
+ALTER TABLE domains ADD COLUMN IF NOT EXISTS testing_start TIMESTAMP;
+
