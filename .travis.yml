@@ -4,27 +4,20 @@ go:
   - "1.11"
 
 addons:
-  postgresql: "10"
-  apt:
-    packages:
-    - postgresql-10
-    - postgresql-client-10
-env:
-  global:
-  - PGPORT=5433
+  postgresql: "9.6"
 
 env:
   - TEST_DB_NAME=starttls_test
-
-before_install:
-  - sudo -u postgres psql -c 'CREATE DATABASE starttls_test;'
-  - sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
-  - sudo -u postgres psql starttls_test -p 5433 < db/scripts/init_tables.sql
 
 install:
   - go get -u github.com/golang/lint/golint
   - go get github.com/mattn/goveralls
   - go get -t ./...
+
+before_script:
+  - psql -c 'CREATE DATABASE starttls_test;' -U postgres
+  - psql -c "ALTER USER postgres WITH PASSWORD 'postgres';" -U postgres
+  - psql starttls_test < db/scripts/init_tables.sql
 
 script:
   - golint -set_exit_status ./...
