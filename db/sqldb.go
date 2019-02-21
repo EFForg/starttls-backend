@@ -120,12 +120,15 @@ func (db *SQLDatabase) PutScan(scan models.Scan) error {
 // 14-day window.
 // Returns a map with
 //  key: the final day of a two-week window. Windows last until EOD.
-//  value: the number of scans supporting MTA-STS in that window
+//  value: the percent of scans supporting MTA-STS in that window
 func (db *SQLDatabase) GetMTASTSStats() (models.TimeSeries, error) {
 	// "day" represents truncated date (ie beginning of day), but windows should
 	// include the full day, so we add a day when querying timestamps.
 	query := `
-		SELECT day, count(*)
+		SELECT day, 100.0 * SUM(
+			CASE WHEN mta_sts_mode = 'testing' THEN 1 ELSE 0 END +
+			CASE WHEN mta_sts_mode = 'enforce' THEN 1 ELSE 0 END
+		) / COUNT(day) as percent
 		FROM (
 				SELECT date_trunc('day', d)::date AS day
 				FROM generate_series(CURRENT_DATE-31, CURRENT_DATE, '1 day'::INTERVAL) d )
@@ -136,7 +139,6 @@ func (db *SQLDatabase) GetMTASTSStats() (models.TimeSeries, error) {
 				WHERE timestamp BETWEEN day - '13 days'::INTERVAL AND day + '1 day'::INTERVAL
 				ORDER BY domain, timestamp DESC
 			) AS most_recent_scans ON TRUE
-		WHERE mta_sts_mode IN ('testing', 'enforce')
 		GROUP BY day;`
 
 	rows, err := db.conn.Query(query)
@@ -145,15 +147,13 @@ func (db *SQLDatabase) GetMTASTSStats() (models.TimeSeries, error) {
 	}
 	defer rows.Close()
 
-	var ts models.TimeSeries
-	ts = make(map[time.Time]int)
+	ts := make(map[time.Time]float32)
 	for rows.Next() {
 		var t time.Time
-		var count int
+		var count float32
 		if err := rows.Scan(&t, &count); err != nil {
 			return nil, err
 		}
-		// @TODO think about timezones
 		ts[t.UTC()] = count
 	}
 	return ts, nil

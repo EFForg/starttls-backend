@@ -2,4 +2,5 @@ package models
 
 import "time"
 
-type TimeSeries map[time.Time]int
+// TimeSeries holds dates with associated numerical values, for charting.
+type TimeSeries map[time.Time]float32
