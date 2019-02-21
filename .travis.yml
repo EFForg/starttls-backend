@@ -16,15 +16,15 @@ env:
 env:
   - TEST_DB_NAME=starttls_test
 
+before_install:
+  - sudo -u postgres psql -c 'CREATE DATABASE starttls_test;'
+  - sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+  - sudo -u postgres psql starttls_test -p 5433 < db/scripts/init_tables.sql
+
 install:
   - go get -u github.com/golang/lint/golint
   - go get github.com/mattn/goveralls
   - go get -t ./...
-
-before_script:
-  - psql -c 'CREATE DATABASE starttls_test;' -U postgres -p 5433
-  - psql -c "ALTER USER postgres WITH PASSWORD 'postgres';" -U postgres -p 5433
-  - psql starttls_test -p 5433 < db/scripts/init_tables.sql
 
 script:
   - golint -set_exit_status ./...
