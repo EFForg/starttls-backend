@@ -116,14 +116,29 @@ func (db *SQLDatabase) PutScan(scan models.Scan) error {
 	return err
 }
 
+// GetMTASTSStats returns statistics about MTA-STS adoption over a rolling
+// 14-day window.
+// Returns a map with
+//  key: the final day of a two-week window. Windows last until EOD.
+//  value: the number of scans supporting MTA-STS in that window
 func (db *SQLDatabase) GetMTASTSStats() (models.TimeSeries, error) {
-	query := `SELECT count(*), date(timestamp) AS date
-						FROM (
-							SELECT DISTINCT ON (domain) domain, timestamp, mta_sts_mode
-							FROM scans ORDER BY domain, timestamp DESC
-						) AS s
-						WHERE mta_sts_mode IN ('testing', 'enforce')
-						GROUP BY date(timestamp)`
+	// "day" represents truncated date (ie beginning of day), but windows should
+	// include the full day, so we add a day when querying timestamps.
+	query := `
+		SELECT day, count(*)
+		FROM (
+				SELECT date_trunc('day', d)::date AS day
+				FROM generate_series(CURRENT_DATE-31, CURRENT_DATE, '1 day'::INTERVAL) d )
+		AS days
+		INNER JOIN LATERAL (
+				SELECT DISTINCT ON (domain) domain, timestamp, mta_sts_mode
+				FROM scans
+				WHERE timestamp BETWEEN day - '13 days'::INTERVAL AND day + '1 day'::INTERVAL
+				ORDER BY domain, timestamp DESC
+			) AS most_recent_scans ON TRUE
+		WHERE mta_sts_mode IN ('testing', 'enforce')
+		GROUP BY day;`
+
 	rows, err := db.conn.Query(query)
 	if err != nil {
 		return nil, err
@@ -135,7 +150,7 @@ func (db *SQLDatabase) GetMTASTSStats() (models.TimeSeries, error) {
 	for rows.Next() {
 		var t time.Time
 		var count int
-		if err := rows.Scan(&count, &t); err != nil {
+		if err := rows.Scan(&t, &count); err != nil {
 			return nil, err
 		}
 		// @TODO think about timezones

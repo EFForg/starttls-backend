@@ -338,44 +338,46 @@ func TestGetHostnameScan(t *testing.T) {
 
 func TestGetMTASTSStats(t *testing.T) {
 	database.ClearTables()
+	day := time.Hour * 24
 	today := time.Now()
-	yesterday := today.Add(-24 * time.Hour)
-	tomorrow := today.Add(24 * time.Hour)
+	lastWeek := today.Add(-7 * day)
 
-	// Two scans today from example1.com
-	// The most recent scan showed no MTA-STS support, so neither scan should be
-	// counted.
+	// Two recent scans from example1.com
+	// The most recent scan shows no MTA-STS support.
 	s := models.Scan{
 		Domain:    "example1.com",
 		Data:      checker.NewSampleDomainResult("example1.com"),
-		Timestamp: yesterday,
+		Timestamp: lastWeek,
 	}
 	database.PutScan(s)
-	s.Timestamp = today
+	s.Timestamp = lastWeek.Add(3 * day)
 	s.Data.MTASTSResult.Mode = ""
 	database.PutScan(s)
-	expectStats(map[time.Time]int{}, t)
+	// Support is shown in the rolling average until the no-support scan is
+	// included.
+	expectStats(map[time.Time]int{
+		lastWeek:              1,
+		lastWeek.Add(day):     1,
+		lastWeek.Add(2 * day): 1,
+	}, t)
 
-	s.Timestamp = tomorrow
-	s.Data.MTASTSResult.Mode = "enforce"
-	database.PutScan(s)
-	expectStats(map[time.Time]int{tomorrow: 1}, t)
-
-	// Add another for yesterday, from a second domain.
+	// Add another recent scan, from a second domain.
 	s = models.Scan{
 		Domain:    "example2.com",
 		Data:      checker.NewSampleDomainResult("example2.com"),
-		Timestamp: yesterday,
+		Timestamp: lastWeek.Add(1 * day),
 	}
 	database.PutScan(s)
-	// Add another for tomorrow, from a third domain.
-	s = models.Scan{
-		Domain:    "example3.com",
-		Data:      checker.NewSampleDomainResult("example3.com"),
-		Timestamp: tomorrow,
-	}
-	database.PutScan(s)
-	expectStats(map[time.Time]int{yesterday: 1, tomorrow: 2}, t)
+	expectStats(map[time.Time]int{
+		lastWeek:              1,
+		lastWeek.Add(day):     2,
+		lastWeek.Add(2 * day): 2,
+		lastWeek.Add(3 * day): 1,
+		lastWeek.Add(4 * day): 1,
+		lastWeek.Add(5 * day): 1,
+		lastWeek.Add(6 * day): 1,
+	}, t)
+
 }
 
 func expectStats(ts models.TimeSeries, t *testing.T) {
@@ -391,14 +393,14 @@ func expectStats(ts models.TimeSeries, t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(expected) != len(got) {
-		t.Errorf("Expected MTA-STS stats to be %v, got %v", expected, got)
+		t.Errorf("Expected MTA-STS stats to be\n %v\ngot\n %v\n", expected, got)
 		return
 	}
 	for expKey, expVal := range expected {
 		// DB query returns dates only (no hours, minutes, seconds).
 		key := expKey.Truncate(24 * time.Hour)
 		if got[key] != expVal {
-			t.Errorf("Expected MTA-STS stats to be %v, got %v", expected, got)
+			t.Errorf("Expected MTA-STS stats to be\n %v\ngot\n %v\n", expected, got)
 			return
 		}
 	}
