@@ -5,6 +5,13 @@ go:
 
 addons:
   postgresql: "10"
+  apt:
+    packages:
+    - postgresql-10
+    - postgresql-client-10
+env:
+  global:
+  - PGPORT=5433
 
 env:
   - TEST_DB_NAME=starttls_test
