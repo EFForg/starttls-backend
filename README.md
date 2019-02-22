@@ -1,7 +1,9 @@
-# starttls-backend
+# STARTTLS Everywhere Backend API
 
 [![Build Status](https://travis-ci.com/EFForg/starttls-backend.svg?branch=master)](https://travis-ci.org/EFForg/starttls-backend)
 [![Coverage Status](https://coveralls.io/repos/github/EFForg/starttls-backend/badge.svg?branch=master)](https://coveralls.io/github/EFForg/starttls-backend?branch=master)
+
+starttls-backend is the JSON backend for starttls-everywhere.org. It provides endpoints to run security checks against email domains and manage the status of those domain's on EFF's [STARTTLS Everywhere policy list](https://github.com/EFForg/starttls-everywhere).
 
 ## Setup
 1. Install `go` and `postgres`.
@@ -28,19 +30,28 @@ docker-compose build
 docker-compose up
 ```
 
-## Performing database migrations
-When running tests, if you need the database migrations to run, set `DB_MIGRATE=true` in the `.env` file.
+To automatically on container start, set `DB_MIGRATE=true` in the `.env` file.
 
 ## Testing
-# Service tests
+
+Test all packages in this repo with
 ```
-docker-compose exec app go test -v
+go test -v ./...
 ```
 
-# Database tests
-```
-docker-compose exec app go test ./db -v
-```
+The `main` and `db` packages contain integration tests that require a successful connection to the Postgres database. The remaining packages do not require the database to pass tests.
+
+## Configuration
 
 ### No-scan domains
 In case of complaints or abuse, we may not want to continually scan some domains. You can set the environment variable `DOMAIN_BLACKLIST` to point to a file with a list of newline-separated domains. Attempting to scan those domains from the public-facing website will result in error codes.
+
+## API
+
+To request a scan:
+```
+POST /api/scan
+{
+  "domain": "example.com"
+}
+```
