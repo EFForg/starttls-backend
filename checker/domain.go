@@ -188,3 +188,38 @@ func NewSampleDomainResult(domain string) DomainResult {
 		},
 	}
 }
+
+// ResultHandler processes domain results.
+// It could print them, aggregate them, write the to the db, etc.
+type ResultHandler interface {
+	Handle(DomainResult)
+}
+
+const poolSize = 16
+
+// CheckList runs checks on a list of domains, processing the results according
+// to resultHandler.
+func (c *Checker) CheckList(domains []string, resultHandler ResultHandler) {
+	work := make(chan string)
+	results := make(chan DomainResult)
+
+	go func() {
+		for _, domain := range domains {
+			work <- domain
+		}
+		close(work)
+	}()
+
+	for i := 0; i < poolSize; i++ {
+		go func() {
+			for domain := range work {
+				results <- c.CheckDomain(domain, nil)
+			}
+		}()
+	}
+
+	for range domains {
+		r := <-results
+		resultHandler.Handle(r)
+	}
+}

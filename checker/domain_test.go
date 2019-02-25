@@ -191,3 +191,20 @@ func TestHostnameScanExpires(t *testing.T) {
 func TestNewSampleDomainResult(t *testing.T) {
 	NewSampleDomainResult("example.com")
 }
+
+func TestCheckList(t *testing.T) {
+	domains := []string{"empty", "changes", "domain", "domain.tld", "noconnection", "noconnection2", "nostarttls"}
+
+	c := Checker{
+		lookupMX:            mockLookupMX,
+		checkHostname:       mockCheckHostname,
+		checkMTASTSOverride: mockCheckMTASTS,
+	}
+
+	aggResult := AggregatedMTASTSResult{}
+	c.CheckList(domains, &aggResult)
+
+	if aggResult.Attempted != 7 {
+		t.Errorf("Expected 7 attempted connections, got %d", aggResult.Attempted)
+	}
+}

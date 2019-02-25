@@ -190,3 +190,17 @@ func (c Checker) checkMTASTS(domain string, hostnameResults map[string]HostnameR
 	result.MXs = strings.Split(policyMap["mx"], " ")
 	return result
 }
+
+// AggregatedMTASTSResults compiles MTA-STS stats across domains.
+// Implements ResultHandler.
+type AggregatedMTASTSResult struct {
+	Attempted int
+	Connected int
+	Testing   int
+	Enforce   int
+}
+
+// Add the result of a single domain check to aggregated MTA-STS stats.
+func (a *AggregatedMTASTSResult) Handle(r DomainResult) {
+	a.Attempted += 1
+}
