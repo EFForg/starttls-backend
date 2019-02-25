@@ -2,6 +2,7 @@ package checker
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -38,12 +39,15 @@ func (c *ScanCache) PutHostnameScan(hostname string, result HostnameResult) erro
 
 // SimpleStore is simple HostnameResult storage backed by map.
 type SimpleStore struct {
-	m map[string]HostnameResult
+	m  map[string]HostnameResult
+	mu sync.RWMutex
 }
 
 // GetHostnameScan wraps a map get. Returns error if not present in map.
-func (l *SimpleStore) GetHostnameScan(hostname string) (HostnameResult, error) {
-	result, ok := l.m[hostname]
+func (s *SimpleStore) GetHostnameScan(hostname string) (HostnameResult, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	result, ok := s.m[hostname]
 	if !ok {
 		return result, fmt.Errorf("Couldn't find scan for hostname %s", hostname)
 	}
@@ -51,8 +55,10 @@ func (l *SimpleStore) GetHostnameScan(hostname string) (HostnameResult, error) {
 }
 
 // PutHostnameScan wraps a map set. Can never return error.
-func (l *SimpleStore) PutHostnameScan(hostname string, result HostnameResult) error {
-	l.m[hostname] = result
+func (s *SimpleStore) PutHostnameScan(hostname string, result HostnameResult) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.m[hostname] = result
 	return nil
 }
 
