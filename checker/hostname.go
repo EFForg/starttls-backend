@@ -228,9 +228,9 @@ func (c *Checker) CheckHostnameWithCache(domain string, hostname string) Hostnam
 // `domain` is the mail domain that this server serves email for.
 // `hostname` is the hostname for this server.
 func (c *Checker) CheckHostname(domain string, hostname string) HostnameResult {
-	if c.checkHostname != nil {
+	if c.checkHostnameOverride != nil {
 		// Allow the Checker to mock this function.
-		return c.checkHostname(domain, hostname)
+		return c.checkHostnameOverride(domain, hostname)
 	}
 
 	result := HostnameResult{
