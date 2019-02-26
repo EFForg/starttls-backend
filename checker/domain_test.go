@@ -202,9 +202,9 @@ func TestCheckList(t *testing.T) {
 		"nostarttls",
 	}
 	c := Checker{
-		lookupMX:            mockLookupMX,
-		checkHostname:       mockCheckHostname,
-		checkMTASTSOverride: mockCheckMTASTS,
+		lookupMXOverride:      mockLookupMX,
+		checkHostnameOverride: mockCheckHostname,
+		checkMTASTSOverride:   mockCheckMTASTS,
 	}
 
 	aggResult := AggregatedMTASTSResult{}
