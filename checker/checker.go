@@ -23,7 +23,7 @@ type Checker struct {
 	checkHostnameOverride func(string, string) HostnameResult
 
 	// checkMTASTSOverride is used to mock MTA-STS checks.
-	checkMTASTSOverride func(string, map[string]HostnameResult) Result
+	checkMTASTSOverride func(string, map[string]HostnameResult) *MTASTSResult
 }
 
 func (c *Checker) timeout() time.Duration {

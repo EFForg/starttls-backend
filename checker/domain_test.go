@@ -42,8 +42,10 @@ var hostnameResults = map[string]Result{
 	},
 }
 
-func mockCheckMTASTS(domain string, hostnameResults map[string]HostnameResult) Result {
-	return Result{Status: Success}
+func mockCheckMTASTS(domain string, hostnameResults map[string]HostnameResult) *MTASTSResult {
+	r := MakeMTASTSResult()
+	r.Mode = "testing"
+	return r
 }
 
 func mockLookupMX(domain string) ([]*net.MX, error) {
