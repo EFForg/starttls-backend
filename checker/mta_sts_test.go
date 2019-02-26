@@ -130,12 +130,12 @@ func TestValidateMTASTSMXs(t *testing.T) {
 		{
 			[]string{},
 			map[string]HostnameResult{"mail.example.com": goodHostnameResult},
-			Warning,
+			Failure,
 		},
 		{
 			[]string{"nostarttls.example.com"},
 			map[string]HostnameResult{"nostarttls.example.com": noSTARTTLSHostnameResult},
-			Warning,
+			Failure,
 		},
 	}
 	for _, test := range tests {
