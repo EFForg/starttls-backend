@@ -203,4 +203,17 @@ type AggregatedMTASTSResult struct {
 // Add the result of a single domain check to aggregated MTA-STS stats.
 func (a *AggregatedMTASTSResult) Handle(r DomainResult) {
 	a.Attempted += 1
+	// If DomainStatus is > 4, we couldn't connect to a mailbox.
+	if r.Status > 4 {
+		return
+	}
+	a.Connected += 1
+	if r.MTASTSResult != nil {
+		switch r.MTASTSResult.Mode {
+		case "enforce":
+			a.Enforce += 1
+		case "testing":
+			a.Testing += 1
+		}
+	}
 }
