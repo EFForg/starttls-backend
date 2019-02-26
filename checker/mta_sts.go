@@ -195,7 +195,7 @@ func (c Checker) checkMTASTS(domain string, hostnameResults map[string]HostnameR
 // Implements ResultHandler.
 type AggregatedMTASTSResult struct {
 	Attempted int
-	Connected int
+	Connected int // Connected to at least one mx
 	Testing   int
 	Enforce   int
 }

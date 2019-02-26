@@ -216,4 +216,7 @@ func TestCheckList(t *testing.T) {
 	if aggResult.Connected != 4 {
 		t.Errorf("Expected 4 successfully connecting domains, got %d", aggResult.Connected)
 	}
+	if aggResult.Testing != 4 {
+		t.Errorf("Expected 4 domains in MTA-STS testing mode, got %d", aggResult.Testing)
+	}
 }
