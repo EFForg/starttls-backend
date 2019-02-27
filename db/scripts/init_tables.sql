@@ -72,3 +72,5 @@ CREATE TRIGGER update_change_timestamp BEFORE UPDATE
     update_changetimestamp_column();
 
 ALTER TABLE scans ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 0;
+
+ALTER TABLE scans ADD COLUMN IF NOT EXISTS mta_sts_mode TEXT DEFAULT '';

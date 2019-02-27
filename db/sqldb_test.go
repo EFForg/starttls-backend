@@ -335,3 +335,94 @@ func TestGetHostnameScan(t *testing.T) {
 		t.Errorf("Expected hostname scan to return correct data")
 	}
 }
+
+func TestGetMTASTSStats(t *testing.T) {
+	database.ClearTables()
+	day := time.Hour * 24
+	today := time.Now()
+	lastWeek := today.Add(-6 * day)
+
+	// Two recent scans from example1.com
+	// The most recent scan shows no MTA-STS support.
+	s := models.Scan{
+		Domain:    "example1.com",
+		Data:      checker.NewSampleDomainResult("example1.com"),
+		Timestamp: lastWeek,
+	}
+	database.PutScan(s)
+	s.Timestamp = lastWeek.Add(3 * day)
+	s.Data.MTASTSResult.Mode = ""
+	database.PutScan(s)
+	// Support is shown in the rolling average until the no-support scan is
+	// included.
+	expectStats(models.TimeSeries{
+		lastWeek:              100,
+		lastWeek.Add(day):     100,
+		lastWeek.Add(2 * day): 100,
+		lastWeek.Add(3 * day): 0,
+		lastWeek.Add(4 * day): 0,
+		lastWeek.Add(5 * day): 0,
+		lastWeek.Add(6 * day): 0,
+	}, t)
+
+	// Add another recent scan, from a second domain.
+	s = models.Scan{
+		Domain:    "example2.com",
+		Data:      checker.NewSampleDomainResult("example2.com"),
+		Timestamp: lastWeek.Add(1 * day),
+	}
+	database.PutScan(s)
+	expectStats(models.TimeSeries{
+		lastWeek:              100,
+		lastWeek.Add(day):     100,
+		lastWeek.Add(2 * day): 100,
+		lastWeek.Add(3 * day): 50,
+		lastWeek.Add(4 * day): 50,
+		lastWeek.Add(5 * day): 50,
+		lastWeek.Add(6 * day): 50,
+	}, t)
+
+	// Add a third scan to check that floats are outputted correctly.
+	s = models.Scan{
+		Domain:    "example3.com",
+		Data:      checker.NewSampleDomainResult("example2.com"),
+		Timestamp: lastWeek.Add(6 * day),
+	}
+	database.PutScan(s)
+	expectStats(models.TimeSeries{
+		lastWeek:              100,
+		lastWeek.Add(day):     100,
+		lastWeek.Add(2 * day): 100,
+		lastWeek.Add(3 * day): 50,
+		lastWeek.Add(4 * day): 50,
+		lastWeek.Add(5 * day): 50,
+		lastWeek.Add(6 * day): 66.666664,
+	}, t)
+}
+
+func expectStats(ts models.TimeSeries, t *testing.T) {
+	// GetMTASTSStats returns dates only (no hours, minutes, seconds). We need
+	// to truncate the expected times for comparison to dates and convert to UTC
+	// to match the database's timezone.
+	expected := make(map[time.Time]float32)
+	for kOld, v := range ts {
+		k := kOld.UTC().Truncate(24 * time.Hour)
+		expected[k] = v
+	}
+	got, err := database.GetMTASTSStats()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(expected) != len(got) {
+		t.Errorf("Expected MTA-STS stats to be\n %v\ngot\n %v\n", expected, got)
+		return
+	}
+	for expKey, expVal := range expected {
+		// DB query returns dates only (no hours, minutes, seconds).
+		key := expKey.Truncate(24 * time.Hour)
+		if got[key] != expVal {
+			t.Errorf("Expected MTA-STS stats to be\n %v\ngot\n %v\n", expected, got)
+			return
+		}
+	}
+}

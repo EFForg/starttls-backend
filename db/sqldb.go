@@ -98,15 +98,67 @@ func (db *SQLDatabase) PutToken(domain string) (models.Token, error) {
 
 // PutScan inserts a new scan for a particular domain into the database.
 func (db *SQLDatabase) PutScan(scan models.Scan) error {
+	// Serialize scanData.Data for insertion into SQLdb!
 	// @TODO marshall scan adds extra fields - need a custom obj for this
 	byteArray, err := json.Marshal(scan.Data)
 	if err != nil {
 		return err
 	}
-	// Serialize scanData.Data for insertion into SQLdb!
-	_, err = db.conn.Exec("INSERT INTO scans(domain, scandata, timestamp, version) VALUES($1, $2, $3, $4)",
-		scan.Domain, string(byteArray), scan.Timestamp.UTC().Format(sqlTimeFormat), scan.Version)
+	// Extract MTA-STS Mode to column for querying by mode, eg. adoption stats.
+	// Note, this will include MTA-STS configurations that serve a parse-able
+	// policy file and define a mode but don't pass full validation.
+	mtastsMode := ""
+	if scan.Data.MTASTSResult != nil {
+		mtastsMode = scan.Data.MTASTSResult.Mode
+	}
+	_, err = db.conn.Exec("INSERT INTO scans(domain, scandata, timestamp, version, mta_sts_mode) VALUES($1, $2, $3, $4, $5)",
+		scan.Domain, string(byteArray), scan.Timestamp.UTC().Format(sqlTimeFormat), scan.Version, mtastsMode)
 	return err
+}
+
+// GetMTASTSStats returns statistics about MTA-STS adoption over a rolling
+// 14-day window.
+// Returns a map with
+//  key: the final day of a two-week window. Windows last until EOD.
+//  value: the percent of scans supporting MTA-STS in that window
+func (db *SQLDatabase) GetMTASTSStats() (models.TimeSeries, error) {
+	// "day" represents truncated date (ie beginning of day), but windows should
+	// include the full day, so we add a day when querying timestamps.
+	// Getting the most recent 31 days for now, we can set the start date to the
+	// beginning of our MTA-STS data once we have some.
+	query := `
+		SELECT day, 100.0 * SUM(
+			CASE WHEN mta_sts_mode = 'testing' THEN 1 ELSE 0 END +
+			CASE WHEN mta_sts_mode = 'enforce' THEN 1 ELSE 0 END
+		) / COUNT(day) as percent
+		FROM (
+				SELECT date_trunc('day', d)::date AS day
+				FROM generate_series(CURRENT_DATE-31, CURRENT_DATE, '1 day'::INTERVAL) d )
+		AS days
+		INNER JOIN LATERAL (
+				SELECT DISTINCT ON (domain) domain, timestamp, mta_sts_mode
+				FROM scans
+				WHERE timestamp BETWEEN day - '13 days'::INTERVAL AND day + '1 day'::INTERVAL
+				ORDER BY domain, timestamp DESC
+			) AS most_recent_scans ON TRUE
+		GROUP BY day;`
+
+	rows, err := db.conn.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ts := make(map[time.Time]float32)
+	for rows.Next() {
+		var t time.Time
+		var count float32
+		if err := rows.Scan(&t, &count); err != nil {
+			return nil, err
+		}
+		ts[t.UTC()] = count
+	}
+	return ts, nil
 }
 
 const mostRecentQuery = `
