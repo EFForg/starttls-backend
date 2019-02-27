@@ -167,10 +167,10 @@ func validateMTASTSMXs(policyFileMXs []string, dnsMXs map[string]HostnameResult,
 			continue
 		}
 		if !PolicyMatches(dnsMX, policyFileMXs) {
-			result.Warning("%s appears in the DNS record but not the MTA-STS policy file",
+			result.Failure("%s appears in the DNS record but not the MTA-STS policy file",
 				dnsMX)
 		} else if !dnsMXResult.couldSTARTTLS() {
-			result.Warning("%s appears in the DNS record and MTA-STS policy file, but doesn't support STARTTLS",
+			result.Failure("%s appears in the DNS record and MTA-STS policy file, but doesn't support STARTTLS",
 				dnsMX)
 		}
 	}
