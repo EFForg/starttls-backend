@@ -1,8 +1,10 @@
 package checker
 
 import (
+	"encoding/csv"
 	"fmt"
 	"net"
+	"strings"
 	"testing"
 	"time"
 )
@@ -192,23 +194,18 @@ func TestNewSampleDomainResult(t *testing.T) {
 	NewSampleDomainResult("example.com")
 }
 
-func TestCheckList(t *testing.T) {
-	domains := []string{
-		"empty",
-		"domain",
-		"domain.tld",
-		"noconnection",
-		"noconnection2",
-		"nostarttls",
-	}
+func TestCheckCSV(t *testing.T) {
+	in := "empty\ndomain\ndomain.tld\nnoconnection\nnoconnection2\nnostarttls\n"
+	reader := csv.NewReader(strings.NewReader(in))
+
 	c := Checker{
+		Cache:                 MakeSimpleCache(10 * time.Minute), // @TODO fix race when not initted
 		lookupMXOverride:      mockLookupMX,
 		checkHostnameOverride: mockCheckHostname,
 		checkMTASTSOverride:   mockCheckMTASTS,
 	}
-
 	aggResult := AggregatedMTASTSResult{}
-	c.CheckList(domains, &aggResult)
+	c.CheckCSV(reader, &aggResult)
 
 	if aggResult.Attempted != 6 {
 		t.Errorf("Expected 6 attempted connections, got %d", aggResult.Attempted)

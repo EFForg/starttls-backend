@@ -2,7 +2,10 @@ package checker
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
+	"io"
+	"log"
 	"net"
 	"strings"
 	"time"
@@ -199,27 +202,45 @@ const poolSize = 16
 
 // CheckList runs checks on a list of domains, processing the results according
 // to resultHandler.
-func (c *Checker) CheckList(domains []string, resultHandler ResultHandler) {
+func (c *Checker) CheckCSV(domains *csv.Reader, resultHandler ResultHandler) {
 	work := make(chan string)
 	results := make(chan DomainResult)
 
 	go func() {
-		for _, domain := range domains {
-			work <- domain
+		for {
+			data, err := domains.Read()
+			if err != nil {
+				if err != io.EOF {
+					log.Fatal(err)
+				}
+				break
+			}
+			if len(data) > 0 {
+				work <- data[0]
+			}
 		}
 		close(work)
 	}()
 
+	done := make(chan struct{}, poolSize)
 	for i := 0; i < poolSize; i++ {
 		go func() {
 			for domain := range work {
 				results <- c.CheckDomain(domain, nil)
 			}
+			done <- struct{}{}
 		}()
 	}
 
-	for range domains {
-		r := <-results
+	go func() {
+		// Close the results channel when all the worker goroutines have finished.
+		for i := 0; i < poolSize; i++ {
+			<-done
+		}
+		close(results)
+	}()
+
+	for r := range results {
 		resultHandler.Handle(r)
 	}
 }
