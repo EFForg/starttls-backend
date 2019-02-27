@@ -41,6 +41,7 @@ func main() {
 	c := checker.Checker{
 		Cache: checker.MakeSimpleCache(10 * time.Minute),
 	}
+	w := DomainWriter{}
 
 	if *domain != "" {
 		// Handle single domain and return

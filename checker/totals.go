@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// Sources for aggregated domain statistics
+const MajesticMillion = "majestic-million"
+
 // DomainTotals compiled aggregated stats across domains.
 // Implements ResultHandler.
 type DomainTotals struct {
