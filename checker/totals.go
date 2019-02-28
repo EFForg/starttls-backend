@@ -21,6 +21,11 @@ type DomainTotals struct {
 // Add the result of a single domain check to aggregated stats.
 func (t *DomainTotals) HandleDomain(r DomainResult) {
 	t.Attempted += 1
+	// Show progress.
+	if t.Attempted%1000 == 0 {
+		log.Printf("%+v\n", t)
+	}
+
 	// If DomainStatus is > 4, we couldn't connect to a mailbox.
 	if r.Status > 4 {
 		return
