@@ -39,6 +39,7 @@ type Database interface {
 	PutHostnameScan(string, checker.HostnameResult) error
 	// Gets counts per day of hosts supporting MTA-STS adoption.
 	GetMTASTSStats() (models.TimeSeries, error)
+	PutDomainTotals(checker.DomainTotals) error
 	ClearTables() error
 }
 

@@ -45,12 +45,7 @@ func main() {
 	if *domain != "" {
 		// Handle single domain and return
 		result := c.CheckDomain(*domain, nil)
-		b, err := json.Marshal(result)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		fmt.Println(string(b))
+		w.HandleDomain(result)
 		os.Exit(0)
 	}
 
@@ -71,7 +66,17 @@ func main() {
 		instream = resp.Body
 	}
 
-	domains := csv.NewReader(instream)
-	aggResult := checker.AggregatedMTASTSResult{}
-	c.CheckCSV(domains, &aggResult)
+	domainReader := csv.NewReader(instream)
+	c.CheckCSV(domainReader, &w)
+}
+
+type DomainWriter struct{}
+
+func (w DomainWriter) HandleDomain(r DomainResult) {
+	b, err := json.Marshal(result)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	fmt.Println(string(b))
 }

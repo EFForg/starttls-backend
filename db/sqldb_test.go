@@ -426,3 +426,19 @@ func expectStats(ts models.TimeSeries, t *testing.T) {
 		}
 	}
 }
+
+func TestPutDomainTotals(t *testing.T) {
+	database.ClearTables()
+	totals := checker.DomainTotals{
+		Time:          time.Now(),
+		Source:        "Tom's Domain Emporium",
+		Attempted:     1000000000,
+		Connected:     10000,
+		MTASTSTesting: 1000,
+		MTASTSEnforce: 1000,
+	}
+	err := database.PutDomainTotals(totals)
+	if err != nil {
+		t.Error(err)
+	}
+}

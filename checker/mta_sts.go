@@ -190,30 +190,3 @@ func (c Checker) checkMTASTS(domain string, hostnameResults map[string]HostnameR
 	result.MXs = strings.Split(policyMap["mx"], " ")
 	return result
 }
-
-// AggregatedMTASTSResults compiles MTA-STS stats across domains.
-// Implements ResultHandler.
-type AggregatedMTASTSResult struct {
-	Attempted int
-	Connected int // Connected to at least one mx
-	Testing   int
-	Enforce   int
-}
-
-// Add the result of a single domain check to aggregated MTA-STS stats.
-func (a *AggregatedMTASTSResult) Handle(r DomainResult) {
-	a.Attempted += 1
-	// If DomainStatus is > 4, we couldn't connect to a mailbox.
-	if r.Status > 4 {
-		return
-	}
-	a.Connected += 1
-	if r.MTASTSResult != nil {
-		switch r.MTASTSResult.Mode {
-		case "enforce":
-			a.Enforce += 1
-		case "testing":
-			a.Testing += 1
-		}
-	}
-}
