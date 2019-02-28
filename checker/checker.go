@@ -13,7 +13,6 @@ type Checker struct {
 	Timeout time.Duration
 
 	// Cache specifies the hostname scan cache store and expire time.
-	// Defaults to a 10-minute in-memory cache.
 	Cache *ScanCache
 
 	// lookupMX specifies an alternate function to retrieve hostnames for a given
@@ -32,11 +31,4 @@ func (c *Checker) timeout() time.Duration {
 		return c.Timeout
 	}
 	return 10 * time.Second
-}
-
-func (c *Checker) cache() *ScanCache {
-	if c.Cache == nil {
-		c.Cache = MakeSimpleCache(10 * time.Minute)
-	}
-	return c.Cache
 }

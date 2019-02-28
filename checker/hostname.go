@@ -210,6 +210,20 @@ func checkTLSVersion(client *smtp.Client, hostname string, timeout time.Duration
 	return result.Success()
 }
 
+// CheckHostnameWithCache returns the result of CheckHostname, using or
+// updating the Checker's cache.
+func (c *Checker) CheckHostnameWithCache(domain string, hostname string) HostnameResult {
+	if c.Cache == nil {
+		return c.CheckHostname(domain, hostname)
+	}
+	hostnameResult, err := c.Cache.GetHostnameScan(hostname)
+	if err != nil {
+		hostnameResult = c.CheckHostname(domain, hostname)
+		c.Cache.PutHostnameScan(hostname, hostnameResult)
+	}
+	return hostnameResult
+}
+
 // CheckHostname performs a series of checks against a hostname for an email domain.
 // `domain` is the mail domain that this server serves email for.
 // `hostname` is the hostname for this server.
