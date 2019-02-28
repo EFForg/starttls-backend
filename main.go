@@ -30,6 +30,7 @@ func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
 	mux.Handle("/api/queue",
 		throttleHandler(time.Hour, 20, http.HandlerFunc(api.wrapper(api.Queue))))
 	mux.HandleFunc("/api/validate", api.wrapper(api.Validate))
+	mux.HandleFunc("/api/stats", api.wrapper(api.Stats))
 	mux.HandleFunc("/api/ping", pingHandler)
 
 	return middleware(mux)
