@@ -17,8 +17,8 @@ type DomainTotals struct {
 	Source        string
 	Attempted     int
 	Connected     int // Connected to at least one mx
-	MTASTSTesting int
-	MTASTSEnforce int
+	MTASTSTesting []string
+	MTASTSEnforce []string
 }
 
 // Add the result of a single domain check to aggregated stats.
@@ -37,9 +37,9 @@ func (t *DomainTotals) HandleDomain(r DomainResult) {
 	if r.MTASTSResult != nil {
 		switch r.MTASTSResult.Mode {
 		case "enforce":
-			t.MTASTSEnforce += 1
+			t.MTASTSEnforce = append(t.MTASTSEnforce, r.Domain)
 		case "testing":
-			t.MTASTSTesting += 1
+			t.MTASTSTesting = append(t.MTASTSTesting, r.Domain)
 		}
 	}
 }
