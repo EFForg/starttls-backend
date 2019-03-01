@@ -54,7 +54,7 @@ const poolSize = 16
 
 // CheckList runs checks on a list of domains, processing the results according
 // to resultHandler.
-func (c *Checker) CheckCSV(domains *csv.Reader, resultHandler ResultHandler) {
+func (c *Checker) CheckCSV(domains *csv.Reader, resultHandler ResultHandler, domainColumn int) {
 	work := make(chan string)
 	results := make(chan DomainResult)
 
@@ -68,7 +68,7 @@ func (c *Checker) CheckCSV(domains *csv.Reader, resultHandler ResultHandler) {
 				break
 			}
 			if len(data) > 0 {
-				work <- data[0]
+				work <- data[domainColumn]
 			}
 		}
 		close(work)

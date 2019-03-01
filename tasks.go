@@ -31,6 +31,6 @@ func updateStats() {
 	c := checker.Checker{
 		Cache: checker.MakeSimpleCache(10 * time.Minute),
 	}
-	c.CheckCSV(domains, &totals)
+	c.CheckCSV(domains, &totals, 2)
 	log.Printf("Scans completed, got %+v\n", totals)
 }

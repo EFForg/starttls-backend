@@ -68,7 +68,9 @@ func main() {
 	}
 
 	domainReader := csv.NewReader(instream)
-	c.CheckCSV(domainReader, &w)
+	// Assume domains are in the 0th column, eg just a newline-separated list
+	// of domains. Could pass this is a flag.
+	c.CheckCSV(domainReader, &w, 0)
 }
 
 type DomainWriter struct{}
