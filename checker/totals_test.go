@@ -18,7 +18,7 @@ func TestCheckCSV(t *testing.T) {
 		checkMTASTSOverride:   mockCheckMTASTS,
 	}
 	totals := DomainTotals{}
-	c.CheckCSV(reader, &totals)
+	c.CheckCSV(reader, &totals, 0)
 
 	if totals.Attempted != 6 {
 		t.Errorf("Expected 6 attempted connections, got %d", totals.Attempted)
@@ -26,7 +26,7 @@ func TestCheckCSV(t *testing.T) {
 	if totals.Connected != 4 {
 		t.Errorf("Expected 4 successfully connecting domains, got %d", totals.Connected)
 	}
-	if totals.MTASTSTesting != 4 {
-		t.Errorf("Expected 4 domains in MTA-STS testing mode, got %d", totals.MTASTSTesting)
+	if len(totals.MTASTSTesting) != 4 {
+		t.Errorf("Expected 4 domains in MTA-STS testing mode, got %d", len(totals.MTASTSTesting))
 	}
 }

@@ -434,8 +434,8 @@ func TestPutDomainTotals(t *testing.T) {
 		Source:        "Tom's Domain Emporium",
 		Attempted:     1000000000,
 		Connected:     10000,
-		MTASTSTesting: 1000,
-		MTASTSEnforce: 1000,
+		MTASTSTesting: []string{"a.com", "b.com", "c.com"},
+		MTASTSEnforce: []string{"d.com", "e.com", "f.com"},
 	}
 	err := database.PutDomainTotals(totals)
 	if err != nil {
