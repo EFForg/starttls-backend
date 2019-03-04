@@ -74,7 +74,7 @@ func (c *Checker) CheckCSV(domains *csv.Reader, resultHandler ResultHandler, dom
 		close(work)
 	}()
 
-	done := make(chan struct{}, poolSize)
+	done := make(chan struct{})
 	for i := 0; i < poolSize; i++ {
 		go func() {
 			for domain := range work {
