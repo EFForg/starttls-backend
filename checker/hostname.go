@@ -224,6 +224,15 @@ func (c *Checker) CheckHostnameWithCache(domain string, hostname string) Hostnam
 	return hostnameResult
 }
 
+func (c *Checker) NoopCheckHostname(domain string, hostname string) HostnameResult {
+	r := HostnameResult{
+		Domain:   domain,
+		Hostname: hostname,
+	}
+	r.addCheck(MakeResult(Connectivity).Error("Skipping hostname checks"))
+	return r
+}
+
 // CheckHostname performs a series of checks against a hostname for an email domain.
 // `domain` is the mail domain that this server serves email for.
 // `hostname` is the hostname for this server.
