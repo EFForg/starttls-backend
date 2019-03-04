@@ -12,10 +12,10 @@ func TestCheckCSV(t *testing.T) {
 	reader := csv.NewReader(strings.NewReader(in))
 
 	c := Checker{
-		Cache:                 MakeSimpleCache(10 * time.Minute),
-		lookupMXOverride:      mockLookupMX,
-		checkHostnameOverride: mockCheckHostname,
-		checkMTASTSOverride:   mockCheckMTASTS,
+		Cache:               MakeSimpleCache(10 * time.Minute),
+		lookupMXOverride:    mockLookupMX,
+		CheckHostname:       mockCheckHostname,
+		checkMTASTSOverride: mockCheckMTASTS,
 	}
 	totals := DomainTotals{}
 	c.CheckCSV(reader, &totals, 0)
