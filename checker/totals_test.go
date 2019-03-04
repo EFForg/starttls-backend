@@ -23,10 +23,10 @@ func TestCheckCSV(t *testing.T) {
 	if totals.Attempted != 6 {
 		t.Errorf("Expected 6 attempted connections, got %d", totals.Attempted)
 	}
-	if totals.Connected != 4 {
-		t.Errorf("Expected 4 successfully connecting domains, got %d", totals.Connected)
+	if totals.WithMXs != 5 {
+		t.Errorf("Expected 5 domains with MXs, got %d", totals.WithMXs)
 	}
-	if len(totals.MTASTSTesting) != 4 {
-		t.Errorf("Expected 4 domains in MTA-STS testing mode, got %d", len(totals.MTASTSTesting))
+	if len(totals.MTASTSTesting) != 5 {
+		t.Errorf("Expected 5 domains in MTA-STS testing mode, got %d", len(totals.MTASTSTesting))
 	}
 }

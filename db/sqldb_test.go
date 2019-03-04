@@ -433,7 +433,7 @@ func TestPutDomainTotals(t *testing.T) {
 		Time:          time.Now(),
 		Source:        "Tom's Domain Emporium",
 		Attempted:     1000000000,
-		Connected:     10000,
+		WithMXs:       10000,
 		MTASTSTesting: []string{"a.com", "b.com", "c.com"},
 		MTASTSEnforce: []string{"d.com", "e.com", "f.com"},
 	}

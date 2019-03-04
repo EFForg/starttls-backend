@@ -81,7 +81,8 @@ CREATE TABLE IF NOT EXISTS domain_totals
     time            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     source          TEXT NOT NULL,
     attempted       INTEGER DEFAULT 0,
-    connected       INTEGER DEFAULT 0,
     mta_sts_testing INTEGER DEFAULT 0,
     mta_sts_enforce INTEGER DEFAULT 0
 );
+
+ALTER TABLE domain_totals ADD COLUMN IF NOT EXISTS with_mxs INTEGER DEFAULT 0;

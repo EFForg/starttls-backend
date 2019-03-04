@@ -16,7 +16,7 @@ type DomainTotals struct {
 	Time          time.Time
 	Source        string
 	Attempted     int
-	Connected     int // Connected to at least one mx
+	WithMXs       int
 	MTASTSTesting []string
 	MTASTSEnforce []string
 }
@@ -29,11 +29,11 @@ func (t *DomainTotals) HandleDomain(r DomainResult) {
 		log.Printf("%+v\n", t)
 	}
 
-	// If DomainStatus is > 4, we couldn't connect to a mailbox.
-	if r.Status > 4 {
+	if len(r.HostnameResults) == 0 {
+		// No MX records - assume this isn't an email domain.
 		return
 	}
-	t.Connected += 1
+	t.WithMXs += 1
 	if r.MTASTSResult != nil {
 		switch r.MTASTSResult.Mode {
 		case "enforce":

@@ -29,7 +29,8 @@ func updateStats() {
 		Source: checker.MajesticMillion,
 	}
 	c := checker.Checker{
-		Cache: checker.MakeSimpleCache(10 * time.Minute),
+		Cache:         checker.MakeSimpleCache(10 * time.Minute),
+		CheckHostname: checker.NoopCheckHostname,
 	}
 	c.CheckCSV(domains, &totals, 2)
 	log.Printf("Scans completed, got %+v\n", totals)
