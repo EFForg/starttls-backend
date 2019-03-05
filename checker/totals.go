@@ -4,6 +4,8 @@ import (
 	"encoding/csv"
 	"io"
 	"log"
+	"os"
+	"strconv"
 	"time"
 )
 
@@ -50,11 +52,15 @@ type ResultHandler interface {
 	HandleDomain(DomainResult)
 }
 
-const poolSize = 16
+const defaultPoolSize = 16
 
 // CheckList runs checks on a list of domains, processing the results according
 // to resultHandler.
 func (c *Checker) CheckCSV(domains *csv.Reader, resultHandler ResultHandler, domainColumn int) {
+	poolSize, err := strconv.Atoi(os.Getenv("CONNECTION_POOL_SIZE"))
+	if err != nil || poolSize <= 0 {
+		poolSize = defaultPoolSize
+	}
 	work := make(chan string)
 	results := make(chan DomainResult)
 
