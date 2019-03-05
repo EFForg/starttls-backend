@@ -47,7 +47,7 @@ func (m MTASTSResult) MarshalJSON() ([]byte, error) {
 func filterByPrefix(records []string, prefix string) []string {
 	filtered := []string{}
 	for _, elem := range records {
-		if elem[0:len(prefix)] == prefix {
+		if strings.HasPrefix(elem, prefix) {
 			filtered = append(filtered, elem)
 		}
 	}
