@@ -62,6 +62,8 @@ func validateRegularly(v DomainPolicyStore, interval time.Duration,
 // Hostname map. Interval specifies the interval to wait between each run.
 // Failures are reported to Sentry.
 func ValidateRegularly(v DomainPolicyStore, interval time.Duration) {
-	c := checker.Checker{}
+	c := checker.Checker{
+		Cache: checker.MakeSimpleCache(10 * time.Minute),
+	}
 	validateRegularly(v, interval, c.CheckDomain, reportToSentry)
 }
