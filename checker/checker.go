@@ -16,15 +16,15 @@ type Checker struct {
 	// If `nil`, then scans are not cached.
 	Cache *ScanCache
 
-	// lookupMX specifies an alternate function to retrieve hostnames for a given
+	// lookupMXOverride specifies an alternate function to retrieve hostnames for a given
 	// domain. It is used to mock DNS lookups during testing.
-	lookupMX func(string) ([]*net.MX, error)
+	lookupMXOverride func(string) ([]*net.MX, error)
 
-	// checkHostname is used to mock checks for a single hostname.
-	checkHostname func(string, string) HostnameResult
+	// checkHostnameOverride is used to mock checks for a single hostname.
+	checkHostnameOverride func(string, string) HostnameResult
 
 	// checkMTASTSOverride is used to mock MTA-STS checks.
-	checkMTASTSOverride func(string, map[string]HostnameResult) Result
+	checkMTASTSOverride func(string, map[string]HostnameResult) *MTASTSResult
 }
 
 func (c *Checker) timeout() time.Duration {

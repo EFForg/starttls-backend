@@ -78,8 +78,8 @@ func (c *Checker) lookupHostnames(domain string) ([]string, error) {
 	}
 	// Allow the Checker to mock DNS lookup.
 	var mxs []*net.MX
-	if c.lookupMX != nil {
-		mxs, err = c.lookupMX(domain)
+	if c.lookupMXOverride != nil {
+		mxs, err = c.lookupMXOverride(domain)
 	} else {
 		mxs, err = lookupMXWithTimeout(domainASCII, c.timeout())
 	}

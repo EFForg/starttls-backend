@@ -177,6 +177,10 @@ func validateMTASTSMXs(policyFileMXs []string, dnsMXs map[string]HostnameResult,
 }
 
 func (c Checker) checkMTASTS(domain string, hostnameResults map[string]HostnameResult) *MTASTSResult {
+	if c.checkMTASTSOverride != nil {
+		// Allow the Checker to mock this function.
+		return c.checkMTASTSOverride(domain, hostnameResults)
+	}
 	result := MakeMTASTSResult()
 	result.addCheck(checkMTASTSRecord(domain))
 	policyResult, policy, policyMap := checkMTASTSPolicyFile(domain, hostnameResults)
