@@ -11,10 +11,6 @@ type mockDomainPolicyStore struct {
 	hostnames map[string][]string
 }
 
-func (m mockDomainPolicyStore) GetName() string {
-	return "mock"
-}
-
 func (m mockDomainPolicyStore) DomainsToValidate() ([]string, error) {
 	domains := []string{}
 	for domain := range m.hostnames {

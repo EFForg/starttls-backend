@@ -81,6 +81,8 @@ func (v *Validator) policyPassed(name string, domain string, result checker.Doma
 	}
 }
 
+// Run starts the endless loop of validations. The first validation happens after the given
+// Interval. Validation failures induce `policyFailed`, and successes cause `policyPassed`.
 func (v *Validator) Run() {
 	for {
 		<-time.After(v.interval())
