@@ -32,13 +32,13 @@ func TestPolicyCheckWithQueuedDomain(t *testing.T) {
 		Email: "postmaster@example.com",
 		State: models.StateUnvalidated,
 	}
-	api.Database.PutDomain(domain)
+	api.DomainStore.PutDomain(domain)
 	result := api.policyCheck("example.com")
 	if result.Status != checker.Warning {
 		t.Errorf("Check should have warned.")
 	}
-	domain.State = models.StateQueued
-	api.Database.PutDomain(domain)
+	domain.State = models.StateTesting
+	api.DomainStore.PutDomain(domain)
 	result = api.policyCheck("example.com")
 	if result.Status != checker.Warning {
 		t.Errorf("Check should have warned.")

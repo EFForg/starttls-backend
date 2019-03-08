@@ -19,6 +19,16 @@ type Domain struct {
 	QueueWeeks   int         `json:"queue_weeks"`
 }
 
+// DomainStore is a simple interface for fetching and adding domain objects.
+type DomainStore interface {
+	// Upserts domain state.
+	PutDomain(Domain) error
+	// Retrieves state of a domain
+	GetDomain(string) (Domain, error)
+	// Retrieves all domains in a particular state.
+	GetDomains(DomainState) ([]Domain, error)
+}
+
 // DomainState represents the state of a single domain.
 type DomainState string
 
@@ -26,9 +36,9 @@ type DomainState string
 const (
 	StateUnknown     = "unknown"     // Domain was never submitted, so we don't know.
 	StateUnvalidated = "unvalidated" // E-mail token for this domain is unverified
-	StateQueued      = "queued"      // Queued for addition at next addition date.
+	StateTesting     = "queued"      // Queued for addition at next addition date.
 	StateFailed      = "failed"      // Requested to be queued, but failed verification.
-	StateAdded       = "added"       // On the list.
+	StateEnforce     = "added"       // On the list.
 )
 
 type policyList interface {
