@@ -107,6 +107,7 @@ func main() {
 	list := policy.MakeUpdatedList()
 	api := API{
 		Database:    db,
+		DomainStore: db,
 		CheckDomain: defaultCheck,
 		List:        list,
 		DontScan:    loadDontScan(),

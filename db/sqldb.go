@@ -201,7 +201,7 @@ func (db SQLDatabase) GetAllScans(domain string) ([]models.Scan, error) {
 	return scans, nil
 }
 
-// DOMAIN DB FUNCTIONS
+// =============== models.DomainStore impl ===============
 
 // PutDomain inserts a particular domain into the database. If the domain does
 // not yet exist in the database, we initialize it with StateUnvalidated.
@@ -298,7 +298,7 @@ func (db SQLDatabase) ClearTables() error {
 // DB whose policies should be validated.
 func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 	domains := []string{}
-	data, err := db.GetDomains(models.StateQueued)
+	data, err := db.GetDomains(models.StateTesting)
 	if err != nil {
 		return domains, err
 	}

@@ -17,12 +17,6 @@ type Database interface {
 	GetLatestScan(string) (models.Scan, error)
 	// Retrieves all scandata for domain
 	GetAllScans(string) ([]models.Scan, error)
-	// Upserts domain state.
-	PutDomain(models.Domain) error
-	// Retrieves state of a domain
-	GetDomain(string) (models.Domain, error)
-	// Retrieves all domains in a particular state.
-	GetDomains(models.DomainState) ([]models.Domain, error)
 	// Gets the token for a domain
 	GetTokenByDomain(string) (string, error)
 	// Creates a token in the db

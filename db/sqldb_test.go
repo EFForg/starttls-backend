@@ -165,12 +165,12 @@ func TestUpsertDomain(t *testing.T) {
 		Email: "admin@testing.com",
 	}
 	database.PutDomain(data)
-	err := database.PutDomain(models.Domain{Name: "testing.com", State: models.StateQueued})
+	err := database.PutDomain(models.Domain{Name: "testing.com", State: models.StateTesting})
 	if err != nil {
 		t.Errorf("PutDomain(%s) failed: %v\n", data.Name, err)
 	}
 	retrievedData, err := database.GetDomain(data.Name)
-	if retrievedData.State != models.StateQueued {
+	if retrievedData.State != models.StateTesting {
 		t.Errorf("Expected state to be 'Queued', was %v\n", retrievedData)
 	}
 }
@@ -216,7 +216,7 @@ func TestLastUpdatedFieldUpdates(t *testing.T) {
 	database.PutDomain(data)
 	retrievedData, _ := database.GetDomain(data.Name)
 	lastUpdated := retrievedData.LastUpdated
-	data.State = models.StateQueued
+	data.State = models.StateTesting
 	database.PutDomain(models.Domain{Name: data.Name, Email: "new fone who dis"})
 	retrievedData, _ = database.GetDomain(data.Name)
 	if lastUpdated.Equal(retrievedData.LastUpdated) {
@@ -248,7 +248,7 @@ func TestDomainsToValidate(t *testing.T) {
 	}
 	for domain, queued := range queuedMap {
 		if queued {
-			database.PutDomain(models.Domain{Name: domain, State: models.StateQueued})
+			database.PutDomain(models.Domain{Name: domain, State: models.StateTesting})
 		} else {
 			database.PutDomain(models.Domain{Name: domain})
 		}

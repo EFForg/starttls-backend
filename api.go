@@ -41,6 +41,7 @@ type checkPerformer func(API, string) (checker.DomainResult, error)
 // and prefers the latter if both are present.
 type API struct {
 	Database    db.Database
+	DomainStore models.DomainStore
 	CheckDomain checkPerformer
 	List        PolicyList
 	DontScan    map[string]bool
@@ -94,14 +95,14 @@ func (api API) policyCheck(domain string) *checker.Result {
 	if api.List.HasDomain(domain) {
 		return result.Success()
 	}
-	domainData, err := api.Database.GetDomain(domain)
+	domainData, err := api.DomainStore.GetDomain(domain)
 	if err != nil {
 		return result.Failure("Domain %s is not on the policy list.", domain)
 	}
-	if domainData.State == models.StateAdded {
-		log.Println("Warning: Domain was StateAdded in DB but was not found on the policy list.")
+	if domainData.State == models.StateEnforce {
+		log.Println("Warning: Domain was StateEnforce in DB but was not found on the policy list.")
 		return result.Success()
-	} else if domainData.State == models.StateQueued {
+	} else if domainData.State == models.StateTesting {
 		return result.Warning("Domain %s is queued to be added to the policy list.", domain)
 	} else if domainData.State == models.StateUnvalidated {
 		return result.Warning("The policy addition request for %s is waiting on email validation", domain)
@@ -263,7 +264,7 @@ func (api API) Queue(r *http.Request) APIResponse {
 		}
 		domain.PopulateFromScan(scan)
 		// 1. Insert domain into DB
-		if err = api.Database.PutDomain(domain); err != nil {
+		if err = api.DomainStore.PutDomain(domain); err != nil {
 			return serverError(err.Error())
 		}
 		// 2. Create token for domain
@@ -287,7 +288,7 @@ func (api API) Queue(r *http.Request) APIResponse {
 		if err != nil {
 			return badRequest(err.Error())
 		}
-		status, err := api.Database.GetDomain(domainName)
+		status, err := api.DomainStore.GetDomain(domainName)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusNotFound, Message: err.Error()}
 		}
@@ -319,14 +320,14 @@ func (api API) Validate(r *http.Request) APIResponse {
 		return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
 	}
 	// 2. Update domain status from "UNVALIDATED" to "QUEUED"
-	domainData, err := api.Database.GetDomain(domain)
+	domainData, err := api.DomainStore.GetDomain(domain)
 	if err != nil {
 		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 	}
-	err = api.Database.PutDomain(models.Domain{
+	err = api.DomainStore.PutDomain(models.Domain{
 		Name:  domainData.Name,
 		Email: domainData.Email,
-		State: models.StateQueued,
+		State: models.StateTesting,
 	})
 	if err != nil {
 		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
