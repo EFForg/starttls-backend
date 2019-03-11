@@ -2,7 +2,6 @@ package validator
 
 import (
 	"testing"
-
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
@@ -10,10 +9,6 @@ import (
 
 type mockDomainPolicyStore struct {
 	hostnames map[string][]string
-}
-
-func (m mockDomainPolicyStore) GetName() string {
-	return "mock"
 }
 
 func (m mockDomainPolicyStore) DomainsToValidate() ([]string, error) {
@@ -28,6 +23,8 @@ func (m mockDomainPolicyStore) HostnamesForDomain(domain string) ([]string, erro
 	return m.hostnames[domain], nil
 }
 
+func noop(_ string, _ string, _ checker.DomainResult) {}
+
 func TestRegularValidationValidates(t *testing.T) {
 	called := make(chan bool)
 	fakeChecker := func(domain string, hostnames []string) checker.DomainResult {
@@ -36,7 +33,8 @@ func TestRegularValidationValidates(t *testing.T) {
 	}
 	mock := mockDomainPolicyStore{
 		hostnames: map[string][]string{"a": []string{"hostname"}}}
-	go validateRegularly(mock, 100*time.Millisecond, fakeChecker, nil)
+	v := Validator{Store: mock, Interval: 100 * time.Millisecond, checkPerformer: fakeChecker, OnFailure: noop}
+	go v.Run()
 
 	select {
 	case <-called:
@@ -57,16 +55,27 @@ func TestRegularValidationReportsErrors(t *testing.T) {
 	fakeReporter := func(name string, domain string, result checker.DomainResult) {
 		reports <- domain
 	}
+	successReports := make(chan string)
+	fakeSuccessReporter := func(name string, domain string, result checker.DomainResult) {
+		successReports <- domain
+	}
 	mock := mockDomainPolicyStore{
 		hostnames: map[string][]string{
 			"fail":   []string{"hostname"},
 			"error":  []string{"hostname"},
 			"normal": []string{"hostname"}}}
-	go validateRegularly(mock, 100*time.Millisecond, fakeChecker, fakeReporter)
+	v := Validator{Store: mock, Interval: 100 * time.Millisecond, checkPerformer: fakeChecker,
+		OnFailure: fakeReporter, OnSuccess: fakeSuccessReporter,
+	}
+	go v.Run()
 	recvd := make(map[string]bool)
 	numRecvd := 0
 	for numRecvd < 4 {
 		select {
+		case report := <-successReports:
+			if report != "normal" {
+				t.Errorf("Didn't expect %s to succeed", report)
+			}
 		case report := <-reports:
 			recvd[report] = true
 			numRecvd++
@@ -81,6 +90,6 @@ func TestRegularValidationReportsErrors(t *testing.T) {
 		t.Errorf("Expected error to be reported")
 	}
 	if _, ok := recvd["normal"]; ok {
-		t.Errorf("Didn't expected normal to be reported")
+		t.Errorf("Didn't expect normal to be reported as failure")
 	}
 }
