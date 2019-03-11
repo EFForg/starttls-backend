@@ -373,8 +373,7 @@ func getInt(param string, r *http.Request, lowInc int, highExc int, defaultNum i
 	if unicode == "" {
 		return defaultNum, nil
 	}
-	n64, err := strconv.ParseInt(unicode, 10, 8)
-	n := int(n64) // best console
+	n, err := strconv.Atoi(unicode)
 	if err != nil {
 		return -1, err
 	}
