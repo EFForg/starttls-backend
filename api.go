@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -219,6 +220,11 @@ func getDomainParams(r *http.Request) (models.Domain, error) {
 	} else {
 		domain.Email = validationAddress(&domain)
 	}
+	queueWeeks, err := getInt("weeks", r, 4, 52, 4)
+	if err != nil {
+		return domain, err
+	}
+	domain.QueueWeeks = queueWeeks
 
 	if mtasts != "on" {
 		for _, hostname := range r.PostForm["hostnames"] {
@@ -246,6 +252,7 @@ func getDomainParams(r *http.Request) (models.Domain, error) {
 //				mta_sts: "on" if domain supports MTA-STS, else "".
 //        hostnames: List of MX hostnames to put into this domain's TLS policy. Up to 8.
 //        Sets models.Domain object as response.
+//        weeks (optional, default 4): How many weeks is this domain queued for.
 //        email (optional): Contact email associated with domain.
 //   GET  /api/queue?domain=<domain>
 //        Sets models.Domain object as response.
@@ -349,13 +356,34 @@ func getASCIIDomain(r *http.Request) (string, error) {
 }
 
 // Retrieves and lowercases `param` as a query parameter from `http.Request` r.
-// If fails, then writes error to `http.ResponseWriter` w.
+// If fails, then returns an error.
 func getParam(param string, r *http.Request) (string, error) {
 	unicode := r.FormValue(param)
 	if unicode == "" {
 		return "", fmt.Errorf("query parameter %s not specified", param)
 	}
 	return strings.ToLower(unicode), nil
+}
+
+// Retrieves `param` as a query parameter from `http.Request` r, and tries to cast it as
+// a number between [lowInc, highExc). If fails, then returns an error.
+// If `param` isn't specified, return defaultNum.
+func getInt(param string, r *http.Request, lowInc int, highExc int, defaultNum int) (int, error) {
+	unicode := r.FormValue(param)
+	if unicode == "" {
+		return defaultNum, nil
+	}
+	n, err := strconv.Atoi(unicode)
+	if err != nil {
+		return -1, err
+	}
+	if n < lowInc {
+		return n, fmt.Errorf("expected query parameter %s to be more than or equal to %d, was %d", param, lowInc, n)
+	}
+	if n >= highExc {
+		return n, fmt.Errorf("expected query parameter %s to be less than %d, was %d", param, highExc, n)
+	}
+	return n, nil
 }
 
 // Writes `v` as a JSON object to http.ResponseWriter `w`. If an error

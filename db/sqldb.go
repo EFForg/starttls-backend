@@ -208,11 +208,11 @@ func (db SQLDatabase) GetAllScans(domain string) ([]models.Scan, error) {
 // Subsequent puts with the same domain updates the row with the information in
 // the object provided.
 func (db *SQLDatabase) PutDomain(domain models.Domain) error {
-	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status) "+
-		"VALUES($1, $2, $3, $4) "+
+	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status, queue_weeks) "+
+		"VALUES($1, $2, $3, $4, $6) "+
 		"ON CONFLICT (domain) DO UPDATE SET status=$5",
 		domain.Name, domain.Email, strings.Join(domain.MXs[:], ","),
-		models.StateUnvalidated, domain.State)
+		models.StateUnvalidated, domain.State, domain.QueueWeeks)
 	return err
 }
 
@@ -221,9 +221,9 @@ func (db *SQLDatabase) PutDomain(domain models.Domain) error {
 func (db SQLDatabase) GetDomain(domain string) (models.Domain, error) {
 	data := models.Domain{}
 	var rawMXs string
-	err := db.conn.QueryRow("SELECT domain, email, data, status, last_updated FROM domains WHERE domain=$1",
+	err := db.conn.QueryRow("SELECT domain, email, data, status, last_updated, queue_weeks FROM domains WHERE domain=$1",
 		domain).Scan(
-		&data.Name, &data.Email, &rawMXs, &data.State, &data.LastUpdated)
+		&data.Name, &data.Email, &rawMXs, &data.State, &data.LastUpdated, &data.QueueWeeks)
 	data.MXs = strings.Split(rawMXs, ",")
 	if len(rawMXs) == 0 {
 		data.MXs = []string{}
@@ -234,7 +234,7 @@ func (db SQLDatabase) GetDomain(domain string) (models.Domain, error) {
 // GetDomains retrieves all the domains which match a particular state.
 func (db SQLDatabase) GetDomains(state models.DomainState) ([]models.Domain, error) {
 	rows, err := db.conn.Query(
-		"SELECT domain, email, data, status, last_updated FROM domains WHERE status=$1", state)
+		"SELECT domain, email, data, status, last_updated, queue_weeks FROM domains WHERE status=$1", state)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +243,7 @@ func (db SQLDatabase) GetDomains(state models.DomainState) ([]models.Domain, err
 	for rows.Next() {
 		var domain models.Domain
 		var rawMXs string
-		if err := rows.Scan(&domain.Name, &domain.Email, &rawMXs, &domain.State, &domain.LastUpdated); err != nil {
+		if err := rows.Scan(&domain.Name, &domain.Email, &rawMXs, &domain.State, &domain.LastUpdated, &domain.QueueWeeks); err != nil {
 			return nil, err
 		}
 		domain.MXs = strings.Split(rawMXs, ",")

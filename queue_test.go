@@ -78,6 +78,34 @@ func TestQueueDomainHidesToken(t *testing.T) {
 	}
 }
 
+func TestQueueDomainQueueWeeks(t *testing.T) {
+	defer teardown()
+
+	requestData := validQueueData(true)
+	requestData.Set("weeks", "50")
+	http.PostForm(server.URL+"/api/queue", requestData)
+	resp, _ := http.Get(server.URL + "/api/queue?domain=" + requestData.Get("domain"))
+
+	responseBody, _ := ioutil.ReadAll(resp.Body)
+	if !bytes.Contains(responseBody, []byte("50")) {
+		t.Errorf("Queueing domain should set weeks field properly")
+	}
+}
+
+func TestQueueDomainInvalidWeeks(t *testing.T) {
+	defer teardown()
+
+	requestData := validQueueData(true)
+	invalidWeeks := []string{"53", "3", "0", "-1", "abc", "5.5"}
+	for _, week := range invalidWeeks {
+		requestData.Set("weeks", week)
+		resp, _ := http.PostForm(server.URL+"/api/queue", requestData)
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("Expected POST to api/queue to fail with weeks=%s.", week)
+		}
+	}
+}
+
 // Tests basic queuing workflow.
 // Requests domain to be queued, and validates corresponding e-mail token.
 // Domain status should then be updated to "queued".
