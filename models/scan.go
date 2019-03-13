@@ -17,6 +17,10 @@ type Scan struct {
 	Version   uint32               `json:"version"`   // Version counter
 }
 
+type scanStore interface {
+	GetLatestScan(string) (Scan, error)
+}
+
 // CanAddToPolicyList returns true if the domain owner should be prompted to
 // add their domain to the STARTTLS Everywhere Policy List.
 func (s Scan) CanAddToPolicyList() bool {

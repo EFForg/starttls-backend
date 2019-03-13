@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
@@ -17,13 +18,10 @@ type Domain struct {
 	LastUpdated time.Time   `json:"last_updated"`
 }
 
-// DomainStore is a simple interface for fetching and adding domain objects.
-type DomainStore interface {
-	// Upserts domain state.
+// domainStore is a simple interface for fetching and adding domain objects.
+type domainStore interface {
 	PutDomain(Domain) error
-	// Retrieves state of a domain
 	GetDomain(string) (Domain, error)
-	// Retrieves all domains in a particular state.
 	GetDomains(DomainState) ([]Domain, error)
 }
 
@@ -41,10 +39,6 @@ const (
 
 type policyList interface {
 	HasDomain(string) bool
-}
-
-type scanStore interface {
-	GetLatestScan(string) (Scan, error)
 }
 
 // IsQueueable returns true if a domain can be submitted for validation and
@@ -90,4 +84,46 @@ func (d *Domain) PopulateFromScan(scan Scan) {
 			d.MXs = scan.Data.MTASTSResult.MXs
 		}
 	}
+}
+
+// InitializeWithToken adds this domain to the given DomainStore and initializes a validation token
+// for the addition. The newly generated Token is returned.
+func (d *Domain) InitializeWithToken(store domainStore, tokens tokenStore) (string, error) {
+	if err := store.PutDomain(*d); err != nil {
+		return "", err
+	}
+	token, err := tokens.PutToken(d.Name)
+	if err != nil {
+		return "", err
+	}
+	return token.Token, nil
+}
+
+// PolicyListCheck checks the policy list status of this particular domain.
+func (d *Domain) PolicyListCheck(store domainStore, list policyList) *checker.Result {
+	result := checker.Result{Name: checker.PolicyList}
+	if list.HasDomain(d.Name) {
+		return result.Success()
+	}
+	domainData, err := store.GetDomain(d.Name)
+	if err != nil {
+		return result.Failure("Domain %s is not on the policy list.", d.Name)
+	}
+	if domainData.State == StateEnforce {
+		log.Println("Warning: Domain was StateEnforce in DB but was not found on the policy list.")
+		return result.Success()
+	} else if domainData.State == StateTesting {
+		return result.Warning("Domain %s is queued to be added to the policy list.", d.Name)
+	} else if domainData.State == StateUnvalidated {
+		return result.Warning("The policy addition request for %s is waiting on email validation", d.Name)
+	}
+	return result.Failure("Domain %s is not on the policy list.", d.Name)
+}
+
+// Performs PolicyListCheck asynchronously.
+// domainStore and policyList should be safe for concurrent use.
+func (d Domain) AsyncPolicyListCheck(store domainStore, list policyList) <-chan checker.Result {
+	result := make(chan checker.Result)
+	go func() { result <- *d.PolicyListCheck(store, list) }()
+	return result
 }
