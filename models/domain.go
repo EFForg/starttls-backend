@@ -120,7 +120,7 @@ func (d *Domain) PolicyListCheck(store domainStore, list policyList) *checker.Re
 	return result.Failure("Domain %s is not on the policy list.", d.Name)
 }
 
-// Performs PolicyListCheck asynchronously.
+// AsyncPolicyListCheck performs PolicyListCheck asynchronously.
 // domainStore and policyList should be safe for concurrent use.
 func (d Domain) AsyncPolicyListCheck(store domainStore, list policyList) <-chan checker.Result {
 	result := make(chan checker.Result)
