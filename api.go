@@ -42,7 +42,6 @@ type checkPerformer func(API, string) (checker.DomainResult, error)
 // and prefers the latter if both are present.
 type API struct {
 	Database    db.Database
-	DomainStore models.DomainStore
 	CheckDomain checkPerformer
 	List        PolicyList
 	DontScan    map[string]bool
@@ -90,38 +89,8 @@ func (api *API) wrapper(handler apiHandler) func(w http.ResponseWriter, r *http.
 	}
 }
 
-// Checks the policy status of this domain.
-func (api API) policyCheck(domain string) *checker.Result {
-	result := checker.Result{Name: checker.PolicyList}
-	if api.List.HasDomain(domain) {
-		return result.Success()
-	}
-	domainData, err := api.DomainStore.GetDomain(domain)
-	if err != nil {
-		return result.Failure("Domain %s is not on the policy list.", domain)
-	}
-	if domainData.State == models.StateEnforce {
-		log.Println("Warning: Domain was StateEnforce in DB but was not found on the policy list.")
-		return result.Success()
-	} else if domainData.State == models.StateTesting {
-		return result.Warning("Domain %s is queued to be added to the policy list.", domain)
-	} else if domainData.State == models.StateUnvalidated {
-		return result.Warning("The policy addition request for %s is waiting on email validation", domain)
-	}
-	return result.Failure("Domain %s is not on the policy list.", domain)
-}
-
-// Performs policyCheck asynchronously.
-// Should be safe since Database is safe for concurrent use, and so
-// is List.
-func asyncPolicyCheck(api API, domain string) <-chan checker.Result {
-	result := make(chan checker.Result)
-	go func() { result <- *api.policyCheck(domain) }()
-	return result
-}
-
 func defaultCheck(api API, domain string) (checker.DomainResult, error) {
-	policyChan := asyncPolicyCheck(api, domain)
+	policyChan := models.Domain{Name: domain}.AsyncPolicyListCheck(api.Database, api.List)
 	c := checker.Checker{
 		Cache: &checker.ScanCache{
 			ScanStore:  api.Database,
@@ -264,23 +233,16 @@ func (api API) Queue(r *http.Request) APIResponse {
 		if err != nil {
 			return badRequest(err.Error())
 		}
-		// 0. Verify that we can queue the domain.
 		ok, msg, scan := domain.IsQueueable(api.Database, api.List)
 		if !ok {
 			return badRequest(msg)
 		}
 		domain.PopulateFromScan(scan)
-		// 1. Insert domain into DB
-		if err = api.DomainStore.PutDomain(domain); err != nil {
-			return serverError(err.Error())
-		}
-		// 2. Create token for domain
-		token, err := api.Database.PutToken(domain.Name)
+		token, err := domain.InitializeWithToken(api.Database, api.Database)
 		if err != nil {
 			return serverError(err.Error())
 		}
-		// 3. Send email
-		if err = api.Emailer.SendValidation(&domain, token.Token); err != nil {
+		if err = api.Emailer.SendValidation(&domain, token); err != nil {
 			log.Print(err)
 			return serverError("Unable to send validation e-mail")
 		}
@@ -295,7 +257,7 @@ func (api API) Queue(r *http.Request) APIResponse {
 		if err != nil {
 			return badRequest(err.Error())
 		}
-		status, err := api.DomainStore.GetDomain(domainName)
+		status, err := api.Database.GetDomain(domainName)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusNotFound, Message: err.Error()}
 		}
@@ -321,23 +283,13 @@ func (api API) Validate(r *http.Request) APIResponse {
 		return APIResponse{StatusCode: http.StatusMethodNotAllowed,
 			Message: "/api/validate only accepts POST requests"}
 	}
-	// 1. Use the token
-	domain, err := api.Database.UseToken(token)
-	if err != nil {
-		return APIResponse{StatusCode: http.StatusBadRequest, Message: err.Error()}
+	tokenData := models.Token{Token: token}
+	domain, userErr, dbErr := tokenData.Redeem(api.Database, api.Database)
+	if userErr != nil {
+		return badRequest(userErr.Error())
 	}
-	// 2. Update domain status from "UNVALIDATED" to "QUEUED"
-	domainData, err := api.DomainStore.GetDomain(domain)
-	if err != nil {
-		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
-	}
-	err = api.DomainStore.PutDomain(models.Domain{
-		Name:  domainData.Name,
-		Email: domainData.Email,
-		State: models.StateTesting,
-	})
-	if err != nil {
-		return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
+	if dbErr != nil {
+		return serverError(dbErr.Error())
 	}
 	return APIResponse{StatusCode: http.StatusOK, Response: domain}
 }

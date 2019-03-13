@@ -74,7 +74,6 @@ func TestMain(m *testing.M) {
 	}
 	api = &API{
 		Database:    sqldb,
-		DomainStore: sqldb,
 		CheckDomain: mockCheckPerform("testequal"),
 		List:        mockList{domains: fakeList},
 		Emailer:     mockEmailer{},
