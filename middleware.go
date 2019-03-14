@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	raven "github.com/getsentry/raven-go"
@@ -16,7 +17,8 @@ import (
 )
 
 func middleware(mux *http.ServeMux) http.Handler {
-	originsOk := handlers.AllowedOrigins([]string{os.Getenv("ALLOWED_ORIGINS")})
+	allowedOrigins := strings.Split(os.Getenv("ALLOWED_ORIGINS"), ",")
+	originsOk := handlers.AllowedOrigins(allowedOrigins)
 
 	return handlers.LoggingHandler(os.Stdout,
 		recoveryHandler(
