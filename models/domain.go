@@ -20,11 +20,13 @@ type Domain struct {
 	QueueWeeks   int         `json:"queue_weeks"`
 }
 
-// domainStore is a simple interface for fetching and adding domain objects.
-type domainStore interface {
+// DomainStore is a simple interface for fetching and adding domain objects.
+type DomainStore interface {
 	PutDomain(Domain) error
 	GetDomain(string) (Domain, error)
 	GetDomains(DomainState) ([]Domain, error)
+	// Sets status.
+	SetStatus(string, DomainState) error
 }
 
 // DomainState represents the state of a single domain.
@@ -41,6 +43,10 @@ const (
 
 type policyList interface {
 	HasDomain(string) bool
+}
+
+func (d *Domain) TestingPeriodFinished() bool {
+	return time.Now().Before(d.TestingStart.Add(time.Duration(d.QueueWeeks) * 7 * 24 * time.Hour))
 }
 
 // IsQueueable returns true if a domain can be submitted for validation and
@@ -61,6 +67,7 @@ func (d *Domain) IsQueueable(db scanStore, list policyList) (bool, string, Scan)
 	if list.HasDomain(d.Name) {
 		return false, "Domain is already on the policy list!", scan
 	}
+
 	// Domains without submitted MTA-STS support must match provided mx patterns.
 	if d.MTASTSMode == "" {
 		for _, hostname := range scan.Data.PreferredHostnames {
@@ -90,7 +97,7 @@ func (d *Domain) PopulateFromScan(scan Scan) {
 
 // InitializeWithToken adds this domain to the given DomainStore and initializes a validation token
 // for the addition. The newly generated Token is returned.
-func (d *Domain) InitializeWithToken(store domainStore, tokens tokenStore) (string, error) {
+func (d *Domain) InitializeWithToken(store DomainStore, tokens tokenStore) (string, error) {
 	if err := store.PutDomain(*d); err != nil {
 		return "", err
 	}
@@ -102,7 +109,7 @@ func (d *Domain) InitializeWithToken(store domainStore, tokens tokenStore) (stri
 }
 
 // PolicyListCheck checks the policy list status of this particular domain.
-func (d *Domain) PolicyListCheck(store domainStore, list policyList) *checker.Result {
+func (d *Domain) PolicyListCheck(store DomainStore, list policyList) *checker.Result {
 	result := checker.Result{Name: checker.PolicyList}
 	if list.HasDomain(d.Name) {
 		return result.Success()
@@ -123,8 +130,8 @@ func (d *Domain) PolicyListCheck(store domainStore, list policyList) *checker.Re
 }
 
 // AsyncPolicyListCheck performs PolicyListCheck asynchronously.
-// domainStore and policyList should be safe for concurrent use.
-func (d Domain) AsyncPolicyListCheck(store domainStore, list policyList) <-chan checker.Result {
+// DomainStore and policyList should be safe for concurrent use.
+func (d Domain) AsyncPolicyListCheck(store DomainStore, list policyList) <-chan checker.Result {
 	result := make(chan checker.Result)
 	go func() { result <- *d.PolicyListCheck(store, list) }()
 	return result

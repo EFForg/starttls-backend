@@ -117,9 +117,7 @@ func main() {
 		log.Println("[Starting list validator]")
 		go validator.ValidateRegularly("Live policy list", list, 24*time.Hour)
 	}
-	if os.Getenv("VALIDATE_QUEUED") == "1" {
-		log.Println("[Starting queued validator]")
-		go validator.ValidateRegularly("Testing domains", db, 24*time.Hour)
-	}
+	log.Println("[Starting queued validator]")
+	validateTestingDomains(db, db, emailConfig)
 	ServePublicEndpoints(&api, &cfg)
 }

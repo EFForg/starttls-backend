@@ -9,7 +9,7 @@ import (
 )
 
 func TestValidationEmailText(t *testing.T) {
-	content := validationEmailText("example.com", "contact@example.com", []string{"mx.example.com, .mx.example.com"}, "abcd", "https://fake.starttls-everywhere.website")
+	_, content := validationEmail("example.com", "contact@example.com", []string{"mx.example.com, .mx.example.com"}, "abcd", "https://fake.starttls-everywhere.website")
 	if !strings.Contains(content, "https://fake.starttls-everywhere.website/validate?abcd") {
 		t.Errorf("E-mail formatted incorrectly.")
 	}
@@ -76,7 +76,7 @@ func TestSendEmailToBlacklistedAddressFails(t *testing.T) {
 		t.Errorf("PutBlacklistedEmail failed: %v\n", err)
 	}
 	c := &emailConfig{database: api.Database}
-	err = c.sendEmail("Subject", "Body", "fail@example.com")
+	err = c.send("Subject", "Body", "fail@example.com")
 	if err == nil || !strings.Contains(err.Error(), "blacklisted") {
 		t.Error("attempting to send mail to blacklisted address should fail")
 	}

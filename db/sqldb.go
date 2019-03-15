@@ -203,16 +203,14 @@ func (db SQLDatabase) GetAllScans(domain string) ([]models.Scan, error) {
 
 // =============== models.DomainStore impl ===============
 
-// PutDomain inserts a particular domain into the database. If the domain does
-// not yet exist in the database, we initialize it with StateUnvalidated.
-// Subsequent puts with the same domain updates the row with the information in
-// the object provided.
+// PutDomain inserts a particular domain into the database.
+// Initialize it with StateUnvalidated.
 func (db *SQLDatabase) PutDomain(domain models.Domain) error {
 	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status, queue_weeks) "+
-		"VALUES($1, $2, $3, $4, $6) "+
-		"ON CONFLICT (domain) DO UPDATE SET status=$5",
+		"VALUES($1, $2, $3, $4, $5) ON CONFLICT (domain) DO "+
+		"UPDATE SET email = $2, data = $3, status = $4, queue_weeks = $5",
 		domain.Name, domain.Email, strings.Join(domain.MXs[:], ","),
-		models.StateUnvalidated, domain.State, domain.QueueWeeks)
+		models.StateUnvalidated, domain.QueueWeeks)
 	return err
 }
 
@@ -250,6 +248,16 @@ func (db SQLDatabase) GetDomains(state models.DomainState) ([]models.Domain, err
 		domains = append(domains, domain)
 	}
 	return domains, nil
+}
+
+func (db SQLDatabase) SetStatus(domain string, state models.DomainState) error {
+	var testingStart time.Time
+	if state == models.StateTesting {
+		testingStart = time.Now()
+	}
+	_, err := db.conn.Exec("UPDATE domains SET status = $1, testing_start = $2 WHERE domain=$3",
+		state, testingStart, domain)
+	return err
 }
 
 // EMAIL BLACKLIST DB FUNCTIONS
