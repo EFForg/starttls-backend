@@ -204,25 +204,25 @@ func (db SQLDatabase) GetAllScans(domain string) ([]models.Scan, error) {
 // =============== models.DomainStore impl ===============
 
 // PutDomain inserts a particular domain into the database. If the domain does
-// not yet exist in the database, we initialize it with StateUnvalidated.
-// Subsequent puts with the same domain updates the row with the information in
-// the object provided.
+// not yet exist in the database, we initialize it with StateUnconfirmed
+// If there is already a domain in the database with StateUnconfirmed, performs
+// an update of the fields.
 func (db *SQLDatabase) PutDomain(domain models.Domain) error {
 	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status, queue_weeks) "+
-		"VALUES($1, $2, $3, $4, $6) "+
-		"ON CONFLICT (domain) DO UPDATE SET status=$5",
+		"VALUES($1, $2, $3, $4, $5) "+
+		"ON CONFLICT ON CONSTRAINT domains_pkey DO UPDATE SET email=$2, data=$3, queue_weeks=$5",
 		domain.Name, domain.Email, strings.Join(domain.MXs[:], ","),
-		models.StateUnvalidated, domain.State, domain.QueueWeeks)
+		models.StateUnconfirmed, domain.QueueWeeks)
 	return err
 }
 
 // GetDomain retrieves the status and information associated with a particular
 // mailserver domain.
-func (db SQLDatabase) GetDomain(domain string) (models.Domain, error) {
+func (db SQLDatabase) GetDomain(domain string, state models.DomainState) (models.Domain, error) {
 	data := models.Domain{}
 	var rawMXs string
-	err := db.conn.QueryRow("SELECT domain, email, data, status, last_updated, queue_weeks FROM domains WHERE domain=$1",
-		domain).Scan(
+	err := db.conn.QueryRow("SELECT domain, email, data, status, last_updated, queue_weeks FROM domains WHERE domain=$1 AND status=$2",
+		domain, state).Scan(
 		&data.Name, &data.Email, &rawMXs, &data.State, &data.LastUpdated, &data.QueueWeeks)
 	data.MXs = strings.Split(rawMXs, ",")
 	if len(rawMXs) == 0 {
@@ -250,6 +250,17 @@ func (db SQLDatabase) GetDomains(state models.DomainState) ([]models.Domain, err
 		domains = append(domains, domain)
 	}
 	return domains, nil
+}
+
+// SetStatus sets the status of a particular domain object to |state|.
+func (db SQLDatabase) SetStatus(domain string, state models.DomainState) error {
+	var testingStart time.Time
+	if state == models.StateTesting {
+		testingStart = time.Now()
+	}
+	_, err := db.conn.Exec("UPDATE domains SET status = $1, testing_start = $2 WHERE domain=$3",
+		state, testingStart, domain)
+	return err
 }
 
 // EMAIL BLACKLIST DB FUNCTIONS
@@ -311,7 +322,10 @@ func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 // HostnamesForDomain [interface Validator] retrieves the hostname policy for
 // a particular domain.
 func (db SQLDatabase) HostnamesForDomain(domain string) ([]string, error) {
-	data, err := db.GetDomain(domain)
+	data, err := db.GetDomain(domain, models.StateEnforce)
+	if err != nil {
+		data, err = db.GetDomain(domain, models.StateTesting)
+	}
 	if err != nil {
 		return []string{}, err
 	}

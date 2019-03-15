@@ -23,15 +23,10 @@ func (t *Token) Redeem(store domainStore, tokens tokenStore) (ret string, userEr
 	if err != nil {
 		return domain, err, nil
 	}
-	domainData, err := store.GetDomain(domain)
+	domainData, err := store.GetDomain(domain, StateUnconfirmed)
 	if err != nil {
 		return domain, nil, err
 	}
-	err = store.PutDomain(Domain{
-		Name:  domainData.Name,
-		Email: domainData.Email,
-		MXs:   domainData.MXs,
-		State: StateTesting,
-	})
+	err = store.SetStatus(domainData.Name, StateTesting)
 	return domain, nil, err
 }
