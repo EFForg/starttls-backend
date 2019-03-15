@@ -18,7 +18,7 @@ type tokenStore interface {
 
 // Redeem redeems this Token, and updates its entry in the associated domain and token
 // database stores. Returns the domain name that this token was generated for.
-func (t *Token) Redeem(store domainStore, tokens tokenStore) (ret string, userErr error, dbErr error) {
+func (t *Token) Redeem(store DomainStore, tokens tokenStore) (ret string, userErr error, dbErr error) {
 	domain, err := tokens.UseToken(t.Token)
 	if err != nil {
 		return domain, err, nil
@@ -27,11 +27,6 @@ func (t *Token) Redeem(store domainStore, tokens tokenStore) (ret string, userEr
 	if err != nil {
 		return domain, nil, err
 	}
-	err = store.PutDomain(Domain{
-		Name:  domainData.Name,
-		Email: domainData.Email,
-		MXs:   domainData.MXs,
-		State: StateTesting,
-	})
+	err = store.SetStatus(domainData.Name, StateTesting)
 	return domain, nil, err
 }

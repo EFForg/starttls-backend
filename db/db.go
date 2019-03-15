@@ -39,6 +39,7 @@ type Database interface {
 	GetDomain(string) (models.Domain, error)
 	// Retrieves all domains in a particular state.
 	GetDomains(models.DomainState) ([]models.Domain, error)
+	SetStatus(string, models.DomainState) error
 	ClearTables() error
 }
 

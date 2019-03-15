@@ -19,6 +19,11 @@ func (m *mockDomainStore) PutDomain(d Domain) error {
 	return m.err
 }
 
+func (m *mockDomainStore) SetStatus(d string, status DomainState) error {
+	m.domain.State = status
+	return m.err
+}
+
 func (m *mockDomainStore) GetDomain(d string) (Domain, error) {
 	return m.domain, m.err
 }

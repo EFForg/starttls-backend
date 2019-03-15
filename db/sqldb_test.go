@@ -162,17 +162,22 @@ func TestUpsertDomain(t *testing.T) {
 	database.ClearTables()
 	data := models.Domain{
 		Name:  "testing.com",
+		MXs:   []string{"hello1"},
 		Email: "admin@testing.com",
 	}
 	database.PutDomain(data)
-	err := database.PutDomain(models.Domain{Name: "testing.com", State: models.StateTesting})
+	err := database.PutDomain(models.Domain{Name: "testing.com", MXs: []string{"hello_darkness_my_old_friend"}, Email: "actual_admin@testing.com"})
 	if err != nil {
 		t.Errorf("PutDomain(%s) failed: %v\n", data.Name, err)
 	}
 	retrievedData, err := database.GetDomain(data.Name)
-	if retrievedData.State != models.StateTesting {
-		t.Errorf("Expected state to be 'Queued', was %v\n", retrievedData)
+	if retrievedData.MXs[0] != "hello_darkness_my_old_friend" || retrievedData.Email != "actual_admin@testing.com" {
+		t.Errorf("Email and MXs should have been rewritten: %v\n", retrievedData)
 	}
+}
+
+func TestDomainSetStatus(t *testing.T) {
+	// TODO
 }
 
 func TestPutUseToken(t *testing.T) {
