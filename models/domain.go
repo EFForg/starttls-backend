@@ -8,6 +8,12 @@ import (
 	"github.com/EFForg/starttls-backend/checker"
 )
 
+/* Domain represents an email domain's TLS policy.
+ *
+ * If there's a Domain object for a particular email domain in "Enforce" mode,
+ * that email domain's policy is fixed and cannot be changed.
+ */
+
 // Domain stores the preload state of a single domain.
 type Domain struct {
 	Name         string      `json:"domain"` // Domain that is preloaded
@@ -23,7 +29,7 @@ type Domain struct {
 // DomainStore is a simple interface for fetching and adding domain objects.
 type DomainStore interface {
 	PutDomain(Domain) error
-	GetDomain(string) (Domain, error)
+	GetDomain(string, DomainState) (Domain, error)
 	GetDomains(DomainState) ([]Domain, error)
 	// Sets status.
 	SetStatus(string, DomainState) error
@@ -35,7 +41,7 @@ type DomainState string
 // Possible values for DomainState
 const (
 	StateUnknown     = "unknown"     // Domain was never submitted, so we don't know.
-	StateUnvalidated = "unvalidated" // E-mail token for this domain is unverified
+	StateUnconfirmed = "unvalidated" // Domain was never submitted, so we don't know.
 	StateTesting     = "queued"      // Queued for addition at next addition date.
 	StateFailed      = "failed"      // Requested to be queued, but failed verification.
 	StateEnforce     = "added"       // On the list.
@@ -50,8 +56,8 @@ type policyList interface {
 // A successful scan should already have been submitted for this domain,
 // and it should not already be on the policy list.
 // Returns (queuability, error message, and most recent scan)
-func (d *Domain) IsQueueable(db scanStore, list policyList) (bool, string, Scan) {
-	scan, err := db.GetLatestScan(d.Name)
+func (d *Domain) IsQueueable(domains DomainStore, scans scanStore, list policyList) (bool, string, Scan) {
+	scan, err := scans.GetLatestScan(d.Name)
 	if err != nil {
 		return false, "We haven't scanned this domain yet. " +
 			"Please use the STARTTLS checker to scan your domain's " +
@@ -61,6 +67,9 @@ func (d *Domain) IsQueueable(db scanStore, list policyList) (bool, string, Scan)
 		return false, "Domain hasn't passed our STARTTLS security checks", scan
 	}
 	if list.HasDomain(d.Name) {
+		return false, "Domain is already on the policy list!", scan
+	}
+	if _, err := domains.GetDomain(d.Name, StateEnforce); err == nil {
 		return false, "Domain is already on the policy list!", scan
 	}
 	// Domains without submitted MTA-STS support must match provided mx patterns.
@@ -109,17 +118,15 @@ func (d *Domain) PolicyListCheck(store DomainStore, list policyList) *checker.Re
 	if list.HasDomain(d.Name) {
 		return result.Success()
 	}
-	domainData, err := store.GetDomain(d.Name)
-	if err != nil {
-		return result.Failure("Domain %s is not on the policy list.", d.Name)
-	}
-	if domainData.State == StateEnforce {
+	if _, err := store.GetDomain(d.Name, StateEnforce); err == nil {
 		log.Println("Warning: Domain was StateEnforce in DB but was not found on the policy list.")
 		return result.Success()
-	} else if domainData.State == StateTesting {
+	}
+	if _, err := store.GetDomain(d.Name, StateTesting); err == nil {
 		return result.Warning("Domain %s is queued to be added to the policy list.", d.Name)
-	} else if domainData.State == StateUnvalidated {
-		return result.Warning("The policy addition request for %s is waiting on email validation", d.Name)
+	}
+	if _, err := store.GetDomain(d.Name, StateUnconfirmed); err == nil {
+		return result.Failure("The policy addition request for %s is waiting on email validation", d.Name)
 	}
 	return result.Failure("Domain %s is not on the policy list.", d.Name)
 }

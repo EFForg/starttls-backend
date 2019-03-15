@@ -29,13 +29,14 @@ CREATE TABLE IF NOT EXISTS hostname_scans
 
 CREATE TABLE IF NOT EXISTS domains
 (
-    domain        TEXT NOT NULL UNIQUE PRIMARY KEY,
+    domain        TEXT NOT NULL,
     email         TEXT NOT NULL,
     data          TEXT NOT NULL,
     last_updated  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status        VARCHAR(255) NOT NULL,
     queue_weeks   INTEGER DEFAULT 4,
-    testing_start TIMESTAMP
+    testing_start TIMESTAMP,
+    PRIMARY KEY (domain, status)
 );
 
 CREATE TABLE IF NOT EXISTS blacklisted_emails
@@ -78,4 +79,8 @@ ALTER TABLE scans ADD COLUMN IF NOT EXISTS mta_sts_mode TEXT DEFAULT '';
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS queue_weeks INTEGER DEFAULT 4;
 
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS testing_start TIMESTAMP;
+
+-- Drop & re-add constraint
+ALTER TABLE domains DROP CONSTRAINT domains_pkey;
+ALTER TABLE domains ADD PRIMARY KEY (domain, status);
 
