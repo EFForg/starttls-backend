@@ -51,6 +51,11 @@ type policyList interface {
 	HasDomain(string) bool
 }
 
+// TestingPeriodFinished returns whether the testing period for this domain policy has passed.
+func (d *Domain) TestingPeriodFinished() bool {
+	return time.Now().Before(d.TestingStart.Add(time.Duration(d.QueueWeeks) * 7 * 24 * time.Hour))
+}
+
 // IsQueueable returns true if a domain can be submitted for validation and
 // queueing to the STARTTLS Everywhere Policy List.
 // A successful scan should already have been submitted for this domain,

@@ -59,9 +59,13 @@ type PolicyList interface {
 
 // EmailSender interface wraps a back-end that can send e-mails.
 type EmailSender interface {
-	// SendValidation sends a validation e-mail for a particular domain,
+	// SendToken sends a validation e-mail for a particular domain,
 	// with a particular validation token.
-	SendValidation(*models.Domain, string) error
+	SendToken(*models.Domain, string) error
+	// SendFailure sends failure e-mail when a domain in testing mode fails a test.
+	SendFailure(*models.Domain, string) error
+	// SendSuccess sends a success e-mail when a domain in testing mode is promoted to enforce.
+	SendSuccess(*models.Domain) error
 }
 
 // APIResponse wraps all the responses from this API.
@@ -242,7 +246,7 @@ func (api API) Queue(r *http.Request) APIResponse {
 		if err != nil {
 			return serverError(err.Error())
 		}
-		if err = api.Emailer.SendValidation(&domain, token); err != nil {
+		if err = api.Emailer.SendToken(&domain, token); err != nil {
 			log.Print(err)
 			return serverError("Unable to send validation e-mail")
 		}
