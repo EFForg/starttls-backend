@@ -118,14 +118,18 @@ func (d *Domain) PolicyListCheck(store DomainStore, list policyList) *checker.Re
 	if list.HasDomain(d.Name) {
 		return result.Success()
 	}
-	if _, err := store.GetDomain(d.Name, StateEnforce); err == nil {
+	domain, err := GetDomain(store, d.Name)
+	if err != nil {
+		return result.Failure("Domain %s is not on the policy list.", d.Name)
+	}
+	if domain.State == StateEnforce {
 		log.Println("Warning: Domain was StateEnforce in DB but was not found on the policy list.")
 		return result.Success()
 	}
-	if _, err := store.GetDomain(d.Name, StateTesting); err == nil {
+	if domain.State == StateTesting {
 		return result.Warning("Domain %s is queued to be added to the policy list.", d.Name)
 	}
-	if _, err := store.GetDomain(d.Name, StateUnconfirmed); err == nil {
+	if domain.State == StateUnconfirmed {
 		return result.Failure("The policy addition request for %s is waiting on email validation", d.Name)
 	}
 	return result.Failure("Domain %s is not on the policy list.", d.Name)
@@ -137,4 +141,20 @@ func (d Domain) AsyncPolicyListCheck(store DomainStore, list policyList) <-chan 
 	result := make(chan checker.Result)
 	go func() { result <- *d.PolicyListCheck(store, list) }()
 	return result
+}
+
+// GetDomain retrieves Domain with the most "important" state.
+// At any given time, there can only be one domain that's either StateEnforce
+// or StateTesting. If that domain exists in the store, return that one.
+// Otherwise, look for a Domain policy in the unconfirmed state.
+func GetDomain(store DomainStore, name string) (Domain, error) {
+	domain, err := store.GetDomain(name, StateEnforce)
+	if err == nil {
+		return domain, nil
+	}
+	domain, err = store.GetDomain(name, StateTesting)
+	if err == nil {
+		return domain, nil
+	}
+	return store.GetDomain(name, StateUnconfirmed)
 }

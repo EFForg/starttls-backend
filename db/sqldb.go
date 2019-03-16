@@ -252,6 +252,7 @@ func (db SQLDatabase) GetDomains(state models.DomainState) ([]models.Domain, err
 	return domains, nil
 }
 
+// SetStatus sets the status of a particular domain object to |state|.
 func (db SQLDatabase) SetStatus(domain string, state models.DomainState) error {
 	var testingStart time.Time
 	if state == models.StateTesting {
