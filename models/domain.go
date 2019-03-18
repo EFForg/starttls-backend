@@ -99,7 +99,7 @@ func (d *Domain) PopulateFromScan(scan Scan) {
 	}
 }
 
-// InitializeWithToken adds this domain to the given domainStore and initializes a validation token
+// InitializeWithToken adds this domain to the given DomainStore and initializes a validation token
 // for the addition. The newly generated Token is returned.
 func (d *Domain) InitializeWithToken(store domainStore, tokens tokenStore) (string, error) {
 	if err := store.PutDomain(*d); err != nil {
