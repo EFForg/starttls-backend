@@ -8,6 +8,25 @@ import (
 	"github.com/EFForg/starttls-backend/checker"
 )
 
+type mockDomainStore struct {
+	domain  Domain
+	domains []Domain
+	err     error
+}
+
+func (m *mockDomainStore) PutDomain(d Domain) error {
+	m.domain = d
+	return m.err
+}
+
+func (m *mockDomainStore) GetDomain(d string) (Domain, error) {
+	return m.domain, m.err
+}
+
+func (m *mockDomainStore) GetDomains(_ DomainState) ([]Domain, error) {
+	return m.domains, m.err
+}
+
 type mockList struct {
 	hasDomain bool
 }
@@ -120,5 +139,53 @@ func TestPopulateFromScan(t *testing.T) {
 		if mx != d.MXs[i] {
 			t.Errorf("Expected MXs to match scan, got %s", d.MXs)
 		}
+	}
+}
+
+func TestPolicyCheck(t *testing.T) {
+	var testCases = []struct {
+		name     string
+		onList   bool
+		state    DomainState
+		inDB     bool
+		expected checker.Status
+	}{
+		{"Domain on the list should return success", true, StateEnforce, false, checker.Success},
+		{"Domain in DB as enforce should return success", false, StateEnforce, true, checker.Success},
+		{"Domain queued should return a warning", false, StateTesting, true, checker.Warning},
+		{"Unvalidated domain should return a warning", false, StateUnvalidated, true, checker.Warning},
+		{"Domain not currently in the DB or on the list should return a failure", false, StateUnvalidated, false, checker.Failure},
+	}
+	for _, tc := range testCases {
+		domainObj := Domain{Name: "example.com", State: tc.state}
+		var dbErr error
+		if !tc.inDB {
+			dbErr = errors.New("")
+		}
+		result := domainObj.PolicyListCheck(&mockDomainStore{domain: domainObj, err: dbErr}, mockList{tc.onList})
+		if result.Status != tc.expected {
+			t.Error(tc.name)
+		}
+	}
+}
+
+func TestInitializeWithToken(t *testing.T) {
+	mockToken := mockTokenStore{domain: "domain", err: nil}
+	domainObj := Domain{Name: "example.com"}
+	// domainStore returns error
+	_, err := domainObj.InitializeWithToken(&mockDomainStore{domain: domainObj, err: errors.New("")}, &mockToken)
+	if err == nil {
+		t.Error("Expected InitializeWithToken to forward error message from DB")
+	}
+	if mockToken.token != nil {
+		t.Error("Token should not have been set if domain not found")
+	}
+	_, err = domainObj.InitializeWithToken(&mockDomainStore{domain: domainObj}, &mockTokenStore{err: errors.New("")})
+	if err == nil {
+		t.Error("Expected InitializeWithToken to forward error message from DB")
+	}
+	domainObj.InitializeWithToken(&mockDomainStore{domain: domainObj, err: nil}, &mockToken)
+	if mockToken.token == nil {
+		t.Error("Token should have been set for domain")
 	}
 }
