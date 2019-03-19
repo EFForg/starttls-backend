@@ -121,5 +121,6 @@ func main() {
 		log.Println("[Starting queued validator]")
 		go validator.ValidateRegularly("Testing domains", db, 24*time.Hour)
 	}
+	go validator.ValidateRegularly("", db, 24*time.Hour)
 	ServePublicEndpoints(&api, &cfg)
 }
