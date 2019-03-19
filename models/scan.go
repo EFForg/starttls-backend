@@ -36,5 +36,5 @@ func (s Scan) SupportsMTASTS() bool {
 	if s.Data.MTASTSResult == nil {
 		return false
 	}
-	return s.Data.MTASTSResult.Status == checker.Success
+	return s.Data.MTASTSResult.Status == checker.Success || s.Data.MTASTSResult == checker.Warning
 }
