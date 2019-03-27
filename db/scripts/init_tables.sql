@@ -75,7 +75,17 @@ ALTER TABLE scans ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 0;
 
 ALTER TABLE scans ADD COLUMN IF NOT EXISTS mta_sts_mode TEXT DEFAULT '';
 
+CREATE TABLE IF NOT EXISTS domain_totals
+(
+    id              SERIAL PRIMARY KEY,
+    time            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    source          TEXT NOT NULL,
+    attempted       INTEGER DEFAULT 0,
+    connected       INTEGER DEFAULT 0,
+    mta_sts_testing INTEGER DEFAULT 0,
+    mta_sts_enforce INTEGER DEFAULT 0
+);
+
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS queue_weeks INTEGER DEFAULT 4;
 
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS testing_start TIMESTAMP;
-
