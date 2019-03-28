@@ -127,7 +127,7 @@ func (c *Checker) CheckDomain(domain string, expectedHostnames []string) DomainR
 		}
 	}
 	result.PreferredHostnames = checkedHostnames
-	result.MTASTSResult = c.checkMTASTS(domain, result.HostnameResults)
+	result.MTASTSResult = c.CheckMTASTS(domain, result.HostnameResults)
 
 	// Derive Domain code from Hostname results.
 	if len(checkedHostnames) == 0 {

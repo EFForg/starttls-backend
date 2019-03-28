@@ -265,26 +265,6 @@ func TestDomainsToValidate(t *testing.T) {
 	}
 }
 
-func TestHostnamesForDomain(t *testing.T) {
-	database.ClearTables()
-	database.PutDomain(models.Domain{Name: "x", MXs: []string{"x.com", "y.org"}})
-	database.PutDomain(models.Domain{Name: "y"})
-	result, err := database.HostnamesForDomain("x")
-	if err != nil {
-		t.Fatalf("HostnamesForDomain failed: %v\n", err)
-	}
-	if len(result) != 2 || result[0] != "x.com" || result[1] != "y.org" {
-		t.Errorf("Expected two hostnames, x.com and y.org\n")
-	}
-	result, err = database.HostnamesForDomain("y")
-	if err != nil {
-		t.Fatalf("HostnamesForDomain failed: %v\n", err)
-	}
-	if len(result) > 0 {
-		t.Errorf("Expected no hostnames to be returned, got %s\n", result[0])
-	}
-}
-
 func TestPutAndIsBlacklistedEmail(t *testing.T) {
 	defer database.ClearTables()
 
@@ -445,5 +425,27 @@ func TestGetMTASTSDomains(t *testing.T) {
 		if !strings.HasPrefix(domain.Name, "mta-sts") {
 			t.Errorf("GetMTASTSDomains returned %s when it wasn't supposed to", domain.Name)
 		}
+	}
+}
+
+func TestUpdateDomainPolicy(t *testing.T) {
+	database.ClearTables()
+	database.PutDomain(models.Domain{Name: "no-mtasts"})
+	database.PutDomain(models.Domain{Name: "mtasts", MTASTSMode: "on", Email: "real-email"})
+	database.UpdateDomainPolicy(models.Domain{Name: "no-mtasts", State: models.StateEnforce})
+	database.UpdateDomainPolicy(models.Domain{Name: "mtasts", State: models.StateEnforce, MXs: []string{"hostname"}, Email: "fake-email"})
+	domain, _ := database.GetDomain("no-mtasts")
+	if domain.State == models.StateEnforce {
+		t.Errorf("Expected State to not update since unicorns isn't MTASTS")
+	}
+	domain, _ = database.GetDomain("mtasts")
+	if domain.State != models.StateEnforce {
+		t.Errorf("Expected State to update after UpdateDomainPolicy")
+	}
+	if len(domain.MXs) != 1 || domain.MXs[0] != "hostname" {
+		t.Errorf("Expected MXs to update after UpdateDomainPolicy")
+	}
+	if domain.Email != "real-email" {
+		t.Errorf("Did not expect Email to update after UpdateDomainPolicy")
 	}
 }

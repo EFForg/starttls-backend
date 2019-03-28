@@ -102,12 +102,12 @@ func TestHostnamesForDomain(t *testing.T) {
 	var updatedList = List{Policies: map[string]TLSPolicy{
 		"eff.org": TLSPolicy{MXs: hostnames}}}
 	list := makeUpdatedList(func() (List, error) { return updatedList, nil }, time.Second)
-	returned, err := list.HostnamesForDomain("eff.org")
+	returned, err := list.GetDomain("eff.org")
 	if err != nil {
 		t.Fatalf("Encountered %v", err)
 	}
-	if !reflect.DeepEqual(returned, hostnames) {
-		t.Errorf("Expected %s, got %s", hostnames, returned)
+	if !reflect.DeepEqual(returned.MXs, hostnames) {
+		t.Errorf("Expected %s, got %s", hostnames, returned.MXs)
 	}
 }
 

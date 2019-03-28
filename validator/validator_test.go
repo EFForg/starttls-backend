@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
+	"github.com/EFForg/starttls-backend/models"
 )
 
 type mockDomainPolicyStore struct {
@@ -19,21 +20,21 @@ func (m mockDomainPolicyStore) DomainsToValidate() ([]string, error) {
 	return domains, nil
 }
 
-func (m mockDomainPolicyStore) HostnamesForDomain(domain string) ([]string, error) {
-	return m.hostnames[domain], nil
+func (m mockDomainPolicyStore) GetDomain(domain string) (models.Domain, error) {
+	return models.Domain{Name: domain, MXs: m.hostnames[domain]}, nil
 }
 
-func noop(_ string, _ string, _ checker.DomainResult) {}
+func noop(_ string, _ models.Domain, _ checker.DomainResult) {}
 
 func TestRegularValidationValidates(t *testing.T) {
 	called := make(chan bool)
-	fakeChecker := func(domain string, hostnames []string) checker.DomainResult {
+	fakeChecker := func(_ models.Domain) checker.DomainResult {
 		called <- true
 		return checker.DomainResult{}
 	}
 	mock := mockDomainPolicyStore{
 		hostnames: map[string][]string{"a": []string{"hostname"}}}
-	v := Validator{Store: mock, Interval: 100 * time.Millisecond, checkPerformer: fakeChecker, OnFailure: noop}
+	v := Validator{Store: mock, Interval: 100 * time.Millisecond, CheckPerformer: fakeChecker, OnFailure: noop}
 	go v.Run()
 
 	select {
@@ -46,25 +47,25 @@ func TestRegularValidationValidates(t *testing.T) {
 
 func TestRegularValidationReportsErrors(t *testing.T) {
 	reports := make(chan string)
-	fakeChecker := func(domain string, hostnames []string) checker.DomainResult {
-		if domain == "fail" || domain == "error" {
+	fakeChecker := func(domain models.Domain) checker.DomainResult {
+		if domain.Name == "fail" || domain.Name == "error" {
 			return checker.DomainResult{Status: 5}
 		}
 		return checker.DomainResult{Status: 0}
 	}
-	fakeReporter := func(name string, domain string, result checker.DomainResult) {
-		reports <- domain
+	fakeReporter := func(name string, domain models.Domain, result checker.DomainResult) {
+		reports <- domain.Name
 	}
 	successReports := make(chan string)
-	fakeSuccessReporter := func(name string, domain string, result checker.DomainResult) {
-		successReports <- domain
+	fakeSuccessReporter := func(name string, domain models.Domain, result checker.DomainResult) {
+		successReports <- domain.Name
 	}
 	mock := mockDomainPolicyStore{
 		hostnames: map[string][]string{
 			"fail":   []string{"hostname"},
 			"error":  []string{"hostname"},
 			"normal": []string{"hostname"}}}
-	v := Validator{Store: mock, Interval: 100 * time.Millisecond, checkPerformer: fakeChecker,
+	v := Validator{Store: mock, Interval: 100 * time.Millisecond, CheckPerformer: fakeChecker,
 		OnFailure: fakeReporter, OnSuccess: fakeSuccessReporter,
 	}
 	go v.Run()

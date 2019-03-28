@@ -216,6 +216,14 @@ func (db *SQLDatabase) PutDomain(domain models.Domain) error {
 	return err
 }
 
+// UpdateDomainPolicy allows us to update the internal data about a particular domain.
+func (db *SQLDatabase) UpdateDomainPolicy(domain models.Domain) error {
+	_, err := db.conn.Exec("UPDATE domains SET data=$2, status=$3 WHERE domain=$1 AND mta_sts=TRUE",
+		domain.Name, strings.Join(domain.MXs[:], ","), domain.State)
+	return err
+
+}
+
 // GetDomain retrieves the status and information associated with a particular
 // mailserver domain.
 func (db SQLDatabase) GetDomain(domain string) (models.Domain, error) {
@@ -234,7 +242,7 @@ func (db SQLDatabase) GetDomain(domain string) (models.Domain, error) {
 // GetDomains retrieves all the domains which match a particular state,
 // that are not in MTA_STS mode
 func (db SQLDatabase) GetDomains(state models.DomainState) ([]models.Domain, error) {
-	return db.getDomainsWhere("status=$1", state)
+	return db.getDomainsWhere("status=$1 AND mta_sts=FALSE", state)
 }
 
 // GetMTASTSDomains retrieves domains which wish their policy to be queued with their MTASTS.
@@ -312,20 +320,17 @@ func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 	if err != nil {
 		return domains, err
 	}
+	dataMTASTS, err := db.GetMTASTSDomains()
+	if err != nil {
+		return domains, err
+	}
 	for _, domainInfo := range data {
 		domains = append(domains, domainInfo.Name)
 	}
-	return domains, nil
-}
-
-// HostnamesForDomain [interface Validator] retrieves the hostname policy for
-// a particular domain.
-func (db SQLDatabase) HostnamesForDomain(domain string) ([]string, error) {
-	data, err := db.GetDomain(domain)
-	if err != nil {
-		return []string{}, err
+	for _, domainInfo := range dataMTASTS {
+		domains = append(domains, domainInfo.Name)
 	}
-	return data.MXs, nil
+	return domains, nil
 }
 
 // GetHostnameScan retrives most recent scan from database.

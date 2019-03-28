@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
+	"github.com/EFForg/starttls-backend/util"
 )
 
 // Domain stores the preload state of a single domain.
@@ -127,4 +128,15 @@ func (d Domain) AsyncPolicyListCheck(store domainStore, list policyList) <-chan 
 	result := make(chan checker.Result)
 	go func() { result <- *d.PolicyListCheck(store, list) }()
 	return result
+}
+
+// SamePolicy checks whether the underlying policy represented by Domain
+// and the one picked up by the MTA-STS check represent the same policy.
+func (d *Domain) SamePolicy(result *checker.MTASTSResult) bool {
+	if (result.Mode == "enforce" && d.State != StateEnforce) ||
+		(result.Mode == "testing" && d.State != StateTesting) ||
+		result.Mode == "none" {
+		return false
+	}
+	return util.ListsEqual(d.MXs, result.MXs)
 }

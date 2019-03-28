@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/EFForg/starttls-backend/models"
 )
 
 // policyURL is the default URL from which to fetch the policy JSON.
@@ -80,14 +82,23 @@ func (l *UpdatedList) DomainsToValidate() ([]string, error) {
 	return domains, nil
 }
 
-// HostnamesForDomain [interface Validator] retrieves the hostname policy for
+// GetDomain [interface Validator] retrieves the domain object for
 // a particular domain.
-func (l *UpdatedList) HostnamesForDomain(domain string) ([]string, error) {
+func (l *UpdatedList) GetDomain(domain string) (models.Domain, error) {
 	policy, err := l.Get(domain)
 	if err != nil {
-		return []string{}, err
+		return models.Domain{}, err
 	}
-	return policy.MXs, nil
+	domainObj := models.Domain{
+		Name: domain,
+		MXs:  policy.MXs,
+	}
+	if policy.Mode == "enforce" {
+		domainObj.State = models.StateEnforce
+	} else if policy.Mode == "testing" {
+		domainObj.State = models.StateTesting
+	}
+	return domainObj, nil
 }
 
 // Get safely reads from the underlying policy list and returns a TLSPolicy for a domain

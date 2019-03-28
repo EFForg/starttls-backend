@@ -119,7 +119,14 @@ func main() {
 	}
 	if os.Getenv("VALIDATE_QUEUED") == "1" {
 		log.Println("[Starting queued validator]")
-		go validator.ValidateRegularly("Testing domains", db, 24*time.Hour)
+		v := validator.Validator{
+			Name:           "Testing and enforced domains",
+			Store:          db,
+			Interval:       24 * time.Hour,
+			CheckPerformer: validator.GetDBCheck(db.UpdateDomainPolicy),
+		}
+		go v.Run()
+		// go validator.ValidateRegularly("Testing domains", db, 24*time.Hour)
 	}
 	ServePublicEndpoints(&api, &cfg)
 }
