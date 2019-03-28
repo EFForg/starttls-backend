@@ -121,20 +121,17 @@ func TestIsQueueable(t *testing.T) {
 
 func TestPopulateFromScan(t *testing.T) {
 	d := Domain{
-		Name:  "example.com",
-		Email: "me@example.com",
+		Name:       "example.com",
+		Email:      "me@example.com",
+		MTASTSMode: "on",
 	}
 	s := Scan{
 		Data: checker.DomainResult{
 			MTASTSResult: checker.MakeMTASTSResult(),
 		},
 	}
-	s.Data.MTASTSResult.Mode = "on"
 	s.Data.MTASTSResult.MXs = []string{"mx1.example.com", "mx2.example.com"}
 	d.PopulateFromScan(s)
-	if d.MTASTSMode != "on" {
-		t.Errorf("Expected domain MTA-STS mode to match scan, got %s", d.MTASTSMode)
-	}
 	for i, mx := range s.Data.MTASTSResult.MXs {
 		if mx != d.MXs[i] {
 			t.Errorf("Expected MXs to match scan, got %s", d.MXs)
