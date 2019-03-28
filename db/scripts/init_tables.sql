@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS domains
     last_updated  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status        VARCHAR(255) NOT NULL,
     queue_weeks   INTEGER DEFAULT 4,
-    testing_start TIMESTAMP
+    testing_start TIMESTAMP,
+    mta_sts       BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS blacklisted_emails
@@ -89,3 +90,6 @@ CREATE TABLE IF NOT EXISTS domain_totals
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS queue_weeks INTEGER DEFAULT 4;
 
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS testing_start TIMESTAMP;
+
+ALTER TABLE domains ADD COLUMN IF NOT EXISTS mta_sts BOOLEAN DEFAULT FALSE;
+

@@ -129,10 +129,10 @@ func TestPopulateFromScan(t *testing.T) {
 			MTASTSResult: checker.MakeMTASTSResult(),
 		},
 	}
-	s.Data.MTASTSResult.Mode = "enforce"
+	s.Data.MTASTSResult.Mode = "on"
 	s.Data.MTASTSResult.MXs = []string{"mx1.example.com", "mx2.example.com"}
 	d.PopulateFromScan(s)
-	if d.MTASTSMode != "enforce" {
+	if d.MTASTSMode != "on" {
 		t.Errorf("Expected domain MTA-STS mode to match scan, got %s", d.MTASTSMode)
 	}
 	for i, mx := range s.Data.MTASTSResult.MXs {
