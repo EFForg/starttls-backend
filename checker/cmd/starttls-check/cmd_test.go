@@ -17,9 +17,9 @@ import (
 func TestUpdateStats(t *testing.T) {
 	out = new(bytes.Buffer)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, `1,foo,example1.com
-2,bar,example2.com
-3,baz,example3.com`)
+		fmt.Fprintln(w, `1,foo,localhost
+2,bar,localhost
+3,baz,localhost`)
 	}))
 	defer ts.Close()
 
