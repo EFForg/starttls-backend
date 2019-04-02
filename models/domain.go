@@ -62,7 +62,7 @@ func (d *Domain) IsQueueable(db scanStore, list policyList) (bool, string, Scan)
 		return false, "Domain is already on the policy list!", scan
 	}
 	// Domains without submitted MTA-STS support must match provided mx patterns.
-	if d.MTASTS {
+	if !d.MTASTS {
 		for _, hostname := range scan.Data.PreferredHostnames {
 			if !checker.PolicyMatches(hostname, d.MXs) {
 				return false, fmt.Sprintf("Hostnames %v do not match policy %v", scan.Data.PreferredHostnames, d.MXs), scan
