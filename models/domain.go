@@ -42,7 +42,7 @@ type DomainState string
 const (
 	StateUnknown     = "unknown"     // Domain was never submitted, so we don't know.
 	StateUnconfirmed = "unvalidated" // Domain was never submitted, so we don't know.
-	StateTesting     = "queued"      // Queued for addition at next addition date.
+	StateTesting     = "queued"      // Queued for addition at next addition date pending continued validation
 	StateFailed      = "failed"      // Requested to be queued, but failed verification.
 	StateEnforce     = "added"       // On the list.
 )
