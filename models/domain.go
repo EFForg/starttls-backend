@@ -41,7 +41,7 @@ type DomainState string
 // Possible values for DomainState
 const (
 	StateUnknown     = "unknown"     // Domain was never submitted, so we don't know.
-	StateUnconfirmed = "unvalidated" // Domain was never submitted, so we don't know.
+	StateUnconfirmed = "unvalidated" // Administrator has not yet confirmed their intention to add the domain.
 	StateTesting     = "queued"      // Queued for addition at next addition date pending continued validation
 	StateFailed      = "failed"      // Requested to be queued, but failed verification.
 	StateEnforce     = "added"       // On the list.
