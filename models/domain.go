@@ -77,7 +77,7 @@ func (d *Domain) IsQueueable(db scanStore, list policyList) (bool, string, Scan)
 // PopulateFromScan updates a Domain's fields based on a scan of that domain.
 func (d *Domain) PopulateFromScan(scan Scan) {
 	// We should only trust MTA-STS info from a successful MTA-STS check.
-	if d.MTASTS && scan.Data.MTASTSResult != nil && scan.SupportsMTASTS() {
+	if d.MTASTS && scan.SupportsMTASTS() {
 		// If the domain's MXs are missing, we can take them from the scan's
 		// PreferredHostnames, which must be a subset of those listed in the
 		// MTA-STS policy file.
