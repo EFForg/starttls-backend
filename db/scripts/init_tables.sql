@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS domains
     status        VARCHAR(255) NOT NULL,
     queue_weeks   INTEGER DEFAULT 4,
     testing_start TIMESTAMP,
+    mta_sts       BOOLEAN DEFAULT FALSE,
     PRIMARY KEY (domain, status)
 );
 
@@ -76,6 +77,17 @@ ALTER TABLE scans ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 0;
 
 ALTER TABLE scans ADD COLUMN IF NOT EXISTS mta_sts_mode TEXT DEFAULT '';
 
+CREATE TABLE IF NOT EXISTS domain_totals
+(
+    id              SERIAL PRIMARY KEY,
+    time            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    source          TEXT NOT NULL,
+    attempted       INTEGER DEFAULT 0,
+    with_mxs         INTEGER DEFAULT 0,
+    mta_sts_testing INTEGER DEFAULT 0,
+    mta_sts_enforce INTEGER DEFAULT 0
+);
+
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS queue_weeks INTEGER DEFAULT 4;
 
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS testing_start TIMESTAMP;
@@ -84,3 +96,7 @@ ALTER TABLE domains ADD COLUMN IF NOT EXISTS testing_start TIMESTAMP;
 ALTER TABLE domains DROP CONSTRAINT domains_pkey;
 ALTER TABLE domains ADD PRIMARY KEY (domain, status);
 
+ALTER TABLE domain_totals DROP COLUMN IF EXISTS connected;
+ALTER TABLE domain_totals ADD COLUMN IF NOT EXISTS with_mxs INTEGER DEFAULT 0;
+
+ALTER TABLE domains ADD COLUMN IF NOT EXISTS mta_sts BOOLEAN DEFAULT FALSE;

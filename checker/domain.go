@@ -102,8 +102,8 @@ func (c *Checker) lookupHostnames(domain string) ([]string, error) {
 // checks on the highest priority mailservers succeed.
 //
 //   `domain` is the mail domain to perform the lookup on.
-//   `mxHostnames` is the list of expected hostnames.
-//     If `mxHostnames` is nil, we don't validate the DNS lookup.
+//   `expectedHostnames` is the list of expected hostnames.
+//     If `expectedHostnames` is nil, we don't validate the DNS lookup.
 func (c *Checker) CheckDomain(domain string, expectedHostnames []string) DomainResult {
 	result := DomainResult{
 		Domain:          domain,
@@ -120,7 +120,7 @@ func (c *Checker) CheckDomain(domain string, expectedHostnames []string) DomainR
 	}
 	checkedHostnames := make([]string, 0)
 	for _, hostname := range hostnames {
-		hostnameResult := c.CheckHostnameWithCache(domain, hostname)
+		hostnameResult := c.checkHostname(domain, hostname)
 		result.HostnameResults[hostname] = hostnameResult
 		if hostnameResult.couldConnect() {
 			checkedHostnames = append(checkedHostnames, hostname)

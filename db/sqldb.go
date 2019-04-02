@@ -208,11 +208,11 @@ func (db SQLDatabase) GetAllScans(domain string) ([]models.Scan, error) {
 // If there is already a domain in the database with StateUnconfirmed, performs
 // an update of the fields.
 func (db *SQLDatabase) PutDomain(domain models.Domain) error {
-	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status, queue_weeks) "+
-		"VALUES($1, $2, $3, $4, $5) "+
+	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status, queue_weeks, mta_sts) "+
+		"VALUES($1, $2, $3, $4, $5, $6) "+
 		"ON CONFLICT ON CONSTRAINT domains_pkey DO UPDATE SET email=$2, data=$3, queue_weeks=$5",
 		domain.Name, domain.Email, strings.Join(domain.MXs[:], ","),
-		models.StateUnconfirmed, domain.QueueWeeks)
+		models.StateUnconfirmed, domain.QueueWeeks, domain.MTASTS)
 	return err
 }
 
@@ -231,25 +231,15 @@ func (db SQLDatabase) GetDomain(domain string, state models.DomainState) (models
 	return data, err
 }
 
-// GetDomains retrieves all the domains which match a particular state.
+// GetDomains retrieves all the domains which match a particular state,
+// that are not in MTA_STS mode
 func (db SQLDatabase) GetDomains(state models.DomainState) ([]models.Domain, error) {
-	rows, err := db.conn.Query(
-		"SELECT domain, email, data, status, last_updated, queue_weeks FROM domains WHERE status=$1", state)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	domains := []models.Domain{}
-	for rows.Next() {
-		var domain models.Domain
-		var rawMXs string
-		if err := rows.Scan(&domain.Name, &domain.Email, &rawMXs, &domain.State, &domain.LastUpdated, &domain.QueueWeeks); err != nil {
-			return nil, err
-		}
-		domain.MXs = strings.Split(rawMXs, ",")
-		domains = append(domains, domain)
-	}
-	return domains, nil
+	return db.getDomainsWhere("status=$1", state)
+}
+
+// GetMTASTSDomains retrieves domains which wish their policy to be queued with their MTASTS.
+func (db SQLDatabase) GetMTASTSDomains() ([]models.Domain, error) {
+	return db.getDomainsWhere("mta_sts=TRUE")
 }
 
 // SetStatus sets the status of a particular domain object to |state|.
@@ -303,6 +293,26 @@ func (db SQLDatabase) ClearTables() error {
 		fmt.Sprintf("DELETE FROM %s", "blacklisted_emails"),
 		fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1", db.cfg.DbScanTable),
 	})
+}
+
+func (db SQLDatabase) getDomainsWhere(condition string, args ...interface{}) ([]models.Domain, error) {
+	query := fmt.Sprintf("SELECT domain, email, data, status, last_updated, queue_weeks FROM domains WHERE %s", condition)
+	rows, err := db.conn.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	domains := []models.Domain{}
+	for rows.Next() {
+		var domain models.Domain
+		var rawMXs string
+		if err := rows.Scan(&domain.Name, &domain.Email, &rawMXs, &domain.State, &domain.LastUpdated, &domain.QueueWeeks); err != nil {
+			return nil, err
+		}
+		domain.MXs = strings.Split(rawMXs, ",")
+		domains = append(domains, domain)
+	}
+	return domains, nil
 }
 
 // DomainsToValidate [interface Validator] retrieves domains from the
