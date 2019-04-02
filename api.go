@@ -180,9 +180,9 @@ func getDomainParams(r *http.Request) (models.Domain, error) {
 	}
 	mtasts := r.FormValue("mta-sts")
 	domain := models.Domain{
-		Name:       name,
-		MTASTSMode: mtasts,
-		State:      models.StateUnvalidated,
+		Name:   name,
+		MTASTS: mtasts == "on",
+		State:  models.StateUnvalidated,
 	}
 	email, err := getParam("email", r)
 	if err == nil {
