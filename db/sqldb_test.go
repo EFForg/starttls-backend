@@ -431,8 +431,8 @@ func expectStats(ts models.TimeSeries, t *testing.T) {
 func TestGetMTASTSDomains(t *testing.T) {
 	database.ClearTables()
 	database.PutDomain(models.Domain{Name: "unicorns"})
-	database.PutDomain(models.Domain{Name: "mta-sts-x", MTASTSMode: "on"})
-	database.PutDomain(models.Domain{Name: "mta-sts-y", MTASTSMode: "on"})
+	database.PutDomain(models.Domain{Name: "mta-sts-x", MTASTS: true})
+	database.PutDomain(models.Domain{Name: "mta-sts-y", MTASTS: true})
 	database.PutDomain(models.Domain{Name: "regular"})
 	domains, err := database.GetMTASTSDomains()
 	if err != nil {

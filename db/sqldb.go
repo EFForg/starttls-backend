@@ -212,7 +212,7 @@ func (db *SQLDatabase) PutDomain(domain models.Domain) error {
 		"VALUES($1, $2, $3, $4, $6, $7) "+
 		"ON CONFLICT (domain) DO UPDATE SET status=$5",
 		domain.Name, domain.Email, strings.Join(domain.MXs[:], ","),
-		models.StateUnvalidated, domain.State, domain.QueueWeeks, domain.MTASTSMode == "on")
+		models.StateUnvalidated, domain.State, domain.QueueWeeks, domain.MTASTS)
 	return err
 }
 

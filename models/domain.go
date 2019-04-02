@@ -13,7 +13,7 @@ type Domain struct {
 	Name         string      `json:"domain"` // Domain that is preloaded
 	Email        string      `json:"-"`      // Contact e-mail for Domain
 	MXs          []string    `json:"mxs"`    // MXs that are valid for this domain
-	MTASTSMode   string      `json:"mta_sts"`
+	MTASTS       bool        `json:"mta_sts"`
 	State        DomainState `json:"state"`
 	LastUpdated  time.Time   `json:"last_updated"`
 	TestingStart time.Time   `json:"-"`
@@ -62,7 +62,7 @@ func (d *Domain) IsQueueable(db scanStore, list policyList) (bool, string, Scan)
 		return false, "Domain is already on the policy list!", scan
 	}
 	// Domains without submitted MTA-STS support must match provided mx patterns.
-	if d.MTASTSMode == "" {
+	if d.MTASTS {
 		for _, hostname := range scan.Data.PreferredHostnames {
 			if !checker.PolicyMatches(hostname, d.MXs) {
 				return false, fmt.Sprintf("Hostnames %v do not match policy %v", scan.Data.PreferredHostnames, d.MXs), scan
@@ -77,7 +77,7 @@ func (d *Domain) IsQueueable(db scanStore, list policyList) (bool, string, Scan)
 // PopulateFromScan updates a Domain's fields based on a scan of that domain.
 func (d *Domain) PopulateFromScan(scan Scan) {
 	// We should only trust MTA-STS info from a successful MTA-STS check.
-	if d.MTASTSMode == "on" && scan.Data.MTASTSResult != nil && scan.SupportsMTASTS() {
+	if d.MTASTS && scan.Data.MTASTSResult != nil && scan.SupportsMTASTS() {
 		// If the domain's MXs are missing, we can take them from the scan's
 		// PreferredHostnames, which must be a subset of those listed in the
 		// MTA-STS policy file.

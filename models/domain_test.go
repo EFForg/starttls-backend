@@ -96,9 +96,9 @@ func TestIsQueueable(t *testing.T) {
 	}
 	// With MTA-STS
 	d = Domain{
-		Name:       "example.com",
-		Email:      "me@example.com",
-		MTASTSMode: "on",
+		Name:   "example.com",
+		Email:  "me@example.com",
+		MTASTS: true,
 	}
 	ok, msg, _ := d.IsQueueable(mockScanStore{goodScan, nil}, mockList{false})
 	if !ok {
@@ -121,9 +121,9 @@ func TestIsQueueable(t *testing.T) {
 
 func TestPopulateFromScan(t *testing.T) {
 	d := Domain{
-		Name:       "example.com",
-		Email:      "me@example.com",
-		MTASTSMode: "on",
+		Name:   "example.com",
+		Email:  "me@example.com",
+		MTASTS: true,
 	}
 	s := Scan{
 		Data: checker.DomainResult{
