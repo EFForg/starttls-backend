@@ -36,6 +36,14 @@ func (m *mockDomainStore) GetDomains(_ DomainState) ([]Domain, error) {
 	return m.domains, m.err
 }
 
+func (m *mockDomainStore) RemoveDomain(d string, state DomainState) (Domain, error) {
+	domain := m.domain
+	if state != domain.State {
+		return m.domain, errors.New("")
+	}
+	return m.domain, nil
+}
+
 type mockList struct {
 	hasDomain bool
 }
