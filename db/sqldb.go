@@ -219,16 +219,7 @@ func (db *SQLDatabase) PutDomain(domain models.Domain) error {
 // GetDomain retrieves the status and information associated with a particular
 // mailserver domain.
 func (db SQLDatabase) GetDomain(domain string, state models.DomainState) (models.Domain, error) {
-	data := models.Domain{}
-	var rawMXs string
-	err := db.conn.QueryRow("SELECT domain, email, data, status, last_updated, queue_weeks FROM domains WHERE domain=$1 AND status=$2",
-		domain, state).Scan(
-		&data.Name, &data.Email, &rawMXs, &data.State, &data.LastUpdated, &data.QueueWeeks)
-	data.MXs = strings.Split(rawMXs, ",")
-	if len(rawMXs) == 0 {
-		data.MXs = []string{}
-	}
-	return data, err
+	return db.getDomain("SELECT %s FROM domains WHERE domain=$1 AND status=$2", domain, state)
 }
 
 // GetDomains retrieves all the domains which match a particular state,
@@ -251,6 +242,11 @@ func (db SQLDatabase) SetStatus(domain string, state models.DomainState) error {
 	_, err := db.conn.Exec("UPDATE domains SET status = $1, testing_start = $2 WHERE domain=$3",
 		state, testingStart, domain)
 	return err
+}
+
+// RemoveDomain removes a particular domain and returns it.
+func (db SQLDatabase) RemoveDomain(domain string, state models.DomainState) (models.Domain, error) {
+	return db.getDomain("DELETE FROM domains WHERE domain=$1 AND status=$2 RETURNING %s")
 }
 
 // EMAIL BLACKLIST DB FUNCTIONS
@@ -293,6 +289,19 @@ func (db SQLDatabase) ClearTables() error {
 		fmt.Sprintf("DELETE FROM %s", "blacklisted_emails"),
 		fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1", db.cfg.DbScanTable),
 	})
+}
+
+func (db SQLDatabase) getDomain(sqlQuery string, args ...interface{}) (models.Domain, error) {
+	query := fmt.Sprintf(sqlQuery, "domain, email, data, status, last_updated, queue_weeks")
+	data := models.Domain{}
+	var rawMXs string
+	err := db.conn.QueryRow(query, args...).Scan(
+		&data.Name, &data.Email, &rawMXs, &data.State, &data.LastUpdated, &data.QueueWeeks)
+	data.MXs = strings.Split(rawMXs, ",")
+	if len(rawMXs) == 0 {
+		data.MXs = []string{}
+	}
+	return data, err
 }
 
 func (db SQLDatabase) getDomainsWhere(condition string, args ...interface{}) ([]models.Domain, error) {

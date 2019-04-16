@@ -31,8 +31,8 @@ type domainStore interface {
 	PutDomain(Domain) error
 	GetDomain(string, DomainState) (Domain, error)
 	GetDomains(DomainState) ([]Domain, error)
-	// Sets status.
 	SetStatus(string, DomainState) error
+	RemoveDomain(string, DomainState) (Domain, error)
 }
 
 // DomainState represents the state of a single domain.
@@ -155,5 +155,9 @@ func GetDomain(store domainStore, name string) (Domain, error) {
 	if err == nil {
 		return domain, nil
 	}
-	return store.GetDomain(name, StateUnconfirmed)
+	domain, err = store.GetDomain(name, StateUnconfirmed)
+	if err == nil {
+		return domain, nil
+	}
+	return store.GetDomain(name, StateFailed)
 }
