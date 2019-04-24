@@ -147,15 +147,15 @@ func TestPutGetDomain(t *testing.T) {
 	if err != nil {
 		t.Errorf("PutDomain failed: %v\n", err)
 	}
-	retrievedData, err := database.GetDomain(data.Name)
+	retrievedData, err := database.GetDomain(data.Name, models.StateUnconfirmed)
 	if err != nil {
 		t.Errorf("GetDomain(%s) failed: %v\n", data.Name, err)
 	}
 	if retrievedData.Name != data.Name {
 		t.Errorf("Somehow, GetDomain retrieved the wrong object?")
 	}
-	if retrievedData.State != models.StateUnvalidated {
-		t.Errorf("Default state should be 'Unvalidated'")
+	if retrievedData.State != models.StateUnconfirmed {
+		t.Errorf("Default state should be 'Unconfirmed'")
 	}
 }
 
@@ -163,17 +163,22 @@ func TestUpsertDomain(t *testing.T) {
 	database.ClearTables()
 	data := models.Domain{
 		Name:  "testing.com",
+		MXs:   []string{"hello1"},
 		Email: "admin@testing.com",
 	}
 	database.PutDomain(data)
-	err := database.PutDomain(models.Domain{Name: "testing.com", State: models.StateTesting})
+	err := database.PutDomain(models.Domain{Name: "testing.com", MXs: []string{"hello_darkness_my_old_friend"}, Email: "actual_admin@testing.com"})
 	if err != nil {
 		t.Errorf("PutDomain(%s) failed: %v\n", data.Name, err)
 	}
-	retrievedData, err := database.GetDomain(data.Name)
-	if retrievedData.State != models.StateTesting {
-		t.Errorf("Expected state to be 'Queued', was %v\n", retrievedData)
+	retrievedData, err := database.GetDomain(data.Name, models.StateUnconfirmed)
+	if retrievedData.MXs[0] != "hello_darkness_my_old_friend" || retrievedData.Email != "actual_admin@testing.com" {
+		t.Errorf("Email and MXs should have been rewritten: %v\n", retrievedData)
 	}
+}
+
+func TestDomainSetStatus(t *testing.T) {
+	// TODO
 }
 
 func TestPutUseToken(t *testing.T) {
@@ -212,14 +217,14 @@ func TestLastUpdatedFieldUpdates(t *testing.T) {
 	data := models.Domain{
 		Name:  "testing.com",
 		Email: "admin@testing.com",
-		State: models.StateUnvalidated,
+		State: models.StateUnconfirmed,
 	}
 	database.PutDomain(data)
-	retrievedData, _ := database.GetDomain(data.Name)
+	retrievedData, _ := database.GetDomain(data.Name, models.StateUnconfirmed)
 	lastUpdated := retrievedData.LastUpdated
 	data.State = models.StateTesting
 	database.PutDomain(models.Domain{Name: data.Name, Email: "new fone who dis"})
-	retrievedData, _ = database.GetDomain(data.Name)
+	retrievedData, _ = database.GetDomain(data.Name, models.StateUnconfirmed)
 	if lastUpdated.Equal(retrievedData.LastUpdated) {
 		t.Errorf("Expected last_updated to be updated on change: %v", lastUpdated)
 	}
@@ -230,13 +235,13 @@ func TestLastUpdatedFieldDoesntUpdate(t *testing.T) {
 	data := models.Domain{
 		Name:  "testing.com",
 		Email: "admin@testing.com",
-		State: models.StateUnvalidated,
+		State: models.StateUnconfirmed,
 	}
 	database.PutDomain(data)
-	retrievedData, _ := database.GetDomain(data.Name)
+	retrievedData, _ := database.GetDomain(data.Name, models.StateUnconfirmed)
 	lastUpdated := retrievedData.LastUpdated
 	database.PutDomain(data)
-	retrievedData, _ = database.GetDomain(data.Name)
+	retrievedData, _ = database.GetDomain(data.Name, models.StateUnconfirmed)
 	if !lastUpdated.Equal(retrievedData.LastUpdated) {
 		t.Errorf("Expected last_updated to stay the same if no changes were made")
 	}
@@ -269,6 +274,8 @@ func TestHostnamesForDomain(t *testing.T) {
 	database.ClearTables()
 	database.PutDomain(models.Domain{Name: "x", MXs: []string{"x.com", "y.org"}})
 	database.PutDomain(models.Domain{Name: "y"})
+	database.SetStatus("x", models.StateTesting)
+	database.SetStatus("y", models.StateTesting)
 	result, err := database.HostnamesForDomain("x")
 	if err != nil {
 		t.Fatalf("HostnamesForDomain failed: %v\n", err)

@@ -19,12 +19,29 @@ func (m *mockDomainStore) PutDomain(d Domain) error {
 	return m.err
 }
 
-func (m *mockDomainStore) GetDomain(d string) (Domain, error) {
-	return m.domain, m.err
+func (m *mockDomainStore) SetStatus(d string, status DomainState) error {
+	m.domain.State = status
+	return m.err
+}
+
+func (m *mockDomainStore) GetDomain(d string, state DomainState) (Domain, error) {
+	domain := m.domain
+	if state != domain.State {
+		return m.domain, errors.New("")
+	}
+	return m.domain, nil
 }
 
 func (m *mockDomainStore) GetDomains(_ DomainState) ([]Domain, error) {
 	return m.domains, m.err
+}
+
+func (m *mockDomainStore) RemoveDomain(d string, state DomainState) (Domain, error) {
+	domain := m.domain
+	if state != domain.State {
+		return m.domain, errors.New("")
+	}
+	return m.domain, nil
 }
 
 type mockList struct {
@@ -65,6 +82,7 @@ func TestIsQueueable(t *testing.T) {
 		name    string
 		scan    Scan
 		scanErr error
+		state   DomainState
 		onList  bool
 		ok      bool
 		msg     string
@@ -74,6 +92,9 @@ func TestIsQueueable(t *testing.T) {
 			ok: true, msg: ""},
 		{name: "Domain on policy list should not be queueable",
 			scan: goodScan, scanErr: nil, onList: true,
+			ok: false, msg: "already on the policy list"},
+		{name: "Enforced domain should not be queueable",
+			scan: goodScan, scanErr: nil, onList: false, state: StateEnforce,
 			ok: false, msg: "already on the policy list"},
 		{name: "Domain with failing scan should not be queueable",
 			scan: failedScan, scanErr: nil, onList: false,
@@ -86,7 +107,8 @@ func TestIsQueueable(t *testing.T) {
 			ok: false, msg: "do not match policy"},
 	}
 	for _, tc := range testCases {
-		ok, msg, _ := d.IsQueueable(mockScanStore{tc.scan, tc.scanErr}, mockList{tc.onList})
+		domainStore := mockDomainStore{domain: Domain{State: tc.state}}
+		ok, msg, _ := d.IsQueueable(&domainStore, mockScanStore{tc.scan, tc.scanErr}, mockList{tc.onList})
 		if ok != tc.ok {
 			t.Error(tc.name)
 		}
@@ -100,7 +122,8 @@ func TestIsQueueable(t *testing.T) {
 		Email:  "me@example.com",
 		MTASTS: true,
 	}
-	ok, msg, _ := d.IsQueueable(mockScanStore{goodScan, nil}, mockList{false})
+	domainStore := mockDomainStore{err: errors.New("")}
+	ok, msg, _ := d.IsQueueable(&domainStore, mockScanStore{goodScan, nil}, mockList{false})
 	if !ok {
 		t.Error("Unadded domain with passing scan should be queueable, got " + msg)
 	}
@@ -113,7 +136,7 @@ func TestIsQueueable(t *testing.T) {
 			},
 		},
 	}
-	ok, msg, _ = d.IsQueueable(mockScanStore{noMTASTSScan, nil}, mockList{false})
+	ok, msg, _ = d.IsQueueable(&domainStore, mockScanStore{noMTASTSScan, nil}, mockList{false})
 	if ok || !strings.Contains(msg, "MTA-STS") {
 		t.Error("Domain without MTA-STS or hostnames should not be queueable, got " + msg)
 	}
@@ -150,8 +173,8 @@ func TestPolicyCheck(t *testing.T) {
 		{"Domain on the list should return success", true, StateEnforce, false, checker.Success},
 		{"Domain in DB as enforce should return success", false, StateEnforce, true, checker.Success},
 		{"Domain queued should return a warning", false, StateTesting, true, checker.Warning},
-		{"Unvalidated domain should return a warning", false, StateUnvalidated, true, checker.Warning},
-		{"Domain not currently in the DB or on the list should return a failure", false, StateUnvalidated, false, checker.Failure},
+		{"Unconfirmed domain should return a failure", false, StateUnconfirmed, true, checker.Failure},
+		{"Domain not currently in the DB or on the list should return a failure", false, StateUnconfirmed, false, checker.Failure},
 	}
 	for _, tc := range testCases {
 		domainObj := Domain{Name: "example.com", State: tc.state}
