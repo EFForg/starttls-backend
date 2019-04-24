@@ -19,7 +19,7 @@ type Domain struct {
 	Name         string      `json:"domain"` // Domain that is preloaded
 	Email        string      `json:"-"`      // Contact e-mail for Domain
 	MXs          []string    `json:"mxs"`    // MXs that are valid for this domain
-	MTASTSMode   string      `json:"mta_sts"`
+	MTASTS       bool        `json:"mta_sts"`
 	State        DomainState `json:"state"`
 	LastUpdated  time.Time   `json:"last_updated"`
 	TestingStart time.Time   `json:"-"`
@@ -31,8 +31,8 @@ type DomainStore interface {
 	PutDomain(Domain) error
 	GetDomain(string, DomainState) (Domain, error)
 	GetDomains(DomainState) ([]Domain, error)
-	// Sets status.
 	SetStatus(string, DomainState) error
+	RemoveDomain(string, DomainState) (Domain, error)
 }
 
 // DomainState represents the state of a single domain.
@@ -41,8 +41,8 @@ type DomainState string
 // Possible values for DomainState
 const (
 	StateUnknown     = "unknown"     // Domain was never submitted, so we don't know.
-	StateUnconfirmed = "unvalidated" // Domain was never submitted, so we don't know.
-	StateTesting     = "queued"      // Queued for addition at next addition date.
+	StateUnconfirmed = "unvalidated" // Administrator has not yet confirmed their intention to add the domain.
+	StateTesting     = "queued"      // Queued for addition at next addition date pending continued validation
 	StateFailed      = "failed"      // Requested to be queued, but failed verification.
 	StateEnforce     = "added"       // On the list.
 )
@@ -78,7 +78,7 @@ func (d *Domain) IsQueueable(domains DomainStore, scans scanStore, list policyLi
 		return false, "Domain is already on the policy list!", scan
 	}
 	// Domains without submitted MTA-STS support must match provided mx patterns.
-	if d.MTASTSMode == "" {
+	if !d.MTASTS {
 		for _, hostname := range scan.Data.PreferredHostnames {
 			if !checker.PolicyMatches(hostname, d.MXs) {
 				return false, fmt.Sprintf("Hostnames %v do not match policy %v", scan.Data.PreferredHostnames, d.MXs), scan
@@ -93,8 +93,7 @@ func (d *Domain) IsQueueable(domains DomainStore, scans scanStore, list policyLi
 // PopulateFromScan updates a Domain's fields based on a scan of that domain.
 func (d *Domain) PopulateFromScan(scan Scan) {
 	// We should only trust MTA-STS info from a successful MTA-STS check.
-	if scan.Data.MTASTSResult != nil && scan.SupportsMTASTS() {
-		d.MTASTSMode = scan.Data.MTASTSResult.Mode
+	if d.MTASTS && scan.SupportsMTASTS() {
 		// If the domain's MXs are missing, we can take them from the scan's
 		// PreferredHostnames, which must be a subset of those listed in the
 		// MTA-STS policy file.
@@ -161,5 +160,9 @@ func GetDomain(store DomainStore, name string) (Domain, error) {
 	if err == nil {
 		return domain, nil
 	}
-	return store.GetDomain(name, StateUnconfirmed)
+	domain, err = store.GetDomain(name, StateUnconfirmed)
+	if err == nil {
+		return domain, nil
+	}
+	return store.GetDomain(name, StateFailed)
 }

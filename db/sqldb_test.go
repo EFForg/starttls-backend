@@ -3,6 +3,7 @@ package db_test
 import (
 	"log"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -430,6 +431,26 @@ func expectStats(ts models.TimeSeries, t *testing.T) {
 		if got[key] != expVal {
 			t.Errorf("Expected MTA-STS stats to be\n %v\ngot\n %v\n", expected, got)
 			return
+		}
+	}
+}
+
+func TestGetMTASTSDomains(t *testing.T) {
+	database.ClearTables()
+	database.PutDomain(models.Domain{Name: "unicorns"})
+	database.PutDomain(models.Domain{Name: "mta-sts-x", MTASTS: true})
+	database.PutDomain(models.Domain{Name: "mta-sts-y", MTASTS: true})
+	database.PutDomain(models.Domain{Name: "regular"})
+	domains, err := database.GetMTASTSDomains()
+	if err != nil {
+		t.Fatalf("GetMTASTSDomains() failed: %v", err)
+	}
+	if len(domains) != 2 {
+		t.Errorf("Expected GetMTASTSDomains() to return 2 elements")
+	}
+	for _, domain := range domains {
+		if !strings.HasPrefix(domain.Name, "mta-sts") {
+			t.Errorf("GetMTASTSDomains returned %s when it wasn't supposed to", domain.Name)
 		}
 	}
 }

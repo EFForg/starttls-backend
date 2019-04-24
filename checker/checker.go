@@ -20,8 +20,9 @@ type Checker struct {
 	// domain. It is used to mock DNS lookups during testing.
 	lookupMXOverride func(string) ([]*net.MX, error)
 
-	// checkHostnameOverride is used to mock checks for a single hostname.
-	checkHostnameOverride func(string, string) HostnameResult
+	// CheckHostname defines the function that should be used to check each hostname.
+	// If nil, FullCheckHostname (all hostname checks) will be used.
+	CheckHostname func(string, string, time.Duration) HostnameResult
 
 	// checkMTASTSOverride is used to mock MTA-STS checks.
 	checkMTASTSOverride func(string, map[string]HostnameResult) *MTASTSResult
