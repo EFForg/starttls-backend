@@ -76,6 +76,7 @@ func (c *Checker) CheckCSV(domains *csv.Reader, resultHandler ResultHandler, dom
 			data, err := domains.Read()
 			if err != nil {
 				if err != io.EOF {
+					log.Println("Error reading CSV")
 					log.Fatal(err)
 				}
 				break
