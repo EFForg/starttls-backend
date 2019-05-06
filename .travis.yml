@@ -10,7 +10,7 @@ env:
   - TEST_DB_NAME=starttls_test
 
 install:
-  - go get -u github.com/golang/lint/golint
+  - go get -u golang.org/x/lint/golint
   - go get github.com/mattn/goveralls
   - go get -t ./...
 

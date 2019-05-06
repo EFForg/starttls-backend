@@ -29,14 +29,15 @@ CREATE TABLE IF NOT EXISTS hostname_scans
 
 CREATE TABLE IF NOT EXISTS domains
 (
-    domain        TEXT NOT NULL UNIQUE PRIMARY KEY,
+    domain        TEXT NOT NULL,
     email         TEXT NOT NULL,
     data          TEXT NOT NULL,
     last_updated  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status        VARCHAR(255) NOT NULL,
     queue_weeks   INTEGER DEFAULT 4,
     testing_start TIMESTAMP,
-    mta_sts       BOOLEAN DEFAULT FALSE
+    mta_sts       BOOLEAN DEFAULT FALSE,
+    PRIMARY KEY (domain, status)
 );
 
 CREATE TABLE IF NOT EXISTS blacklisted_emails
@@ -82,7 +83,7 @@ CREATE TABLE IF NOT EXISTS domain_totals
     time            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     source          TEXT NOT NULL,
     attempted       INTEGER DEFAULT 0,
-    connected       INTEGER DEFAULT 0,
+    with_mxs         INTEGER DEFAULT 0,
     mta_sts_testing INTEGER DEFAULT 0,
     mta_sts_enforce INTEGER DEFAULT 0
 );
@@ -91,5 +92,11 @@ ALTER TABLE domains ADD COLUMN IF NOT EXISTS queue_weeks INTEGER DEFAULT 4;
 
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS testing_start TIMESTAMP;
 
-ALTER TABLE domains ADD COLUMN IF NOT EXISTS mta_sts BOOLEAN DEFAULT FALSE;
+-- Drop & re-add constraint
+ALTER TABLE domains DROP CONSTRAINT domains_pkey;
+ALTER TABLE domains ADD PRIMARY KEY (domain, status);
 
+ALTER TABLE domain_totals DROP COLUMN IF EXISTS connected;
+ALTER TABLE domain_totals ADD COLUMN IF NOT EXISTS with_mxs INTEGER DEFAULT 0;
+
+ALTER TABLE domains ADD COLUMN IF NOT EXISTS mta_sts BOOLEAN DEFAULT FALSE;

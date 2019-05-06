@@ -83,6 +83,9 @@ func main() {
 
 	domainReader := csv.NewReader(instream)
 	if *aggregate {
+		c = checker.Checker{
+			CheckHostname: checker.NoopCheckHostname,
+		}
 		resultHandler = &checker.DomainTotals{
 			Time:   time.Now(),
 			Source: label,

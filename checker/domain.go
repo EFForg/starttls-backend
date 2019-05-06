@@ -120,7 +120,7 @@ func (c *Checker) CheckDomain(domain string, expectedHostnames []string) DomainR
 	}
 	checkedHostnames := make([]string, 0)
 	for _, hostname := range hostnames {
-		hostnameResult := c.CheckHostnameWithCache(domain, hostname)
+		hostnameResult := c.checkHostname(domain, hostname)
 		result.HostnameResults[hostname] = hostnameResult
 		if hostnameResult.couldConnect() {
 			checkedHostnames = append(checkedHostnames, hostname)

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -15,7 +17,7 @@ type DomainTotals struct {
 	Time          time.Time
 	Source        string
 	Attempted     int
-	Connected     int // Connected to at least one mx
+	WithMXs       int
 	MTASTSTesting []string
 	MTASTSEnforce []string
 }
@@ -30,11 +32,11 @@ func (t *DomainTotals) HandleDomain(r DomainResult) {
 		log.Println(t.MTASTSEnforce)
 	}
 
-	// If DomainStatus is > 4, we couldn't connect to a mailbox.
-	if r.Status > 4 {
+	if len(r.HostnameResults) == 0 {
+		// No MX records - assume this isn't an email domain.
 		return
 	}
-	t.Connected++
+	t.WithMXs++
 	if r.MTASTSResult != nil {
 		switch r.MTASTSResult.Mode {
 		case "enforce":
@@ -46,8 +48,8 @@ func (t *DomainTotals) HandleDomain(r DomainResult) {
 }
 
 func (t DomainTotals) String() string {
-	s := strings.Join([]string{"time", "source", "attempted", "connected", "mta_sts_testing", "mta_sts_enforce"}, "\t") + "\n"
-	s += fmt.Sprintf("%v\t%s\t%d\t%d\t%d\t%d\n", t.Time, t.Source, t.Attempted, t.Connected, len(t.MTASTSTesting), len(t.MTASTSEnforce))
+	s := strings.Join([]string{"time", "source", "attempted", "with_mxs", "mta_sts_testing", "mta_sts_enforce"}, "\t") + "\n"
+	s += fmt.Sprintf("%v\t%s\t%d\t%d\t%d\t%d\n", t.Time, t.Source, t.Attempted, t.WithMXs, len(t.MTASTSTesting), len(t.MTASTSEnforce))
 	return s
 }
 
@@ -57,11 +59,15 @@ type ResultHandler interface {
 	HandleDomain(DomainResult)
 }
 
-const poolSize = 16
+const defaultPoolSize = 16
 
 // CheckCSV runs the checker on a csv of domains, processing the results according
 // to resultHandler.
 func (c *Checker) CheckCSV(domains *csv.Reader, resultHandler ResultHandler, domainColumn int) {
+	poolSize, err := strconv.Atoi(os.Getenv("CONNECTION_POOL_SIZE"))
+	if err != nil || poolSize <= 0 {
+		poolSize = defaultPoolSize
+	}
 	work := make(chan string)
 	results := make(chan DomainResult)
 
@@ -70,6 +76,7 @@ func (c *Checker) CheckCSV(domains *csv.Reader, resultHandler ResultHandler, dom
 			data, err := domains.Read()
 			if err != nil {
 				if err != io.EOF {
+					log.Println("Error reading CSV")
 					log.Fatal(err)
 				}
 				break

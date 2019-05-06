@@ -59,7 +59,7 @@ func mockLookupMX(domain string) ([]*net.MX, error) {
 	return result, nil
 }
 
-func mockCheckHostname(domain string, hostname string) HostnameResult {
+func mockCheckHostname(domain string, hostname string, _ time.Duration) HostnameResult {
 	if result, ok := hostnameResults[hostname]; ok {
 		return HostnameResult{
 			Result:    &result,
@@ -110,11 +110,11 @@ func performTests(t *testing.T, tests []domainTestCase) {
 
 func performTestsWithCacheTimeout(t *testing.T, tests []domainTestCase, cacheExpiry time.Duration) {
 	c := Checker{
-		Timeout:               time.Second,
-		Cache:                 MakeSimpleCache(cacheExpiry),
-		lookupMXOverride:      mockLookupMX,
-		checkHostnameOverride: mockCheckHostname,
-		checkMTASTSOverride:   mockCheckMTASTS,
+		Timeout:             time.Second,
+		Cache:               MakeSimpleCache(cacheExpiry),
+		lookupMXOverride:    mockLookupMX,
+		CheckHostname:       mockCheckHostname,
+		checkMTASTSOverride: mockCheckMTASTS,
 	}
 	for _, test := range tests {
 		if test.expectedHostnames == nil {

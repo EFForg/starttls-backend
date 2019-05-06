@@ -63,7 +63,7 @@ type UpdatePolicy func(models.Domain) error
 func GetDBCheck(update UpdatePolicy) CheckPerformer {
 	c := checker.Checker{Cache: checker.MakeSimpleCache(time.Hour)}
 	return func(domain models.Domain) checker.DomainResult {
-		if domain.MTASTSMode == "on" {
+		if domain.MTASTS {
 			result := c.CheckDomain(domain.Name, []string{})
 			if !domain.SamePolicy(result.MTASTSResult) {
 				if update(domain) != nil {

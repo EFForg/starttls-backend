@@ -180,9 +180,9 @@ func getDomainParams(r *http.Request) (models.Domain, error) {
 	}
 	mtasts := r.FormValue("mta-sts")
 	domain := models.Domain{
-		Name:       name,
-		MTASTSMode: mtasts,
-		State:      models.StateUnvalidated,
+		Name:   name,
+		MTASTS: mtasts == "on",
+		State:  models.StateUnconfirmed,
 	}
 	email, err := getParam("email", r)
 	if err == nil {
@@ -233,7 +233,7 @@ func (api API) Queue(r *http.Request) APIResponse {
 		if err != nil {
 			return badRequest(err.Error())
 		}
-		ok, msg, scan := domain.IsQueueable(api.Database, api.List)
+		ok, msg, scan := domain.IsQueueable(api.Database, api.Database, api.List)
 		if !ok {
 			return badRequest(msg)
 		}
@@ -257,13 +257,13 @@ func (api API) Queue(r *http.Request) APIResponse {
 		if err != nil {
 			return badRequest(err.Error())
 		}
-		status, err := api.Database.GetDomain(domainName)
+		domainObj, err := models.GetDomain(api.Database, domainName)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusNotFound, Message: err.Error()}
 		}
 		return APIResponse{
 			StatusCode: http.StatusOK,
-			Response:   status,
+			Response:   domainObj,
 		}
 	}
 	return APIResponse{StatusCode: http.StatusMethodNotAllowed,
