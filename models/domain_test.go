@@ -24,7 +24,7 @@ func (m *mockDomainStore) SetStatus(d string, status DomainState) error {
 	return m.err
 }
 
-func (m *mockDomainStore) GetDomainInState(d string, state DomainState) (Domain, error) {
+func (m *mockDomainStore) GetDomain(d string, state DomainState) (Domain, error) {
 	domain := m.domain
 	if state != domain.State {
 		return m.domain, errors.New("")

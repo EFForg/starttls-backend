@@ -147,7 +147,7 @@ func TestPutGetDomain(t *testing.T) {
 	if err != nil {
 		t.Errorf("PutDomain failed: %v\n", err)
 	}
-	retrievedData, err := database.GetDomainInState(data.Name, models.StateUnconfirmed)
+	retrievedData, err := database.GetDomain(data.Name, models.StateUnconfirmed)
 	if err != nil {
 		t.Errorf("GetDomain(%s) failed: %v\n", data.Name, err)
 	}
@@ -171,7 +171,7 @@ func TestUpsertDomain(t *testing.T) {
 	if err != nil {
 		t.Errorf("PutDomain(%s) failed: %v\n", data.Name, err)
 	}
-	retrievedData, err := database.GetDomainInState(data.Name, models.StateUnconfirmed)
+	retrievedData, err := database.GetDomain(data.Name, models.StateUnconfirmed)
 	if retrievedData.MXs[0] != "hello_darkness_my_old_friend" || retrievedData.Email != "actual_admin@testing.com" {
 		t.Errorf("Email and MXs should have been rewritten: %v\n", retrievedData)
 	}
@@ -220,11 +220,11 @@ func TestLastUpdatedFieldUpdates(t *testing.T) {
 		State: models.StateUnconfirmed,
 	}
 	database.PutDomain(data)
-	retrievedData, _ := database.GetDomainInState(data.Name, models.StateUnconfirmed)
+	retrievedData, _ := database.GetDomain(data.Name, models.StateUnconfirmed)
 	lastUpdated := retrievedData.LastUpdated
 	data.State = models.StateTesting
 	database.PutDomain(models.Domain{Name: data.Name, Email: "new fone who dis"})
-	retrievedData, _ = database.GetDomainInState(data.Name, models.StateUnconfirmed)
+	retrievedData, _ = database.GetDomain(data.Name, models.StateUnconfirmed)
 	if lastUpdated.Equal(retrievedData.LastUpdated) {
 		t.Errorf("Expected last_updated to be updated on change: %v", lastUpdated)
 	}
@@ -238,10 +238,10 @@ func TestLastUpdatedFieldDoesntUpdate(t *testing.T) {
 		State: models.StateUnconfirmed,
 	}
 	database.PutDomain(data)
-	retrievedData, _ := database.GetDomainInState(data.Name, models.StateUnconfirmed)
+	retrievedData, _ := database.GetDomain(data.Name, models.StateUnconfirmed)
 	lastUpdated := retrievedData.LastUpdated
 	database.PutDomain(data)
-	retrievedData, _ = database.GetDomainInState(data.Name, models.StateUnconfirmed)
+	retrievedData, _ = database.GetDomain(data.Name, models.StateUnconfirmed)
 	if !lastUpdated.Equal(retrievedData.LastUpdated) {
 		t.Errorf("Expected last_updated to stay the same if no changes were made")
 	}
@@ -439,11 +439,11 @@ func TestUpdateDomainPolicy(t *testing.T) {
 	database.PutDomain(models.Domain{Name: "mtasts", MTASTS: true, Email: "real-email"})
 	database.UpdateDomainPolicy(models.Domain{Name: "no-mtasts", State: models.StateEnforce})
 	database.UpdateDomainPolicy(models.Domain{Name: "mtasts", State: models.StateEnforce, MXs: []string{"hostname"}, Email: "fake-email"})
-	domain, _ := database.GetDomain("no-mtasts")
+	domain, _ := database.GetDomainPolicy("no-mtasts")
 	if domain.State == models.StateEnforce {
 		t.Errorf("Expected State to not update since unicorns isn't MTASTS")
 	}
-	domain, _ = database.GetDomain("mtasts")
+	domain, _ = database.GetDomainPolicy("mtasts")
 	if domain.State != models.StateEnforce {
 		t.Errorf("Expected State to update after UpdateDomainPolicy")
 	}

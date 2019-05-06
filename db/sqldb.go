@@ -224,9 +224,9 @@ func (db *SQLDatabase) UpdateDomainPolicy(domain models.Domain) error {
 
 }
 
-// GetDomainInState retrieves the status and information associated with a particular
+// GetDomain retrieves the status and information associated with a particular
 // mailserver domain.
-func (db SQLDatabase) GetDomainInState(domain string, state models.DomainState) (models.Domain, error) {
+func (db SQLDatabase) GetDomain(domain string, state models.DomainState) (models.Domain, error) {
 	return db.queryDomain("SELECT %s FROM domains WHERE domain=$1 AND status=$2", domain, state)
 }
 
@@ -332,7 +332,7 @@ func (db SQLDatabase) queryDomainsWhere(condition string, args ...interface{}) (
 	return domains, nil
 }
 
-// DomainsToValidate [interface Validator] retrieves domains from the
+// DomainsToValidate [interface DomainPolicyStore] retrieves domains from the
 // DB whose policies should be validated.
 func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 	domains := []string{}
@@ -353,10 +353,12 @@ func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 	return domains, nil
 }
 
-func (db SQLDatabase) GetDomain(domain string) (models.Domain, error) {
-	data, err := db.GetDomainInState(domain, models.StateEnforce)
+// GetDomainPolicy [interface DomainPolicyStore] retrieves the domain object for
+// a particular domain.
+func (db SQLDatabase) GetDomainPolicy(domain string) (models.Domain, error) {
+	data, err := db.GetDomain(domain, models.StateEnforce)
 	if err != nil {
-		data, err = db.GetDomainInState(domain, models.StateTesting)
+		data, err = db.GetDomain(domain, models.StateTesting)
 	}
 	return data, err
 }

@@ -15,7 +15,7 @@ import (
 // expected hostnames).
 type DomainPolicyStore interface {
 	DomainsToValidate() ([]string, error)
-	GetDomain(string) (models.Domain, error)
+	GetDomainPolicy(string) (models.Domain, error)
 }
 
 // Called with failure by defaault.
@@ -120,7 +120,7 @@ func (v *Validator) Run() {
 			continue
 		}
 		for _, domain := range domains {
-			domainData, err := v.Store.GetDomain(domain)
+			domainData, err := v.Store.GetDomainPolicy(domain)
 			if err != nil {
 				log.Printf("[%s validator] Could not retrieve policy for domain %s: %v", v.Name, domain, err)
 				continue

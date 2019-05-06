@@ -20,7 +20,7 @@ func (m mockDomainPolicyStore) DomainsToValidate() ([]string, error) {
 	return domains, nil
 }
 
-func (m mockDomainPolicyStore) GetDomain(domain string) (models.Domain, error) {
+func (m mockDomainPolicyStore) GetDomainPolicy(domain string) (models.Domain, error) {
 	return models.Domain{Name: domain, MXs: m.hostnames[domain]}, nil
 }
 

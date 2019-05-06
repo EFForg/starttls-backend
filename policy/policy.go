@@ -70,7 +70,7 @@ type UpdatedList struct {
 	*List
 }
 
-// DomainsToValidate [interface Validator] retrieves domains from the
+// DomainsToValidate [interface DomainPolicyStore] retrieves domains from the
 // DB whose policies should be validated.
 func (l *UpdatedList) DomainsToValidate() ([]string, error) {
 	l.mu.RLock()
@@ -82,9 +82,9 @@ func (l *UpdatedList) DomainsToValidate() ([]string, error) {
 	return domains, nil
 }
 
-// GetDomain [interface Validator] retrieves the domain object for
+// GetDomainPolicy [interface DomainPolicyStore] retrieves the domain object for
 // a particular domain.
-func (l *UpdatedList) GetDomain(domain string) (models.Domain, error) {
+func (l *UpdatedList) GetDomainPolicy(domain string) (models.Domain, error) {
 	policy, err := l.Get(domain)
 	if err != nil {
 		return models.Domain{}, err

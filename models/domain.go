@@ -30,7 +30,7 @@ type Domain struct {
 // domainStore is a simple interface for fetching and adding domain objects.
 type domainStore interface {
 	PutDomain(Domain) error
-	GetDomainInState(string, DomainState) (Domain, error)
+	GetDomain(string, DomainState) (Domain, error)
 	GetDomains(DomainState) ([]Domain, error)
 	SetStatus(string, DomainState) error
 	RemoveDomain(string, DomainState) (Domain, error)
@@ -70,7 +70,7 @@ func (d *Domain) IsQueueable(domains domainStore, scans scanStore, list policyLi
 	if list.HasDomain(d.Name) {
 		return false, "Domain is already on the policy list!", scan
 	}
-	if _, err := domains.GetDomainInState(d.Name, StateEnforce); err == nil {
+	if _, err := domains.GetDomain(d.Name, StateEnforce); err == nil {
 		return false, "Domain is already on the policy list!", scan
 	}
 	// Domains without submitted MTA-STS support must match provided mx patterns.
@@ -159,17 +159,17 @@ func (d *Domain) SamePolicy(result *checker.MTASTSResult) bool {
 // or StateTesting. If that domain exists in the store, return that one.
 // Otherwise, look for a Domain policy in the unconfirmed state.
 func GetDomain(store domainStore, name string) (Domain, error) {
-	domain, err := store.GetDomainInState(name, StateEnforce)
+	domain, err := store.GetDomain(name, StateEnforce)
 	if err == nil {
 		return domain, nil
 	}
-	domain, err = store.GetDomainInState(name, StateTesting)
+	domain, err = store.GetDomain(name, StateTesting)
 	if err == nil {
 		return domain, nil
 	}
-	domain, err = store.GetDomainInState(name, StateUnconfirmed)
+	domain, err = store.GetDomain(name, StateUnconfirmed)
 	if err == nil {
 		return domain, nil
 	}
-	return store.GetDomainInState(name, StateFailed)
+	return store.GetDomain(name, StateFailed)
 }

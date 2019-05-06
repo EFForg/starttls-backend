@@ -23,7 +23,7 @@ func (t *Token) Redeem(store domainStore, tokens tokenStore) (ret string, userEr
 	if err != nil {
 		return domain, err, nil
 	}
-	domainData, err := store.GetDomainInState(domain, StateUnconfirmed)
+	domainData, err := store.GetDomain(domain, StateUnconfirmed)
 	if err != nil {
 		return domain, nil, err
 	}
