@@ -379,3 +379,5 @@ func (db *SQLDatabase) PutHostnameScan(hostname string, result checker.HostnameR
                                 VALUES($1, $2, $3)`, hostname, result.Status, string(data))
 	return err
 }
+
+// func (db *SQLDatabase) PutAggregatedScan

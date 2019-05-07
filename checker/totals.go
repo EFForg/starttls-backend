@@ -11,45 +11,47 @@ import (
 	"time"
 )
 
-// DomainTotals compiled aggregated stats across domains.
+// AggregatedScan compiles aggregated stats across domains.
 // Implements ResultHandler.
-type DomainTotals struct {
-	Time          time.Time
-	Source        string
-	Attempted     int
-	WithMXs       int
-	MTASTSTesting []string
-	MTASTSEnforce []string
+type AggregatedScan struct {
+	Time              time.Time
+	Source            string
+	Attempted         int
+	WithMXs           int
+	MTASTSTesting     int
+	MTASTSTestingList []string
+	MTASTSEnforce     int
+	MTASTSEnforceList []string
 }
 
 // HandleDomain adds the result of a single domain scan to aggregated stats.
-func (t *DomainTotals) HandleDomain(r DomainResult) {
-	t.Attempted++
+func (a *AggregatedScan) HandleDomain(r DomainResult) {
+	a.Attempted++
 	// Show progress.
-	if t.Attempted%1000 == 0 {
-		log.Printf("\n%v\n", t)
-		log.Println(t.MTASTSTesting)
-		log.Println(t.MTASTSEnforce)
+	if a.Attempted%1000 == 0 {
+		log.Printf("\n%v\n", a)
+		log.Println(a.MTASTSTestingList)
+		log.Println(a.MTASTSEnforceList)
 	}
 
 	if len(r.HostnameResults) == 0 {
 		// No MX records - assume this isn't an email domain.
 		return
 	}
-	t.WithMXs++
+	a.WithMXs++
 	if r.MTASTSResult != nil {
 		switch r.MTASTSResult.Mode {
 		case "enforce":
-			t.MTASTSEnforce = append(t.MTASTSEnforce, r.Domain)
+			a.MTASTSEnforceList = append(a.MTASTSEnforceList, r.Domain)
 		case "testing":
-			t.MTASTSTesting = append(t.MTASTSTesting, r.Domain)
+			a.MTASTSTestingList = append(a.MTASTSTestingList, r.Domain)
 		}
 	}
 }
 
-func (t DomainTotals) String() string {
+func (a AggregatedScan) String() string {
 	s := strings.Join([]string{"time", "source", "attempted", "with_mxs", "mta_sts_testing", "mta_sts_enforce"}, "\t") + "\n"
-	s += fmt.Sprintf("%v\t%s\t%d\t%d\t%d\t%d\n", t.Time, t.Source, t.Attempted, t.WithMXs, len(t.MTASTSTesting), len(t.MTASTSEnforce))
+	s += fmt.Sprintf("%v\t%s\t%d\t%d\t%d\t%d\n", a.Time, a.Source, a.Attempted, a.WithMXs, len(a.MTASTSTestingList), len(a.MTASTSEnforceList))
 	return s
 }
 
