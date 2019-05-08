@@ -13,20 +13,11 @@ import (
 // policyURL is the default URL from which to fetch the policy JSON.
 const policyURL = "https://dl.eff.org/starttls-everywhere/policy.json"
 
-// Pinset represents a set of valid public keys for a domain's
-// SSL certificate.
-type Pinset struct {
-	StaticSPKIHashes []string `json:"static-spki-hashes"`
-}
-
 // TLSPolicy dictates the policy for a particular email domain.
 type TLSPolicy struct {
-	PolicyAlias   string   `json:"policy-alias,omitempty"`
-	MinTLSVersion string   `json:"min-tls-version,omitempty"`
-	Mode          string   `json:"mode,omitempty"`
-	MXs           []string `json:"mxs,omitempty"`
-	Pin           string   `json:"pin,omitempty"`
-	Report        string   `json:"report,omitempty"`
+	PolicyAlias string   `json:"policy-alias,omitempty"`
+	Mode        string   `json:"mode,omitempty"`
+	MXs         []string `json:"mxs,omitempty"`
 }
 
 // List is a raw representation of the policy list.
@@ -35,7 +26,6 @@ type List struct {
 	Expires       time.Time            `json:"expires"`
 	Version       string               `json:"version"`
 	Author        string               `json:"author"`
-	Pinsets       map[string]Pinset    `json:"pinsets"`
 	PolicyAliases map[string]TLSPolicy `json:"policy-aliases"`
 	Policies      map[string]TLSPolicy `json:"policies"`
 }
@@ -110,10 +100,6 @@ func (l *UpdatedList) Raw() List {
 	list := *l.List
 	list.Timestamp = l.Timestamp
 	list.Expires = l.Expires
-	list.Pinsets = make(map[string]Pinset)
-	for pinName, pinset := range l.Pinsets {
-		list.Pinsets[pinName] = pinset.clone()
-	}
 	list.PolicyAliases = make(map[string]TLSPolicy)
 	for alias, policy := range l.PolicyAliases {
 		list.PolicyAliases[alias] = policy.clone()
@@ -123,14 +109,6 @@ func (l *UpdatedList) Raw() List {
 		list.Policies[domain] = policy.clone()
 	}
 	return list
-}
-
-func (p Pinset) clone() Pinset {
-	pinset := Pinset{StaticSPKIHashes: make([]string, 0)}
-	for _, hash := range p.StaticSPKIHashes {
-		pinset.StaticSPKIHashes = append(pinset.StaticSPKIHashes, hash)
-	}
-	return pinset
 }
 
 func (p TLSPolicy) clone() TLSPolicy {

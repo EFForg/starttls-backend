@@ -37,7 +37,6 @@ func (l mockList) Raw() policy.List {
 		Expires:       time.Now().Add(time.Minute),
 		Version:       "",
 		Author:        "",
-		Pinsets:       make(map[string]policy.Pinset),
 		PolicyAliases: make(map[string]policy.TLSPolicy),
 		Policies:      make(map[string]policy.TLSPolicy),
 	}
