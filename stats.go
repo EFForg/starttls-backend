@@ -9,7 +9,7 @@ func (api API) Stats(r *http.Request) APIResponse {
 	if r.Method != http.MethodGet {
 		return APIResponse{StatusCode: http.StatusMethodNotAllowed}
 	}
-	stats, err := api.Database.GetMTASTSStats()
+	stats, err := api.Database.GetMTASTSLocalStats()
 	if err != nil {
 		return serverError(err.Error())
 	}

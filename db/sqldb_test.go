@@ -10,6 +10,7 @@ import (
 	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/db"
 	"github.com/EFForg/starttls-backend/models"
+	"github.com/EFForg/starttls-backend/stats"
 	"github.com/joho/godotenv"
 )
 
@@ -363,7 +364,7 @@ func TestGetMTASTSStats(t *testing.T) {
 	database.PutScan(s)
 	// Support is shown in the rolling average until the no-support scan is
 	// included.
-	expectStats(models.TimeSeries{
+	expectStats(stats.Series{
 		lastWeek:              100,
 		lastWeek.Add(day):     100,
 		lastWeek.Add(2 * day): 100,
@@ -380,7 +381,7 @@ func TestGetMTASTSStats(t *testing.T) {
 		Timestamp: lastWeek.Add(1 * day),
 	}
 	database.PutScan(s)
-	expectStats(models.TimeSeries{
+	expectStats(stats.Series{
 		lastWeek:              100,
 		lastWeek.Add(day):     100,
 		lastWeek.Add(2 * day): 100,
@@ -397,7 +398,7 @@ func TestGetMTASTSStats(t *testing.T) {
 		Timestamp: lastWeek.Add(6 * day),
 	}
 	database.PutScan(s)
-	expectStats(models.TimeSeries{
+	expectStats(stats.Series{
 		lastWeek:              100,
 		lastWeek.Add(day):     100,
 		lastWeek.Add(2 * day): 100,
@@ -408,7 +409,7 @@ func TestGetMTASTSStats(t *testing.T) {
 	}, t)
 }
 
-func expectStats(ts models.TimeSeries, t *testing.T) {
+func expectStats(ts stats.Series, t *testing.T) {
 	// GetMTASTSStats returns dates only (no hours, minutes, seconds). We need
 	// to truncate the expected times for comparison to dates and convert to UTC
 	// to match the database's timezone.
@@ -417,7 +418,7 @@ func expectStats(ts models.TimeSeries, t *testing.T) {
 		k := kOld.UTC().Truncate(24 * time.Hour)
 		expected[k] = v
 	}
-	got, err := database.GetMTASTSStats()
+	got, err := database.GetMTASTSLocalStats()
 	if err != nil {
 		t.Fatal(err)
 	}

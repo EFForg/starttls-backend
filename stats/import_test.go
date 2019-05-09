@@ -19,7 +19,15 @@ func (m *mockAgScanStore) PutAggregatedScan(agScan checker.AggregatedScan) error
 	return nil
 }
 
-func TestImportAggregatedScans(t *testing.T) {
+func (m *mockAgScanStore) GetMTASTSStats(source string) (Series, error) {
+	return Series{}, nil
+}
+
+func (m *mockAgScanStore) GetMTASTSLocalStats() (Series, error) {
+	return Series{}, nil
+}
+
+func TestImport(t *testing.T) {
 	agScans := []checker.AggregatedScan{
 		checker.AggregatedScan{
 			Time:          time.Now().Add(-24 * time.Hour),

@@ -12,6 +12,7 @@ import (
 
 	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/models"
+	"github.com/EFForg/starttls-backend/stats"
 
 	// Imports postgresql driver for database/sql
 	_ "github.com/lib/pq"
@@ -116,12 +117,16 @@ func (db *SQLDatabase) PutScan(scan models.Scan) error {
 	return err
 }
 
+func (db *SQLDatabase) GetMTASTSStats(source string) (stats.Series, error) {
+	return stats.Series{}, nil
+}
+
 // GetMTASTSStats returns statistics about MTA-STS adoption over a rolling
 // 14-day window.
 // Returns a map with
 //  key: the final day of a two-week window. Windows last until EOD.
 //  value: the percent of scans supporting MTA-STS in that window
-func (db *SQLDatabase) GetMTASTSStats() (models.TimeSeries, error) {
+func (db *SQLDatabase) GetMTASTSLocalStats() (stats.Series, error) {
 	// "day" represents truncated date (ie beginning of day), but windows should
 	// include the full day, so we add a day when querying timestamps.
 	// Getting the most recent 31 days for now, we can set the start date to the

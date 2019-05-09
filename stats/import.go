@@ -13,6 +13,8 @@ import (
 // Store wraps storage for MTA-STS adoption statistics.
 type Store interface {
 	PutAggregatedScan(checker.AggregatedScan) error
+	GetMTASTSStats(string) (Series, error)
+	GetMTASTSLocalStats() (Series, error)
 }
 
 // Import imports JSON list of aggregated scans from a remote server to the
@@ -47,4 +49,22 @@ func ImportRegularly(store Store, interval time.Duration) {
 		<-time.After(interval)
 		Import(store)
 	}
+}
+
+type Series map[time.Time]float32
+
+const topMillionSource = "majestic-million"
+
+func Get(store Store) (r map[string]Series, err error) {
+	series, err := store.GetMTASTSStats(topMillionSource)
+	if err != nil {
+		return
+	}
+	r["top-million"] = series
+	series, err = store.GetMTASTSLocalStats()
+	if err != nil {
+		return
+	}
+	r["local"] = series
+	return
 }
