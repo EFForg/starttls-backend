@@ -17,7 +17,7 @@ func TestCheckCSV(t *testing.T) {
 		CheckHostname:       mockCheckHostname,
 		checkMTASTSOverride: mockCheckMTASTS,
 	}
-	totals := DomainTotals{}
+	totals := AggregatedScan{}
 	c.CheckCSV(reader, &totals, 0)
 
 	if totals.Attempted != 6 {
@@ -26,7 +26,7 @@ func TestCheckCSV(t *testing.T) {
 	if totals.WithMXs != 5 {
 		t.Errorf("Expected 5 domains with MXs, got %d", totals.WithMXs)
 	}
-	if len(totals.MTASTSTesting) != 5 {
-		t.Errorf("Expected 5 domains in MTA-STS testing mode, got %d", len(totals.MTASTSTesting))
+	if len(totals.MTASTSTestingList) != 5 {
+		t.Errorf("Expected 5 domains in MTA-STS testing mode, got %d", len(totals.MTASTSTestingList))
 	}
 }

@@ -86,7 +86,7 @@ func main() {
 		c = checker.Checker{
 			CheckHostname: checker.NoopCheckHostname,
 		}
-		resultHandler = &checker.DomainTotals{
+		resultHandler = &checker.AggregatedScan{
 			Time:   time.Now(),
 			Source: label,
 		}

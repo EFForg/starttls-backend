@@ -30,7 +30,7 @@ func TestUpdateStats(t *testing.T) {
 	// @TODO make this faster
 	main()
 	got := out.(*bytes.Buffer).String()
-	expected := checker.DomainTotals{
+	expected := checker.AggregatedScan{
 		Time:      time.Time{},
 		Source:    ts.URL,
 		Attempted: 3,
