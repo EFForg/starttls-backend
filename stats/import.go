@@ -51,20 +51,21 @@ func ImportRegularly(store Store, interval time.Duration) {
 	}
 }
 
-type Series map[time.Time]float32
+type Series map[time.Time]float64
 
 const topMillionSource = "majestic-million"
 
-func Get(store Store) (r map[string]Series, err error) {
+func Get(store Store) (map[string]Series, error) {
+	result := make(map[string]Series)
 	series, err := store.GetMTASTSStats(topMillionSource)
 	if err != nil {
-		return
+		return result, err
 	}
-	r["top-million"] = series
+	result["top-million"] = series
 	series, err = store.GetMTASTSLocalStats()
 	if err != nil {
-		return
+		return result, err
 	}
-	r["local"] = series
-	return
+	result["local"] = series
+	return result, err
 }

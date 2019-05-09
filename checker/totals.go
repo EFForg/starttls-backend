@@ -22,6 +22,10 @@ type AggregatedScan struct {
 	MTASTSEnforceList []string
 }
 
+func (a AggregatedScan) PercentMTASTS() float64 {
+	return (float64(a.MTASTSTesting) + float64(a.MTASTSEnforce)) / float64(a.WithMXs)
+}
+
 // HandleDomain adds the result of a single domain scan to aggregated stats.
 func (a *AggregatedScan) HandleDomain(r DomainResult) {
 	a.Attempted++

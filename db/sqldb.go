@@ -118,14 +118,29 @@ func (db *SQLDatabase) PutScan(scan models.Scan) error {
 }
 
 func (db *SQLDatabase) GetMTASTSStats(source string) (stats.Series, error) {
-	return stats.Series{}, nil
+	rows, err := db.conn.Query(
+		"SELECT time, with_mxs, mta_sts_testing, mta_sts_enforce FROM aggregated_scans WHERE source=$1", source)
+	if err != nil {
+		return stats.Series{}, err
+	}
+	defer rows.Close()
+	series := stats.Series{}
+	for rows.Next() {
+		var a checker.AggregatedScan
+		if err := rows.Scan(&a.Time, &a.WithMXs, &a.MTASTSTesting, &a.MTASTSEnforce); err != nil {
+			return stats.Series{}, err
+		}
+		series[a.Time.UTC()] = a.PercentMTASTS()
+	}
+	return series, nil
 }
 
-// GetMTASTSStats returns statistics about MTA-STS adoption over a rolling
-// 14-day window.
-// Returns a map with
+// GetMTASTSLocalStats returns statistics about MTA-STS adoption over a rolling
+// 14-day window.  Returns a map with
 //  key: the final day of a two-week window. Windows last until EOD.
 //  value: the percent of scans supporting MTA-STS in that window
+// @TODO write a simpler query that gets caches totals in the the
+// `aggregated_scans` table at the end of each 14-day period
 func (db *SQLDatabase) GetMTASTSLocalStats() (stats.Series, error) {
 	// "day" represents truncated date (ie beginning of day), but windows should
 	// include the full day, so we add a day when querying timestamps.
@@ -154,10 +169,10 @@ func (db *SQLDatabase) GetMTASTSLocalStats() (stats.Series, error) {
 	}
 	defer rows.Close()
 
-	ts := make(map[time.Time]float32)
+	ts := make(map[time.Time]float64)
 	for rows.Next() {
 		var t time.Time
-		var count float32
+		var count float64
 		if err := rows.Scan(&t, &count); err != nil {
 			return nil, err
 		}
@@ -292,6 +307,7 @@ func (db SQLDatabase) ClearTables() error {
 		fmt.Sprintf("DELETE FROM %s", db.cfg.DbTokenTable),
 		fmt.Sprintf("DELETE FROM %s", "hostname_scans"),
 		fmt.Sprintf("DELETE FROM %s", "blacklisted_emails"),
+		fmt.Sprintf("DELETE FROM %s", "aggregated_scans"),
 		fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1", db.cfg.DbScanTable),
 	})
 }
