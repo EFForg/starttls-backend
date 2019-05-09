@@ -117,6 +117,8 @@ func (db *SQLDatabase) PutScan(scan models.Scan) error {
 	return err
 }
 
+// GetMTASTSStats returns statistics about a MTA-STS adoption from a single
+// source domains to check.
 func (db *SQLDatabase) GetMTASTSStats(source string) (stats.Series, error) {
 	rows, err := db.conn.Query(
 		"SELECT time, with_mxs, mta_sts_testing, mta_sts_enforce FROM aggregated_scans WHERE source=$1", source)
@@ -135,8 +137,8 @@ func (db *SQLDatabase) GetMTASTSStats(source string) (stats.Series, error) {
 	return series, nil
 }
 
-// GetMTASTSLocalStats returns statistics about MTA-STS adoption over a rolling
-// 14-day window.  Returns a map with
+// GetMTASTSLocalStats returns statistics about MTA-STS adoption in
+// user-initiated scans over a rolling 14-day window.  Returns a map with:
 //  key: the final day of a two-week window. Windows last until EOD.
 //  value: the percent of scans supporting MTA-STS in that window
 // @TODO write a simpler query that gets caches totals in the the

@@ -51,10 +51,15 @@ func ImportRegularly(store Store, interval time.Duration) {
 	}
 }
 
+// Series represents some statistic as it changes over time.
+// This will likely be updated when we know what format our frontend charting
+// library prefers.
 type Series map[time.Time]float64
 
 const topMillionSource = "majestic-million"
 
+// Get retrieves MTA-STS adoption statistics for user-initiated scans and scans
+// of the top million domains over time.
 func Get(store Store) (map[string]Series, error) {
 	result := make(map[string]Series)
 	series, err := store.GetMTASTSStats(topMillionSource)

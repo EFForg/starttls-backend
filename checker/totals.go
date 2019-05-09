@@ -22,6 +22,8 @@ type AggregatedScan struct {
 	MTASTSEnforceList []string
 }
 
+// PercentMTASTS returns the fraction of domains with MXs that support
+// MTA-STS, represented as a float between 0 and 1.
 func (a AggregatedScan) PercentMTASTS() float64 {
 	return (float64(a.MTASTSTesting) + float64(a.MTASTSEnforce)) / float64(a.WithMXs)
 }
