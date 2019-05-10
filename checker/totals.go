@@ -2,12 +2,10 @@ package checker
 
 import (
 	"encoding/csv"
-	"fmt"
 	"io"
 	"log"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -47,12 +45,6 @@ func (a *AggregatedScan) HandleDomain(r DomainResult) {
 			a.MTASTSTestingList = append(a.MTASTSTestingList, r.Domain)
 		}
 	}
-}
-
-func (a AggregatedScan) String() string {
-	s := strings.Join([]string{"time", "source", "attempted", "with_mxs", "mta_sts_testing", "mta_sts_enforce"}, "\t") + "\n"
-	s += fmt.Sprintf("%v\t%s\t%d\t%d\t%d\t%d\n", a.Time, a.Source, a.Attempted, a.WithMXs, len(a.MTASTSTestingList), len(a.MTASTSEnforceList))
-	return s
 }
 
 // ResultHandler processes domain results.

@@ -12,6 +12,7 @@ import (
 
 	"github.com/EFForg/starttls-backend/db"
 	"github.com/EFForg/starttls-backend/policy"
+	"github.com/EFForg/starttls-backend/stats"
 	"github.com/EFForg/starttls-backend/validator"
 
 	"github.com/getsentry/raven-go"
@@ -121,5 +122,6 @@ func main() {
 		log.Println("[Starting queued validator]")
 		go validator.ValidateRegularly("Testing domains", db, 24*time.Hour)
 	}
+	go stats.ImportRegularly(db, time.Hour)
 	ServePublicEndpoints(&api, &cfg)
 }

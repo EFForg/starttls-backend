@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -30,13 +31,21 @@ func TestUpdateStats(t *testing.T) {
 	// @TODO make this faster
 	main()
 	got := out.(*bytes.Buffer).String()
-	expected := checker.AggregatedScan{
+	expected, err := json.Marshal(checker.AggregatedScan{
 		Time:      time.Time{},
 		Source:    ts.URL,
 		Attempted: 3,
-	}.String()
-	expected = strings.Replace(expected, time.Time{}.String(), ".*", 1)
-	re := regexp.MustCompile(expected)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	timeJSON, err := json.Marshal(time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	re := regexp.MustCompile(
+		strings.Replace(string(expected), string(timeJSON), ".*", 1),
+	)
 
 	if !re.MatchString(got) {
 		t.Errorf("Expected:\n%s\nGot:\n%s", expected, got)

@@ -91,10 +91,8 @@ func main() {
 			Source: label,
 		}
 	}
-	// Assume domains are in the 0th column, eg just a newline-separated list
-	// of domains. Could pass this is a flag.
 	c.CheckCSV(domainReader, resultHandler, *column)
-	fmt.Fprintln(out, resultHandler)
+	json.NewEncoder(out).Encode(resultHandler)
 }
 
 type domainWriter struct{}

@@ -379,3 +379,12 @@ func (db *SQLDatabase) PutHostnameScan(hostname string, result checker.HostnameR
                                 VALUES($1, $2, $3)`, hostname, result.Status, string(data))
 	return err
 }
+
+// PutAggregatedScan writes and AggregatedScan to the db.
+func (db *SQLDatabase) PutAggregatedScan(a checker.AggregatedScan) error {
+	_, err := db.conn.Exec(`INSERT INTO
+		aggregated_scans(time, source, attempted, with_mxs, mta_sts_testing, mta_sts_enforce)
+		VALUES ($1, $2, $3, $4, $5, $6)`,
+		a.Time, a.Source, a.Attempted, a.WithMXs, a.MTASTSTesting, a.MTASTSEnforce)
+	return err
+}
