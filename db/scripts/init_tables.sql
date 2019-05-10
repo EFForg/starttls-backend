@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS aggregated_scans
     time            TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     source          TEXT NOT NULL,
     attempted       INTEGER DEFAULT 0,
-    with_mxs         INTEGER DEFAULT 0,
+    with_mxs        INTEGER DEFAULT 0,
     mta_sts_testing INTEGER DEFAULT 0,
     mta_sts_enforce INTEGER DEFAULT 0
 );
@@ -103,3 +103,4 @@ ALTER TABLE IF EXISTS aggregated_scans ADD COLUMN IF NOT EXISTS with_mxs INTEGER
 
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS mta_sts BOOLEAN DEFAULT FALSE;
 
+ALTER TABLE aggregated_scans ADD UNIQUE (time, source);
