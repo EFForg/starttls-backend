@@ -45,12 +45,17 @@ func TestImport(t *testing.T) {
 	}
 	ts := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(agScans)
+			enc := json.NewEncoder(w)
+			enc.Encode(agScans[0])
+			enc.Encode(agScans[1])
 		}),
 	)
 	os.Setenv("REMOTE_STATS_URL", ts.URL)
 	store := mockAgScanStore{}
-	Import(&store)
+	err := Import(&store)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i, want := range agScans {
 		got := store[i]
 		// Times must be compared with Time.Equal, so we can't reflect.DeepEqual.

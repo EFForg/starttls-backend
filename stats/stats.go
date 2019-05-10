@@ -1,7 +1,9 @@
 package stats
 
 import (
+	"bufio"
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -21,38 +23,42 @@ type Store interface {
 // of the web's top domains
 const topDomainsSource = "TOP_DOMAINS"
 
-// Import imports JSON list of aggregated scans from a remote server to the
-// datastore.
-func Import(store Store) {
+// Import imports aggregated scans from a remote server to the datastore.
+// Expected format is JSONL (newline-separated JSON objects).
+func Import(store Store) error {
 	statsURL := os.Getenv("REMOTE_STATS_URL")
 	resp, err := http.Get(statsURL)
 	if err != nil {
-		raven.CaptureError(err, nil)
-		return
+		return err
 	}
 	defer resp.Body.Close()
 
-	var agScans []checker.AggregatedScan
-	decoder := json.NewDecoder(resp.Body)
-	err = decoder.Decode(&agScans)
-	if err != nil {
-		raven.CaptureError(err, nil)
-		return
-	}
-	for _, a := range agScans {
-		a.Source = topDomainsSource
-		err := store.PutAggregatedScan(a)
+	s := bufio.NewScanner(resp.Body)
+	for s.Scan() {
+		var a checker.AggregatedScan
+		err := json.Unmarshal(s.Bytes(), &a)
 		if err != nil {
-			raven.CaptureError(err, nil)
+			return err
+		}
+		a.Source = topDomainsSource
+		err = store.PutAggregatedScan(a)
+		if err != nil {
+			return err
 		}
 	}
+	if err := s.Err(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // ImportRegularly runs Import to import aggregated stats from a remote server at regular intervals.
 func ImportRegularly(store Store, interval time.Duration) {
 	for {
 		<-time.After(interval)
-		Import(store)
+		err := Import(store)
+		log.Println(err)
+		raven.CaptureError(err, nil)
 	}
 }
 
