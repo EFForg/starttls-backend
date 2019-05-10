@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
@@ -31,7 +30,6 @@ func TestImport(t *testing.T) {
 	agScans := []checker.AggregatedScan{
 		checker.AggregatedScan{
 			Time:          time.Now().Add(-24 * time.Hour),
-			Source:        "domains-depot",
 			Attempted:     4,
 			WithMXs:       3,
 			MTASTSTesting: 2,
@@ -39,7 +37,6 @@ func TestImport(t *testing.T) {
 		},
 		checker.AggregatedScan{
 			Time:          time.Now(),
-			Source:        "domains-depot",
 			Attempted:     8,
 			WithMXs:       7,
 			MTASTSTesting: 6,
@@ -56,14 +53,15 @@ func TestImport(t *testing.T) {
 	Import(&store)
 	for i, want := range agScans {
 		got := store[i]
-		// Times must be compared with Time.Equal, so we can't reflect.DeepEqual yet.
+		// Times must be compared with Time.Equal, so we can't reflect.DeepEqual.
 		if !want.Time.Equal(got.Time) {
 			t.Errorf("\nExpected\n %v\nGot\n %v", agScans, store)
 		}
-		got.Time = time.Time{}
-		want.Time = time.Time{}
-		if !reflect.DeepEqual(want, got) {
+		if want.PercentMTASTS() != got.PercentMTASTS() {
 			t.Errorf("\nExpected\n %v\nGot\n %v", agScans, store)
+		}
+		if got.Source != topDomainsSource {
+			t.Errorf("Expected source for imported domains to be %s", topDomainsSource)
 		}
 	}
 }

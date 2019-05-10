@@ -17,6 +17,10 @@ type Store interface {
 	GetMTASTSLocalStats() (Series, error)
 }
 
+// Identifier in the DB for aggregated scans we imported from our regular scans
+// of the web's top domains
+const topDomainsSource = "TOP_DOMAINS"
+
 // Import imports JSON list of aggregated scans from a remote server to the
 // datastore.
 func Import(store Store) {
@@ -36,6 +40,7 @@ func Import(store Store) {
 		return
 	}
 	for _, a := range agScans {
+		a.Source = topDomainsSource
 		err := store.PutAggregatedScan(a)
 		if err != nil {
 			raven.CaptureError(err, nil)
@@ -56,13 +61,11 @@ func ImportRegularly(store Store, interval time.Duration) {
 // library prefers.
 type Series map[time.Time]float64
 
-const topMillionSource = "majestic-million"
-
 // Get retrieves MTA-STS adoption statistics for user-initiated scans and scans
 // of the top million domains over time.
 func Get(store Store) (map[string]Series, error) {
 	result := make(map[string]Series)
-	series, err := store.GetMTASTSStats(topMillionSource)
+	series, err := store.GetMTASTSStats(topDomainsSource)
 	if err != nil {
 		return result, err
 	}
