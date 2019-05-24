@@ -377,7 +377,10 @@ func TestGetMTASTSStats(t *testing.T) {
 		},
 	}
 	for _, a := range data {
-		database.PutAggregatedScan(a)
+		err := database.PutAggregatedScan(a)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	result, err := database.GetMTASTSStats("domains-depot")
 	if err != nil {
