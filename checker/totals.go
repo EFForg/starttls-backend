@@ -40,8 +40,10 @@ func (a *AggregatedScan) HandleDomain(r DomainResult) {
 	if r.MTASTSResult != nil {
 		switch r.MTASTSResult.Mode {
 		case "enforce":
+			a.MTASTSEnforce++
 			a.MTASTSEnforceList = append(a.MTASTSEnforceList, r.Domain)
 		case "testing":
+			a.MTASTSTesting++
 			a.MTASTSTestingList = append(a.MTASTSTestingList, r.Domain)
 		}
 	}
