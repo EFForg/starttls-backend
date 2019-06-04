@@ -386,7 +386,7 @@ func TestGetMTASTSStats(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result[may1] != float64(0.75) || result[may2] != float64(0.5) {
+	if result[may1] != 3 || result[may2] != 4 {
 		t.Errorf("Incorrect MTA-STS stats, got %v", result)
 	}
 }

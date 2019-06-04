@@ -132,7 +132,7 @@ func (db *SQLDatabase) GetMTASTSStats(source string) (stats.Series, error) {
 		if err := rows.Scan(&a.Time, &a.WithMXs, &a.MTASTSTesting, &a.MTASTSEnforce); err != nil {
 			return stats.Series{}, err
 		}
-		series[a.Time.UTC()] = a.PercentMTASTS()
+		series[a.Time.UTC()] = float64(a.TotalMTASTS())
 	}
 	return series, nil
 }

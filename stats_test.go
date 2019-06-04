@@ -37,8 +37,12 @@ func TestGetStats(t *testing.T) {
 		t.Fatal(err)
 	}
 	date := now.UTC().Truncate(24 * time.Hour).Format(time.RFC3339)
-	expected := fmt.Sprintf("\"%v\": 100", date)
-	if !strings.Contains(string(body), expected) {
-		t.Errorf("Expected %s to contain %s", string(body), expected)
+	expectedX := fmt.Sprintf("\"x\": \"%v\"", date)
+	if !strings.Contains(string(body), expectedX) {
+		t.Errorf("Expected %s to contain %s", string(body), expectedX)
+	}
+	expectedY := fmt.Sprintf("\"y\": 100")
+	if !strings.Contains(string(body), expectedY) {
+		t.Errorf("Expected %s to contain %s", string(body), expectedY)
 	}
 }

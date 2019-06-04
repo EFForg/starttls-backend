@@ -22,10 +22,15 @@ type AggregatedScan struct {
 	MTASTSEnforceList []string
 }
 
+// TotalMTASTS returns the number of domains supporting test or enforce mode.
+func (a AggregatedScan) TotalMTASTS() int {
+	return a.MTASTSTesting + a.MTASTSEnforce
+}
+
 // PercentMTASTS returns the fraction of domains with MXs that support
 // MTA-STS, represented as a float between 0 and 1.
 func (a AggregatedScan) PercentMTASTS() float64 {
-	return (float64(a.MTASTSTesting) + float64(a.MTASTSEnforce)) / float64(a.WithMXs)
+	return float64(a.TotalMTASTS()) / float64(a.WithMXs)
 }
 
 // HandleDomain adds the result of a single domain scan to aggregated stats.
