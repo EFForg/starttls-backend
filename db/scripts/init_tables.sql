@@ -105,7 +105,12 @@ ALTER TABLE IF EXISTS aggregated_scans ADD COLUMN IF NOT EXISTS with_mxs INTEGER
 
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS mta_sts BOOLEAN DEFAULT FALSE;
 
-BEGIN;
-  ALTER TABLE aggregated_scans DROP CONSTRAINT aggregated_scans_time_source_key;
-  ALTER TABLE aggregated_scans ADD UNIQUE (time, source);
-COMMIT;
+DO $$
+BEGIN
+    IF NOT EXISTS ( SELECT  conname
+                    FROM    pg_constraint
+                    WHERE   conname = 'aggregated_scans_time_source_key' )
+    THEN
+        ALTER TABLE aggregated_scans ADD UNIQUE (time, source);
+    END IF;
+END$$;
