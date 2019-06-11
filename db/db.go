@@ -6,6 +6,7 @@ import (
 
 	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/models"
+	"github.com/EFForg/starttls-backend/stats"
 )
 
 // Database interface: These are the things that the Database should be able to do.
@@ -33,8 +34,10 @@ type Database interface {
 	PutHostnameScan(string, checker.HostnameResult) error
 	// Writes an aggregated scan to the database
 	PutAggregatedScan(checker.AggregatedScan) error
-	// Gets counts per day of hosts supporting MTA-STS adoption.
-	GetMTASTSStats() (models.TimeSeries, error)
+	// Gets counts per day of hosts supporting MTA-STS for a given source.
+	GetMTASTSStats(string) (stats.Series, error)
+	// Gets counts per day of hosts scanned by this app supporting MTA-STS adoption.
+	GetMTASTSLocalStats() (stats.Series, error)
 	// Upserts domain state.
 	PutDomain(models.Domain) error
 	// Retrieves state of a domain

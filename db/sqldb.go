@@ -12,6 +12,7 @@ import (
 
 	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/models"
+	"github.com/EFForg/starttls-backend/stats"
 
 	// Imports postgresql driver for database/sql
 	_ "github.com/lib/pq"
@@ -116,12 +117,33 @@ func (db *SQLDatabase) PutScan(scan models.Scan) error {
 	return err
 }
 
-// GetMTASTSStats returns statistics about MTA-STS adoption over a rolling
-// 14-day window.
-// Returns a map with
+// GetMTASTSStats returns statistics about a MTA-STS adoption from a single
+// source domains to check.
+func (db *SQLDatabase) GetMTASTSStats(source string) (stats.Series, error) {
+	rows, err := db.conn.Query(
+		"SELECT time, with_mxs, mta_sts_testing, mta_sts_enforce FROM aggregated_scans WHERE source=$1", source)
+	if err != nil {
+		return stats.Series{}, err
+	}
+	defer rows.Close()
+	series := stats.Series{}
+	for rows.Next() {
+		var a checker.AggregatedScan
+		if err := rows.Scan(&a.Time, &a.WithMXs, &a.MTASTSTesting, &a.MTASTSEnforce); err != nil {
+			return stats.Series{}, err
+		}
+		series[a.Time.UTC()] = float64(a.TotalMTASTS())
+	}
+	return series, nil
+}
+
+// GetMTASTSLocalStats returns statistics about MTA-STS adoption in
+// user-initiated scans over a rolling 14-day window.  Returns a map with:
 //  key: the final day of a two-week window. Windows last until EOD.
 //  value: the percent of scans supporting MTA-STS in that window
-func (db *SQLDatabase) GetMTASTSStats() (models.TimeSeries, error) {
+// @TODO write a simpler query that gets caches totals in the the
+// `aggregated_scans` table at the end of each 14-day period
+func (db *SQLDatabase) GetMTASTSLocalStats() (stats.Series, error) {
 	// "day" represents truncated date (ie beginning of day), but windows should
 	// include the full day, so we add a day when querying timestamps.
 	// Getting the most recent 31 days for now, we can set the start date to the
@@ -149,10 +171,10 @@ func (db *SQLDatabase) GetMTASTSStats() (models.TimeSeries, error) {
 	}
 	defer rows.Close()
 
-	ts := make(map[time.Time]float32)
+	ts := make(map[time.Time]float64)
 	for rows.Next() {
 		var t time.Time
-		var count float32
+		var count float64
 		if err := rows.Scan(&t, &count); err != nil {
 			return nil, err
 		}
@@ -287,6 +309,7 @@ func (db SQLDatabase) ClearTables() error {
 		fmt.Sprintf("DELETE FROM %s", db.cfg.DbTokenTable),
 		fmt.Sprintf("DELETE FROM %s", "hostname_scans"),
 		fmt.Sprintf("DELETE FROM %s", "blacklisted_emails"),
+		fmt.Sprintf("DELETE FROM %s", "aggregated_scans"),
 		fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1", db.cfg.DbScanTable),
 	})
 }
@@ -384,7 +407,8 @@ func (db *SQLDatabase) PutHostnameScan(hostname string, result checker.HostnameR
 func (db *SQLDatabase) PutAggregatedScan(a checker.AggregatedScan) error {
 	_, err := db.conn.Exec(`INSERT INTO
 		aggregated_scans(time, source, attempted, with_mxs, mta_sts_testing, mta_sts_enforce)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (time,source) DO NOTHING`,
 		a.Time, a.Source, a.Attempted, a.WithMXs, a.MTASTSTesting, a.MTASTSEnforce)
 	return err
 }
