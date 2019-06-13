@@ -12,7 +12,6 @@ env:
 install:
   - go get -u golang.org/x/lint/golint
   - go get github.com/mattn/goveralls
-  - go build .
 
 before_script:
   - psql -c 'CREATE DATABASE starttls_test;' -U postgres
