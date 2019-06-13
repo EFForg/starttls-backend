@@ -37,8 +37,7 @@ func throttleHandler(period time.Duration, limit int64, f http.Handler) http.Han
 		Period: period,
 		Limit:  limit,
 	}
-	rateLimiter := stdlib.NewMiddleware(limiter.New(rateLimitStore, rate,
-		limiter.WithTrustForwardHeader(true)))
+	rateLimiter := stdlib.NewMiddleware(limiter.New(rateLimitStore, rate))
 	return rateLimiter.Handler(f)
 }
 
