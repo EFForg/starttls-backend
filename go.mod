@@ -1,6 +1,6 @@
 module github.com/EFForg/starttls-backend
 
-go 1.12
+go 1.11
 
 require (
 	github.com/certifi/gocertifi v0.0.0-20190506164543-d2eda7129713 // indirect
