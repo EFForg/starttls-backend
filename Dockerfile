@@ -11,7 +11,7 @@ COPY go.sum .
 RUN go mod download
 
 # Build the binary
-ADD . .
+COPY . .
 RUN go install .
 
 ENTRYPOINT ["/go/src/github.com/EFForg/starttls-backend/entrypoint.sh"]
