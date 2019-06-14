@@ -3,10 +3,10 @@ package stats
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
@@ -16,13 +16,9 @@ import (
 // Store wraps storage for MTA-STS adoption statistics.
 type Store interface {
 	PutAggregatedScan(checker.AggregatedScan) error
-	GetMTASTSStats(string) (Series, error)
-	GetMTASTSLocalStats() (Series, error)
+	PutLocalStats(time.Time) (checker.AggregatedScan, error)
+	GetStats(string) (Series, error)
 }
-
-// Identifier in the DB for aggregated scans we imported from our regular scans
-// of the web's top domains
-const topDomainsSource = "TOP_DOMAINS"
 
 // Import imports aggregated scans from a remote server to the datastore.
 // Expected format is JSONL (newline-separated JSON objects).
@@ -41,7 +37,7 @@ func Import(store Store) error {
 		if err != nil {
 			return err
 		}
-		a.Source = topDomainsSource
+		a.Source = checker.TopDomainsSource
 		err = store.PutAggregatedScan(a)
 		if err != nil {
 			return err
@@ -53,14 +49,29 @@ func Import(store Store) error {
 	return nil
 }
 
-// ImportRegularly runs Import to import aggregated stats from a remote server at regular intervals.
-func ImportRegularly(store Store, interval time.Duration) {
+// Update imports aggregated scans and updates our cache table of local scans.
+// Log any errors.
+func Update(store Store) {
+	err := Import(store)
+	if err != nil {
+		err = fmt.Errorf("Failed to import top domains stats: %v", err)
+		log.Println(err)
+		raven.CaptureError(err, nil)
+	}
+	// Cache stats for the previous day at midnight. This ensures that we capture
+	// full days and maintain regularly intervals.
+	_, err = store.PutLocalStats(time.Now().UTC().Truncate(24 * time.Hour))
+	if err != nil {
+		err = fmt.Errorf("Failed to update local stats: %v", err)
+		log.Println(err)
+		raven.CaptureError(err, nil)
+	}
+}
+
+// UpdateRegularly runs Import to import aggregated stats from a remote server at regular intervals.
+func UpdateRegularly(store Store, interval time.Duration) {
 	for {
-		err := Import(store)
-		if err != nil {
-			log.Println(err)
-			raven.CaptureError(err, nil)
-		}
+		Update(store)
 		<-time.After(interval)
 	}
 }
@@ -68,7 +79,7 @@ func ImportRegularly(store Store, interval time.Duration) {
 // Series represents some statistic as it changes over time.
 // This will likely be updated when we know what format our frontend charting
 // library prefers.
-type Series map[time.Time]float64
+type Series []checker.AggregatedScan
 
 // MarshalJSON marshals a Series to the format expected by chart.js.
 // See https://www.chartjs.org/docs/latest/
@@ -78,28 +89,31 @@ func (s Series) MarshalJSON() ([]byte, error) {
 		Y float64   `json:"y"`
 	}
 	xySeries := make([]xyPt, 0)
-	for x, y := range s {
-		xySeries = append(xySeries, xyPt{X: x, Y: y})
+	for _, a := range s {
+		var y float64
+		if a.Source != checker.TopDomainsSource {
+			y = a.PercentMTASTS()
+		} else {
+			// Top million scans have too few MTA-STS domains to use a percent,
+			// display a raw total instead.
+			y = float64(a.TotalMTASTS())
+		}
+		xySeries = append(xySeries, xyPt{X: a.Time, Y: y})
 	}
-	sort.Slice(xySeries, func(i, j int) bool {
-		return xySeries[i].X.After(xySeries[j].X)
-	})
 	return json.Marshal(xySeries)
 }
 
 // Get retrieves MTA-STS adoption statistics for user-initiated scans and scans
 // of the top million domains over time.
-func Get(store Store) (map[string]Series, error) {
-	result := make(map[string]Series)
-	series, err := store.GetMTASTSStats(topDomainsSource)
-	if err != nil {
-		return result, err
+func Get(store Store) (result map[string]Series, err error) {
+	result = make(map[string]Series)
+	sources := []string{checker.TopDomainsSource, checker.LocalSource}
+	for _, source := range sources {
+		series, err := store.GetStats(source)
+		if err != nil {
+			return result, err
+		}
+		result[source] = series
 	}
-	result["top_million"] = series
-	series, err = store.GetMTASTSLocalStats()
-	if err != nil {
-		return result, err
-	}
-	result["local"] = series
 	return result, err
 }

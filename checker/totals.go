@@ -22,6 +22,13 @@ type AggregatedScan struct {
 	MTASTSEnforceList []string
 }
 
+const (
+	// TopDomainsSource labels aggregated scans of the top million domains.
+	TopDomainsSource = "TOP_DOMAINS"
+	// LocalSource labels aggregated scan data for users of the web frontend.
+	LocalSource = "LOCAL"
+)
+
 // TotalMTASTS returns the number of domains supporting test or enforce mode.
 func (a AggregatedScan) TotalMTASTS() int {
 	return a.MTASTSTesting + a.MTASTSEnforce
@@ -30,7 +37,10 @@ func (a AggregatedScan) TotalMTASTS() int {
 // PercentMTASTS returns the fraction of domains with MXs that support
 // MTA-STS, represented as a float between 0 and 1.
 func (a AggregatedScan) PercentMTASTS() float64 {
-	return float64(a.TotalMTASTS()) / float64(a.WithMXs)
+	if a.WithMXs == 0 {
+		return 0
+	}
+	return 100 * float64(a.TotalMTASTS()) / float64(a.WithMXs)
 }
 
 // HandleDomain adds the result of a single domain scan to aggregated stats.

@@ -10,7 +10,6 @@ import (
 	"github.com/EFForg/starttls-backend/checker"
 	"github.com/EFForg/starttls-backend/db"
 	"github.com/EFForg/starttls-backend/models"
-	"github.com/EFForg/starttls-backend/stats"
 	"github.com/joho/godotenv"
 )
 
@@ -294,7 +293,7 @@ func TestHostnamesForDomain(t *testing.T) {
 }
 
 func TestPutAndIsBlacklistedEmail(t *testing.T) {
-	defer database.ClearTables()
+	database.ClearTables()
 
 	// Add an e-mail address to the blacklist.
 	err := database.PutBlacklistedEmail("fail@example.com", "bounce", "2017-07-21T18:47:13.498Z")
@@ -354,14 +353,14 @@ func dateMustParse(date string, t *testing.T) time.Time {
 	return parsed
 }
 
-func TestGetMTASTSStats(t *testing.T) {
+func TestGetStats(t *testing.T) {
 	database.ClearTables()
 	may1 := dateMustParse("2019-May-01", t)
 	may2 := dateMustParse("2019-May-02", t)
 	data := []checker.AggregatedScan{
 		checker.AggregatedScan{
 			Time:          may1,
-			Source:        "domains-depot",
+			Source:        checker.TopDomainsSource,
 			Attempted:     5,
 			WithMXs:       4,
 			MTASTSTesting: 2,
@@ -369,7 +368,7 @@ func TestGetMTASTSStats(t *testing.T) {
 		},
 		checker.AggregatedScan{
 			Time:          may2,
-			Source:        "domains-depot",
+			Source:        checker.TopDomainsSource,
 			Attempted:     10,
 			WithMXs:       8,
 			MTASTSTesting: 1,
@@ -382,16 +381,45 @@ func TestGetMTASTSStats(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	result, err := database.GetMTASTSStats("domains-depot")
+	result, err := database.GetStats(checker.TopDomainsSource)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result[may1] != 3 || result[may2] != 4 {
+	if result[0].TotalMTASTS() != 3 || result[1].TotalMTASTS() != 4 {
 		t.Errorf("Incorrect MTA-STS stats, got %v", result)
 	}
 }
 
-func TestGetMTASTSLocalStats(t *testing.T) {
+func TestPutLocalStats(t *testing.T) {
+	database.ClearTables()
+	a, err := database.PutLocalStats(time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.PercentMTASTS() != 0 {
+		t.Errorf("Expected PercentMTASTS with no recent scans to be 0, got %v",
+			a.PercentMTASTS())
+	}
+	day := time.Hour * 24
+	today := time.Now()
+	lastWeek := today.Add(-6 * day)
+	s := models.Scan{
+		Domain:    "example1.com",
+		Data:      checker.NewSampleDomainResult("example1.com"),
+		Timestamp: lastWeek,
+	}
+	database.PutScan(s)
+	a, err = database.PutLocalStats(time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.PercentMTASTS() != 100 {
+		t.Errorf("Expected PercentMTASTS with one recent scan to be 100, got %v",
+			a.PercentMTASTS())
+	}
+}
+
+func TestGetLocalStats(t *testing.T) {
 	database.ClearTables()
 	day := time.Hour * 24
 	today := time.Now()
@@ -402,40 +430,20 @@ func TestGetMTASTSLocalStats(t *testing.T) {
 	s := models.Scan{
 		Domain:    "example1.com",
 		Data:      checker.NewSampleDomainResult("example1.com"),
-		Timestamp: lastWeek,
+		Timestamp: lastWeek.Add(1 * day),
 	}
 	database.PutScan(s)
 	s.Timestamp = lastWeek.Add(3 * day)
 	s.Data.MTASTSResult.Mode = ""
 	database.PutScan(s)
-	// Support is shown in the rolling average until the no-support scan is
-	// included.
-	expectStats(stats.Series{
-		lastWeek:              100,
-		lastWeek.Add(day):     100,
-		lastWeek.Add(2 * day): 100,
-		lastWeek.Add(3 * day): 0,
-		lastWeek.Add(4 * day): 0,
-		lastWeek.Add(5 * day): 0,
-		lastWeek.Add(6 * day): 0,
-	}, t)
 
 	// Add another recent scan, from a second domain.
 	s = models.Scan{
 		Domain:    "example2.com",
 		Data:      checker.NewSampleDomainResult("example2.com"),
-		Timestamp: lastWeek.Add(1 * day),
+		Timestamp: lastWeek.Add(2 * day),
 	}
 	database.PutScan(s)
-	expectStats(stats.Series{
-		lastWeek:              100,
-		lastWeek.Add(day):     100,
-		lastWeek.Add(2 * day): 100,
-		lastWeek.Add(3 * day): 50,
-		lastWeek.Add(4 * day): 50,
-		lastWeek.Add(5 * day): 50,
-		lastWeek.Add(6 * day): 50,
-	}, t)
 
 	// Add a third scan to check that floats are outputted correctly.
 	s = models.Scan{
@@ -444,40 +452,25 @@ func TestGetMTASTSLocalStats(t *testing.T) {
 		Timestamp: lastWeek.Add(6 * day),
 	}
 	database.PutScan(s)
-	expectStats(stats.Series{
-		lastWeek:              100,
-		lastWeek.Add(day):     100,
-		lastWeek.Add(2 * day): 100,
-		lastWeek.Add(3 * day): 50,
-		lastWeek.Add(4 * day): 50,
-		lastWeek.Add(5 * day): 50,
-		lastWeek.Add(6 * day): 66.66666666666667,
-	}, t)
-}
 
-func expectStats(ts stats.Series, t *testing.T) {
-	// GetMTASTSStats returns dates only (no hours, minutes, seconds). We need
-	// to truncate the expected times for comparison to dates and convert to UTC
-	// to match the database's timezone.
-	expected := make(map[time.Time]float64)
-	for kOld, v := range ts {
-		k := kOld.UTC().Truncate(24 * time.Hour)
-		expected[k] = v
+	// Write stats to the database for all the windows we want to check.
+	for i := 0; i < 7; i++ {
+		database.PutLocalStats(lastWeek.Add(day * time.Duration(i)))
 	}
-	got, err := database.GetMTASTSLocalStats()
+
+	stats, err := database.GetStats(checker.LocalSource)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(expected) != len(got) {
-		t.Errorf("Expected MTA-STS stats to be\n %v\ngot\n %v\n", expected, got)
-		return
+
+	// Validate result
+	expPcts := []float64{0, 100, 100, 50, 50, 50, 100 * 2 / float64(3)}
+	if len(expPcts) != 7 {
+		t.Errorf("Expected 7 stats, got\n %v\n", stats)
 	}
-	for expKey, expVal := range expected {
-		// DB query returns dates only (no hours, minutes, seconds).
-		key := expKey.Truncate(24 * time.Hour)
-		if got[key] != expVal {
-			t.Errorf("Expected MTA-STS stats to be\n %v\ngot\n %v\n", expected, got)
-			return
+	for i, got := range stats {
+		if got.PercentMTASTS() != expPcts[i] {
+			t.Errorf("\nExpected %v%%\nGot %v\n (%v%%)", expPcts[i], got, got.PercentMTASTS())
 		}
 	}
 }

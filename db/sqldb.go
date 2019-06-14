@@ -117,70 +117,60 @@ func (db *SQLDatabase) PutScan(scan models.Scan) error {
 	return err
 }
 
-// GetMTASTSStats returns statistics about a MTA-STS adoption from a single
+// GetStats returns statistics about a MTA-STS adoption from a single
 // source domains to check.
-func (db *SQLDatabase) GetMTASTSStats(source string) (stats.Series, error) {
+func (db *SQLDatabase) GetStats(source string) (stats.Series, error) {
+	series := stats.Series{}
 	rows, err := db.conn.Query(
-		"SELECT time, with_mxs, mta_sts_testing, mta_sts_enforce FROM aggregated_scans WHERE source=$1", source)
+		`SELECT time, with_mxs, mta_sts_testing, mta_sts_enforce
+		FROM aggregated_scans
+		WHERE source=$1
+		ORDER BY time`, source)
 	if err != nil {
-		return stats.Series{}, err
+		return series, err
 	}
 	defer rows.Close()
-	series := stats.Series{}
 	for rows.Next() {
 		var a checker.AggregatedScan
 		if err := rows.Scan(&a.Time, &a.WithMXs, &a.MTASTSTesting, &a.MTASTSEnforce); err != nil {
-			return stats.Series{}, err
+			return series, err
 		}
-		series[a.Time.UTC()] = float64(a.TotalMTASTS())
+		series = append(series, a)
 	}
 	return series, nil
 }
 
-// GetMTASTSLocalStats returns statistics about MTA-STS adoption in
-// user-initiated scans over a rolling 14-day window.  Returns a map with:
-//  key: the final day of a two-week window. Windows last until EOD.
-//  value: the percent of scans supporting MTA-STS in that window
-// @TODO write a simpler query that gets caches totals in the the
-// `aggregated_scans` table at the end of each 14-day period
-func (db *SQLDatabase) GetMTASTSLocalStats() (stats.Series, error) {
-	// "day" represents truncated date (ie beginning of day), but windows should
-	// include the full day, so we add a day when querying timestamps.
-	// Getting the most recent 31 days for now, we can set the start date to the
-	// beginning of our MTA-STS data once we have some.
+// PutLocalStats writes aggregated stats for the 14 days preceding `date` to
+// the aggregated_stats table.
+func (db *SQLDatabase) PutLocalStats(date time.Time) (checker.AggregatedScan, error) {
 	query := `
-		SELECT day, 100.0 * SUM(
-			CASE WHEN mta_sts_mode = 'testing' THEN 1 ELSE 0 END +
-			CASE WHEN mta_sts_mode = 'enforce' THEN 1 ELSE 0 END
-		) / COUNT(day) as percent
+		SELECT
+			COUNT(domain) AS total,
+			COALESCE ( SUM (
+				CASE WHEN mta_sts_mode = 'testing' THEN 1 ELSE 0 END
+			), 0 ) AS testing,
+			COALESCE ( SUM (
+				CASE WHEN mta_sts_mode = 'enforce' THEN 1 ELSE 0 END
+			), 0 ) AS enforce
 		FROM (
-				SELECT date_trunc('day', d)::date AS day
-				FROM generate_series(CURRENT_DATE-31, CURRENT_DATE, '1 day'::INTERVAL) d )
-		AS days
-		INNER JOIN LATERAL (
-				SELECT DISTINCT ON (domain) domain, timestamp, mta_sts_mode
-				FROM scans
-				WHERE timestamp BETWEEN day - '13 days'::INTERVAL AND day + '1 day'::INTERVAL
-				ORDER BY domain, timestamp DESC
-			) AS most_recent_scans ON TRUE
-		GROUP BY day;`
-
-	rows, err := db.conn.Query(query)
+			SELECT DISTINCT ON (domain) domain, timestamp, mta_sts_mode
+			FROM scans
+			WHERE timestamp BETWEEN $1 AND $2
+			ORDER BY domain, timestamp DESC
+		) AS latest_domains;
+	`
+	start := date.Add(-14 * 24 * time.Hour)
+	end := date
+	a := checker.AggregatedScan{
+		Source: checker.LocalSource,
+		Time:   date,
+	}
+	err := db.conn.QueryRow(query, start.UTC(), end.UTC()).Scan(&a.WithMXs, &a.MTASTSTesting, &a.MTASTSEnforce)
 	if err != nil {
-		return nil, err
+		return a, err
 	}
-	defer rows.Close()
-
-	ts := make(map[time.Time]float64)
-	for rows.Next() {
-		var t time.Time
-		var count float64
-		if err := rows.Scan(&t, &count); err != nil {
-			return nil, err
-		}
-		ts[t.UTC()] = count
-	}
-	return ts, nil
+	err = db.PutAggregatedScan(a)
+	return a, err
 }
 
 const mostRecentQuery = `
