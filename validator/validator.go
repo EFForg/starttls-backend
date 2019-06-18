@@ -84,7 +84,7 @@ func (v *Validator) policyPassed(name string, domain string, result checker.Doma
 
 // Run performs a single validation.
 // Validation failures induce `policyFailed`, and successes cause `policyPassed`.
-func (v *Validator) Run() {
+func (v *Validator) runOnce() {
 	log.Printf("[%s validator] starting regular validation", v.Name)
 	domains, err := v.Store.DomainsToValidate()
 	if err != nil {
@@ -107,6 +107,20 @@ func (v *Validator) Run() {
 	}
 }
 
+func (v *Validator) runLoop(ctx context.Context, exited chan struct{}) {
+	ticker := time.NewTicker(v.Interval)
+	for {
+		select {
+		case <-ticker.C:
+			v.runOnce()
+		case <-ctx.Done():
+			log.Printf("Shutting down %s validator...", v.Name)
+			exited <- struct{}{}
+			return
+		}
+	}
+}
+
 // ValidateRegularly regularly runs checker.CheckDomain against a Domain-
 // Hostname map. Interval specifies the interval to wait between each run.
 // Failures are reported to Sentry.
@@ -116,15 +130,5 @@ func ValidateRegularly(ctx context.Context, exited chan struct{}, name string, s
 		Store:    store,
 		Interval: interval,
 	}
-	ticker := time.NewTicker(interval)
-	for {
-		select {
-		case <-ticker.C:
-			v.Run()
-		case <-ctx.Done():
-			log.Printf("Shutting down %s validator...", name)
-			exited <- struct{}{}
-			return
-		}
-	}
+	v.runLoop(ctx, exited)
 }

@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -58,7 +59,7 @@ func TestImport(t *testing.T) {
 	defer ts.Close()
 	os.Setenv("REMOTE_STATS_URL", ts.URL)
 	store := mockAgScanStore{}
-	err := Import(&store)
+	err := Import(context.Background(), &store)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +80,7 @@ func TestImport(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	store := mockAgScanStore{}
-	Update(&store)
+	Update(context.Background(), &store)
 	a := store[0]
 	// Confirm that date is trucated correctly
 	if a.Time.Hour() != 0 || a.Time.Minute() != 0 {
