@@ -38,7 +38,7 @@ func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
 }
 
 // ServePublicEndpoints serves all public HTTP endpoints.
-func ServePublicEndpoints(api *API, cfg *db.Config) {
+func ServePublicEndpoints(ctx context.Context, exitSignal chan struct{}, api *API, cfg *db.Config) {
 	mux := http.NewServeMux()
 	mainHandler := registerHandlers(api, mux)
 
@@ -52,20 +52,15 @@ func ServePublicEndpoints(api *API, cfg *db.Config) {
 		Handler: mainHandler,
 	}
 
-	exited := make(chan struct{})
 	go func() {
-		sigint := make(chan os.Signal, 1)
-		signal.Notify(sigint, os.Interrupt)
-		<-sigint
-
+		<-ctx.Done()
 		if err := server.Shutdown(context.Background()); err != nil {
 			log.Printf("HTTP server Shutdown: %v", err)
 		}
-		close(exited)
 	}()
 
 	log.Fatal(server.ListenAndServe())
-	<-exited
+	exitSignal <- struct{}{}
 }
 
 // Loads a map of domains (effectively a set for fast lookup) to blacklist.
@@ -114,14 +109,37 @@ func main() {
 		Emailer:     emailConfig,
 	}
 	api.parseTemplates()
+
+	// Start go routines
+	exitSignals := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	numRoutines := 0
 	if os.Getenv("VALIDATE_LIST") == "1" {
 		log.Println("[Starting list validator]")
-		go validator.ValidateRegularly("Live policy list", list, 24*time.Hour)
+		go validator.ValidateRegularly(ctx, exitSignals, "Live policy list", list, 24*time.Hour)
+		numRoutines++
 	}
 	if os.Getenv("VALIDATE_QUEUED") == "1" {
 		log.Println("[Starting queued validator]")
-		go validator.ValidateRegularly("Testing domains", db, 24*time.Hour)
+		go validator.ValidateRegularly(ctx, exitSignals, "Testing domains", db, 24*time.Hour)
+		numRoutines++
 	}
-	go stats.UpdateRegularly(db, time.Hour)
-	ServePublicEndpoints(&api, &cfg)
+
+	go stats.UpdateRegularly(ctx, exitSignals, db, time.Hour)
+	go ServePublicEndpoints(ctx, exitSignals, &api, &cfg)
+	numRoutines += 2
+
+	// Register Ctrl+C signal handlers
+	sigint := make(chan os.Signal, 1)
+	signal.Notify(sigint, os.Interrupt)
+	go func() {
+		select {
+		case <-sigint:
+			cancel()
+			return
+		}
+	}()
+	for i := 0; i < numRoutines; i++ {
+		<-exitSignals
+	}
 }

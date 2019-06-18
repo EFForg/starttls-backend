@@ -2,6 +2,7 @@ package stats
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -22,7 +23,7 @@ type Store interface {
 
 // Import imports aggregated scans from a remote server to the datastore.
 // Expected format is JSONL (newline-separated JSON objects).
-func Import(store Store) error {
+func Import(ctx context.Context, store Store) error {
 	statsURL := os.Getenv("REMOTE_STATS_URL")
 	resp, err := http.Get(statsURL)
 	if err != nil {
@@ -51,8 +52,8 @@ func Import(store Store) error {
 
 // Update imports aggregated scans and updates our cache table of local scans.
 // Log any errors.
-func Update(store Store) {
-	err := Import(store)
+func Update(ctx context.Context, store Store) {
+	err := Import(ctx, store)
 	if err != nil {
 		err = fmt.Errorf("Failed to import top domains stats: %v", err)
 		log.Println(err)
@@ -69,10 +70,17 @@ func Update(store Store) {
 }
 
 // UpdateRegularly runs Import to import aggregated stats from a remote server at regular intervals.
-func UpdateRegularly(store Store, interval time.Duration) {
+func UpdateRegularly(ctx context.Context, exited chan struct{}, store Store, interval time.Duration) {
+	ticker := time.NewTicker(interval)
 	for {
-		Update(store)
-		<-time.After(interval)
+		select {
+		case <-ticker.C:
+			Update(ctx, store)
+		case <-ctx.Done():
+			log.Printf("Shutting down stats updater...")
+			exited <- struct{}{}
+			return
+		}
 	}
 }
 
