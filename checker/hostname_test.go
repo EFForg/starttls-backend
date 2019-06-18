@@ -215,7 +215,7 @@ func TestSuccessWithDelayedGreeting(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ln.Close()
-	go ServeDelayedGreeting(ln, t)
+	go serveDelayedGreeting(ln, t)
 
 	client, err := smtpDialWithTimeout(ln.Addr().String(), testTimeout)
 	if err != nil {
@@ -224,7 +224,7 @@ func TestSuccessWithDelayedGreeting(t *testing.T) {
 	client.Close()
 }
 
-func ServeDelayedGreeting(ln net.Listener, t *testing.T) {
+func serveDelayedGreeting(ln net.Listener, t *testing.T) {
 	conn, err := ln.Accept()
 	if err != nil {
 		t.Fatal(err)
@@ -240,7 +240,7 @@ func ServeDelayedGreeting(ln net.Listener, t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(line, "EHLO localhost") {
+	if !strings.Contains(line, "EHLO ") {
 		t.Fatalf("unexpected response from checker: %s", line)
 	}
 
