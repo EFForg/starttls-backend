@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"flag"
@@ -55,7 +56,7 @@ func main() {
 
 	if *domain != "" {
 		// Handle single domain and return
-		result := c.CheckDomain(*domain, nil)
+		result := c.CheckDomain(context.Background(), *domain, nil)
 		resultHandler.HandleDomain(result)
 		os.Exit(0)
 	}
