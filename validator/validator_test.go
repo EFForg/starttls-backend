@@ -28,7 +28,7 @@ func noop(_ string, _ string, _ checker.DomainResult) {}
 
 func TestRegularValidationValidates(t *testing.T) {
 	called := make(chan bool)
-	fakeChecker := func(domain string, hostnames []string) checker.DomainResult {
+	fakeChecker := func(_ context.Context, _ string, _ []string) checker.DomainResult {
 		called <- true
 		return checker.DomainResult{}
 	}
@@ -51,7 +51,7 @@ func TestRegularValidationValidates(t *testing.T) {
 
 func TestRegularValidationReportsErrors(t *testing.T) {
 	reports := make(chan string)
-	fakeChecker := func(domain string, hostnames []string) checker.DomainResult {
+	fakeChecker := func(_ context.Context, domain string, _ []string) checker.DomainResult {
 		if domain == "fail" || domain == "error" {
 			return checker.DomainResult{Status: 5}
 		}

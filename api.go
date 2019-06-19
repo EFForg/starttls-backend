@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -29,7 +30,7 @@ const cacheScanTime = time.Minute
 
 // Type for performing checks against an input domain. Returns
 // a DomainResult object from the checker.
-type checkPerformer func(API, string) (checker.DomainResult, error)
+type checkPerformer func(context.Context, API, string) (checker.DomainResult, error)
 
 // API is the HTTP API that this service provides.
 // All requests respond with an APIResponse JSON, with fields:
@@ -89,7 +90,7 @@ func (api *API) wrapper(handler apiHandler) func(w http.ResponseWriter, r *http.
 	}
 }
 
-func defaultCheck(api API, domain string) (checker.DomainResult, error) {
+func defaultCheck(ctx context.Context, api API, domain string) (checker.DomainResult, error) {
 	policyChan := models.Domain{Name: domain}.AsyncPolicyListCheck(api.Database, api.List)
 	c := checker.Checker{
 		Cache: &checker.ScanCache{
@@ -98,7 +99,7 @@ func defaultCheck(api API, domain string) (checker.DomainResult, error) {
 		},
 		Timeout: 3 * time.Second,
 	}
-	result := c.CheckDomain(domain, nil)
+	result := c.CheckDomain(ctx, domain, nil)
 	policyResult := <-policyChan
 	result.ExtraResults["policylist"] = &policyResult
 	return result, nil
@@ -135,7 +136,7 @@ func (api API) Scan(r *http.Request) APIResponse {
 			}
 		}
 		// 1. Conduct scan via starttls-checker
-		scanData, err := api.CheckDomain(api, domain)
+		scanData, err := api.CheckDomain(r.Context(), api, domain)
 		if err != nil {
 			return APIResponse{StatusCode: http.StatusInternalServerError, Message: err.Error()}
 		}

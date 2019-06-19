@@ -63,15 +63,15 @@ func (d DomainResult) setStatus(status DomainStatus) DomainResult {
 	return d
 }
 
-func lookupMXWithTimeout(domain string, timeout time.Duration) ([]*net.MX, error) {
-	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+func lookupMXWithTimeout(ctx context.Context, domain string, timeout time.Duration) ([]*net.MX, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	var r net.Resolver
 	return r.LookupMX(ctx, domain)
 }
 
 // lookupHostnames retrieves the MX hostnames associated with a domain.
-func (c *Checker) lookupHostnames(domain string) ([]string, error) {
+func (c *Checker) lookupHostnames(ctx context.Context, domain string) ([]string, error) {
 	domainASCII, err := idna.ToASCII(domain)
 	if err != nil {
 		return nil, fmt.Errorf("domain name %s couldn't be converted to ASCII", domain)
@@ -81,7 +81,7 @@ func (c *Checker) lookupHostnames(domain string) ([]string, error) {
 	if c.lookupMXOverride != nil {
 		mxs, err = c.lookupMXOverride(domain)
 	} else {
-		mxs, err = lookupMXWithTimeout(domainASCII, c.timeout())
+		mxs, err = lookupMXWithTimeout(ctx, domainASCII, c.timeout())
 	}
 	if err != nil || len(mxs) == 0 {
 		return nil, fmt.Errorf("No MX records found")
@@ -104,7 +104,7 @@ func (c *Checker) lookupHostnames(domain string) ([]string, error) {
 //   `domain` is the mail domain to perform the lookup on.
 //   `expectedHostnames` is the list of expected hostnames.
 //     If `expectedHostnames` is nil, we don't validate the DNS lookup.
-func (c *Checker) CheckDomain(domain string, expectedHostnames []string) DomainResult {
+func (c *Checker) CheckDomain(ctx context.Context, domain string, expectedHostnames []string) DomainResult {
 	result := DomainResult{
 		Domain:          domain,
 		MxHostnames:     expectedHostnames,
@@ -114,20 +114,20 @@ func (c *Checker) CheckDomain(domain string, expectedHostnames []string) DomainR
 	// 1. Look up hostnames
 	// 2. Perform and aggregate checks from those hostnames.
 	// 3. Set a summary message.
-	hostnames, err := c.lookupHostnames(domain)
+	hostnames, err := c.lookupHostnames(ctx, domain)
 	if err != nil {
 		return result.setStatus(DomainCouldNotConnect)
 	}
 	checkedHostnames := make([]string, 0)
 	for _, hostname := range hostnames {
-		hostnameResult := c.checkHostname(domain, hostname)
+		hostnameResult := c.checkHostname(ctx, domain, hostname)
 		result.HostnameResults[hostname] = hostnameResult
 		if hostnameResult.couldConnect() {
 			checkedHostnames = append(checkedHostnames, hostname)
 		}
 	}
 	result.PreferredHostnames = checkedHostnames
-	result.MTASTSResult = c.checkMTASTS(domain, result.HostnameResults)
+	result.MTASTSResult = c.checkMTASTS(ctx, domain, result.HostnameResults)
 
 	// Derive Domain code from Hostname results.
 	if len(checkedHostnames) == 0 {

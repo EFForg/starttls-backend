@@ -2,6 +2,7 @@ package checker
 
 import (
 	"bufio"
+	"context"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -100,7 +101,7 @@ func TestPolicyMatch(t *testing.T) {
 }
 
 func TestNoConnection(t *testing.T) {
-	result := FullCheckHostname("", "example.com", testTimeout)
+	result := FullCheckHostname(context.Background(), "", "example.com", testTimeout)
 
 	expected := Result{
 		Status: 3,
@@ -115,7 +116,7 @@ func TestNoTLS(t *testing.T) {
 	ln := smtpListenAndServe(t, &tls.Config{})
 	defer ln.Close()
 
-	result := FullCheckHostname("", ln.Addr().String(), testTimeout)
+	result := FullCheckHostname(context.Background(), "", ln.Addr().String(), testTimeout)
 
 	expected := Result{
 		Status: 2,
@@ -135,7 +136,7 @@ func TestSelfSigned(t *testing.T) {
 	ln := smtpListenAndServe(t, &tls.Config{Certificates: []tls.Certificate{cert}})
 	defer ln.Close()
 
-	result := FullCheckHostname("", ln.Addr().String(), testTimeout)
+	result := FullCheckHostname(context.Background(), "", ln.Addr().String(), testTimeout)
 
 	expected := Result{
 		Status: 2,
@@ -161,7 +162,7 @@ func TestNoTLS12(t *testing.T) {
 	})
 	defer ln.Close()
 
-	result := FullCheckHostname("", ln.Addr().String(), testTimeout)
+	result := FullCheckHostname(context.Background(), "", ln.Addr().String(), testTimeout)
 
 	expected := Result{
 		Status: 2,
@@ -194,7 +195,7 @@ func TestSuccessWithFakeCA(t *testing.T) {
 	// conserving the port number.
 	addrParts := strings.Split(ln.Addr().String(), ":")
 	port := addrParts[len(addrParts)-1]
-	result := FullCheckHostname("", "localhost:"+port, testTimeout)
+	result := FullCheckHostname(context.Background(), "", "localhost:"+port, testTimeout)
 	expected := Result{
 		Status: 0,
 		Checks: map[string]*Result{
@@ -217,7 +218,7 @@ func TestSuccessWithDelayedGreeting(t *testing.T) {
 	defer ln.Close()
 	go ServeDelayedGreeting(ln, t)
 
-	client, err := smtpDialWithTimeout(ln.Addr().String(), testTimeout)
+	client, err := smtpDialWithTimeout(context.Background(), ln.Addr().String(), testTimeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +270,7 @@ func TestFailureWithBadHostname(t *testing.T) {
 	// conserving the port number.
 	addrParts := strings.Split(ln.Addr().String(), ":")
 	port := addrParts[len(addrParts)-1]
-	result := FullCheckHostname("", "localhost:"+port, testTimeout)
+	result := FullCheckHostname(context.Background(), "", "localhost:"+port, testTimeout)
 	expected := Result{
 		Status: 2,
 		Checks: map[string]*Result{
@@ -309,7 +310,7 @@ func TestAdvertisedCiphers(t *testing.T) {
 
 	ln := smtpListenAndServe(t, tlsConfig)
 	defer ln.Close()
-	FullCheckHostname("", ln.Addr().String(), testTimeout)
+	FullCheckHostname(context.Background(), "", ln.Addr().String(), testTimeout)
 
 	// Partial list of ciphers we want to support
 	expectedCipherSuites := []struct {
@@ -340,14 +341,13 @@ func compareStatuses(t *testing.T, expected Result, result HostnameResult) {
 	if result.Status != expected.Status {
 		t.Errorf("hostname status = %d, want %d", result.Status, expected.Status)
 	}
-
 	if len(result.Checks) > len(expected.Checks) {
 		t.Errorf("result contains too many checks\n expected %v\n want %v", result.Checks, expected.Checks)
 	}
-
 	for _, c := range expected.Checks {
-		if got := result.Checks[c.Name].Status; got != c.Status {
-			t.Errorf("%s status = %d, want %d", c.Name, got, c.Status)
+		got, ok := result.Checks[c.Name]
+		if !ok || got.Status != c.Status {
+			t.Errorf("%s check result was %v, want status %d", c.Name, got, c.Status)
 		}
 	}
 }

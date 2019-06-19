@@ -1,6 +1,7 @@
 package checker
 
 import (
+	"context"
 	"net"
 	"time"
 )
@@ -22,7 +23,7 @@ type Checker struct {
 
 	// CheckHostname defines the function that should be used to check each hostname.
 	// If nil, FullCheckHostname (all hostname checks) will be used.
-	CheckHostname func(string, string, time.Duration) HostnameResult
+	CheckHostname func(context.Context, string, string, time.Duration) HostnameResult
 
 	// checkMTASTSOverride is used to mock MTA-STS checks.
 	checkMTASTSOverride func(string, map[string]HostnameResult) *MTASTSResult

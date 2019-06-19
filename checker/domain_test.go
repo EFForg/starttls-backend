@@ -1,6 +1,7 @@
 package checker
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"testing"
@@ -59,7 +60,7 @@ func mockLookupMX(domain string) ([]*net.MX, error) {
 	return result, nil
 }
 
-func mockCheckHostname(domain string, hostname string, _ time.Duration) HostnameResult {
+func mockCheckHostname(_ context.Context, domain string, hostname string, _ time.Duration) HostnameResult {
 	if result, ok := hostnameResults[hostname]; ok {
 		return HostnameResult{
 			Result:    &result,
@@ -120,7 +121,7 @@ func performTestsWithCacheTimeout(t *testing.T, tests []domainTestCase, cacheExp
 		if test.expectedHostnames == nil {
 			test.expectedHostnames = mxLookup[test.domain]
 		}
-		got := c.CheckDomain(test.domain, test.expectedHostnames).Status
+		got := c.CheckDomain(context.Background(), test.domain, test.expectedHostnames).Status
 		test.check(t, got)
 	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -126,7 +127,7 @@ func TestScanCached(t *testing.T) {
 	data := url.Values{}
 	data.Set("domain", "eff.org")
 	http.PostForm(server.URL+"/api/scan", data)
-	original, _ := api.CheckDomain(*api, "eff.org")
+	original, _ := api.CheckDomain(context.Background(), *api, "eff.org")
 	// Perform scan again, with different expected result.
 	api.CheckDomain = mockCheckPerform("somethingelse")
 	resp, _ := http.PostForm(server.URL+"/api/scan", data)

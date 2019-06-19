@@ -76,9 +76,9 @@ func getKeyValuePairs(record string, lineDelimiter string,
 	return parsed
 }
 
-func checkMTASTSRecord(domain string, timeout time.Duration) *Result {
+func checkMTASTSRecord(ctx context.Context, domain string, timeout time.Duration) *Result {
 	result := MakeResult(MTASTSText)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	var r net.Resolver
 	records, err := r.LookupTXT(ctx, fmt.Sprintf("_mta-sts.%s", domain))
@@ -102,7 +102,7 @@ func validateMTASTSRecord(records []string, result *Result) *Result {
 	return result.Success()
 }
 
-func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameResult, timeout time.Duration) (*Result, string, map[string]string) {
+func checkMTASTSPolicyFile(ctx context.Context, domain string, hostnameResults map[string]HostnameResult, timeout time.Duration) (*Result, string, map[string]string) {
 	result := MakeResult(MTASTSPolicyFile)
 	client := &http.Client{
 		Timeout: timeout,
@@ -112,7 +112,10 @@ func checkMTASTSPolicyFile(domain string, hostnameResults map[string]HostnameRes
 		},
 	}
 	policyURL := fmt.Sprintf("https://mta-sts.%s/.well-known/mta-sts.txt", domain)
-	resp, err := client.Get(policyURL)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	request, err := http.NewRequest("GET", policyURL, nil)
+	resp, err := client.Do(request.WithContext(ctx))
 	if err != nil {
 		return result.Failure("Couldn't find policy file at %s.", policyURL), "", map[string]string{}
 	}
@@ -184,14 +187,14 @@ func validateMTASTSMXs(policyFileMXs []string, dnsMXs map[string]HostnameResult,
 	}
 }
 
-func (c Checker) checkMTASTS(domain string, hostnameResults map[string]HostnameResult) *MTASTSResult {
+func (c Checker) checkMTASTS(ctx context.Context, domain string, hostnameResults map[string]HostnameResult) *MTASTSResult {
 	if c.checkMTASTSOverride != nil {
 		// Allow the Checker to mock this function.
 		return c.checkMTASTSOverride(domain, hostnameResults)
 	}
 	result := MakeMTASTSResult()
-	result.addCheck(checkMTASTSRecord(domain, c.timeout()))
-	policyResult, policy, policyMap := checkMTASTSPolicyFile(domain, hostnameResults, c.timeout())
+	result.addCheck(checkMTASTSRecord(ctx, domain, c.timeout()))
+	policyResult, policy, policyMap := checkMTASTSPolicyFile(ctx, domain, hostnameResults, c.timeout())
 	result.addCheck(policyResult)
 	result.Policy = policy
 	result.Mode = policyMap["mode"]

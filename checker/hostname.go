@@ -1,6 +1,7 @@
 package checker
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"net"
@@ -70,11 +71,13 @@ func getThisHostname() string {
 
 // Performs an SMTP dial with a short timeout.
 // https://github.com/golang/go/issues/16436
-func smtpDialWithTimeout(hostname string, timeout time.Duration) (*smtp.Client, error) {
+func smtpDialWithTimeout(ctx context.Context, hostname string, timeout time.Duration) (*smtp.Client, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	if _, _, err := net.SplitHostPort(hostname); err != nil {
 		hostname += ":25"
 	}
-	conn, err := net.DialTimeout("tcp", hostname, timeout)
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", hostname)
 	if err != nil {
 		return nil, err
 	}
@@ -160,13 +163,13 @@ func tlsConfigForCipher(ciphers []uint16) tls.Config {
 }
 
 // Checks to see that insecure ciphers are disabled.
-func checkTLSCipher(hostname string, timeout time.Duration) *Result {
+func checkTLSCipher(ctx context.Context, hostname string, timeout time.Duration) *Result {
 	result := MakeResult("cipher")
 	badCiphers := []uint16{
 		tls.TLS_RSA_WITH_RC4_128_SHA,
 		tls.TLS_ECDHE_ECDSA_WITH_RC4_128_SHA,
 		tls.TLS_ECDHE_RSA_WITH_RC4_128_SHA}
-	client, err := smtpDialWithTimeout(hostname, timeout)
+	client, err := smtpDialWithTimeout(ctx, hostname, timeout)
 	if err != nil {
 		return result.Error("Could not establish connection with hostname %s", hostname)
 	}
@@ -179,7 +182,7 @@ func checkTLSCipher(hostname string, timeout time.Duration) *Result {
 	return result.Success()
 }
 
-func checkTLSVersion(client *smtp.Client, hostname string, timeout time.Duration) *Result {
+func checkTLSVersion(ctx context.Context, client *smtp.Client, hostname string, timeout time.Duration) *Result {
 	result := MakeResult(Version)
 
 	// Check the TLS version of the existing connection.
@@ -193,7 +196,7 @@ func checkTLSVersion(client *smtp.Client, hostname string, timeout time.Duration
 	}
 
 	// Attempt to connect with an old SSL version.
-	client, err := smtpDialWithTimeout(hostname, timeout)
+	client, err := smtpDialWithTimeout(ctx, hostname, timeout)
 	if err != nil {
 		return result.Error("Could not establish connection: %v", err)
 	}
@@ -212,7 +215,7 @@ func checkTLSVersion(client *smtp.Client, hostname string, timeout time.Duration
 
 // checkHostname returns the result of c.CheckHostname or FullCheckHostname,
 // using or updating the Checker's cache.
-func (c *Checker) checkHostname(domain string, hostname string) HostnameResult {
+func (c *Checker) checkHostname(ctx context.Context, domain string, hostname string) HostnameResult {
 	check := c.CheckHostname
 	if check == nil {
 		// If CheckHostname hasn't been set, default to the full set of checks.
@@ -220,18 +223,18 @@ func (c *Checker) checkHostname(domain string, hostname string) HostnameResult {
 	}
 
 	if c.Cache == nil {
-		return check(domain, hostname, c.timeout())
+		return check(ctx, domain, hostname, c.timeout())
 	}
 	hostnameResult, err := c.Cache.GetHostnameScan(hostname)
 	if err != nil {
-		hostnameResult = check(domain, hostname, c.timeout())
+		hostnameResult = check(ctx, domain, hostname, c.timeout())
 		c.Cache.PutHostnameScan(hostname, hostnameResult)
 	}
 	return hostnameResult
 }
 
 // NoopCheckHostname returns a fake error result containing `domain` and `hostname`.
-func NoopCheckHostname(domain string, hostname string, _ time.Duration) HostnameResult {
+func NoopCheckHostname(ctx context.Context, domain string, hostname string, _ time.Duration) HostnameResult {
 	r := HostnameResult{
 		Domain:   domain,
 		Hostname: hostname,
@@ -244,8 +247,8 @@ func NoopCheckHostname(domain string, hostname string, _ time.Duration) Hostname
 // FullCheckHostname performs a series of checks against a hostname for an email domain.
 // `domain` is the mail domain that this server serves email for.
 // `hostname` is the hostname for this server.
-func FullCheckHostname(domain string, hostname string, timeout time.Duration) HostnameResult {
-	result := HostnameResult{
+func FullCheckHostname(ctx context.Context, domain string, hostname string, timeout time.Duration) HostnameResult {
+	result := &HostnameResult{
 		Domain:    domain,
 		Hostname:  hostname,
 		Result:    MakeResult("hostnames"),
@@ -254,23 +257,23 @@ func FullCheckHostname(domain string, hostname string, timeout time.Duration) Ho
 
 	// Connect to the SMTP server and use that connection to perform as many checks as possible.
 	connectivityResult := MakeResult(Connectivity)
-	client, err := smtpDialWithTimeout(hostname, timeout)
+	client, err := smtpDialWithTimeout(ctx, hostname, timeout)
 	if err != nil {
 		result.addCheck(connectivityResult.Error("Could not establish connection: %v", err))
-		return result
+		return *result
 	}
-	defer client.Close()
+	defer client.Quit()
 	result.addCheck(connectivityResult.Success())
 
 	result.addCheck(checkStartTLS(client))
 	if result.Status != Success {
-		return result
+		return *result
 	}
 	result.addCheck(checkCert(client, domain, hostname))
 	// result.addCheck(checkTLSCipher(hostname))
 
 	// Creates a new connection to check for SSLv2/3 support because we can't call starttls twice.
-	result.addCheck(checkTLSVersion(client, hostname, timeout))
+	result.addCheck(checkTLSVersion(ctx, client, hostname, timeout))
 
-	return result
+	return *result
 }

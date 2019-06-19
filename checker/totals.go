@@ -1,6 +1,7 @@
 package checker
 
 import (
+	"context"
 	"encoding/csv"
 	"io"
 	"log"
@@ -109,7 +110,7 @@ func (c *Checker) CheckCSV(domains *csv.Reader, resultHandler ResultHandler, dom
 	for i := 0; i < poolSize; i++ {
 		go func() {
 			for domain := range work {
-				results <- c.CheckDomain(domain, nil)
+				results <- c.CheckDomain(context.TODO(), domain, nil)
 			}
 			done <- struct{}{}
 		}()

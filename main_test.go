@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -20,8 +21,8 @@ import (
 var api *API
 var server *httptest.Server
 
-func mockCheckPerform(message string) func(API, string) (checker.DomainResult, error) {
-	return func(api API, domain string) (checker.DomainResult, error) {
+func mockCheckPerform(message string) func(context.Context, API, string) (checker.DomainResult, error) {
+	return func(ctx context.Context, api API, domain string) (checker.DomainResult, error) {
 		return checker.NewSampleDomainResult(domain), nil
 	}
 }
