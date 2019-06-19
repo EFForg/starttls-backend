@@ -139,7 +139,7 @@ func TestGetAllScans(t *testing.T) {
 
 func TestPutGetDomain(t *testing.T) {
 	database.ClearTables()
-	data := models.Domain{
+	data := models.PolicySubmission{
 		Name:  "testing.com",
 		Email: "admin@testing.com",
 	}
@@ -161,13 +161,13 @@ func TestPutGetDomain(t *testing.T) {
 
 func TestUpsertDomain(t *testing.T) {
 	database.ClearTables()
-	data := models.Domain{
+	data := models.PolicySubmission{
 		Name:  "testing.com",
 		MXs:   []string{"hello1"},
 		Email: "admin@testing.com",
 	}
 	database.PutDomain(data)
-	err := database.PutDomain(models.Domain{Name: "testing.com", MXs: []string{"hello_darkness_my_old_friend"}, Email: "actual_admin@testing.com"})
+	err := database.PutDomain(models.PolicySubmission{Name: "testing.com", MXs: []string{"hello_darkness_my_old_friend"}, Email: "actual_admin@testing.com"})
 	if err != nil {
 		t.Errorf("PutDomain(%s) failed: %v\n", data.Name, err)
 	}
@@ -214,7 +214,7 @@ func TestPutTokenTwice(t *testing.T) {
 
 func TestLastUpdatedFieldUpdates(t *testing.T) {
 	database.ClearTables()
-	data := models.Domain{
+	data := models.PolicySubmission{
 		Name:  "testing.com",
 		Email: "admin@testing.com",
 		State: models.StateUnconfirmed,
@@ -223,7 +223,7 @@ func TestLastUpdatedFieldUpdates(t *testing.T) {
 	retrievedData, _ := database.GetDomain(data.Name, models.StateUnconfirmed)
 	lastUpdated := retrievedData.LastUpdated
 	data.State = models.StateTesting
-	database.PutDomain(models.Domain{Name: data.Name, Email: "new fone who dis"})
+	database.PutDomain(models.PolicySubmission{Name: data.Name, Email: "new fone who dis"})
 	retrievedData, _ = database.GetDomain(data.Name, models.StateUnconfirmed)
 	if lastUpdated.Equal(retrievedData.LastUpdated) {
 		t.Errorf("Expected last_updated to be updated on change: %v", lastUpdated)
@@ -232,7 +232,7 @@ func TestLastUpdatedFieldUpdates(t *testing.T) {
 
 func TestLastUpdatedFieldDoesntUpdate(t *testing.T) {
 	database.ClearTables()
-	data := models.Domain{
+	data := models.PolicySubmission{
 		Name:  "testing.com",
 		Email: "admin@testing.com",
 		State: models.StateUnconfirmed,
@@ -254,9 +254,9 @@ func TestDomainsToValidate(t *testing.T) {
 	}
 	for domain, queued := range queuedMap {
 		if queued {
-			database.PutDomain(models.Domain{Name: domain, State: models.StateTesting})
+			database.PutDomain(models.PolicySubmission{Name: domain, State: models.StateTesting})
 		} else {
-			database.PutDomain(models.Domain{Name: domain})
+			database.PutDomain(models.PolicySubmission{Name: domain})
 		}
 	}
 	result, err := database.DomainsToValidate()
@@ -272,8 +272,8 @@ func TestDomainsToValidate(t *testing.T) {
 
 func TestHostnamesForDomain(t *testing.T) {
 	database.ClearTables()
-	database.PutDomain(models.Domain{Name: "x", MXs: []string{"x.com", "y.org"}})
-	database.PutDomain(models.Domain{Name: "y"})
+	database.PutDomain(models.PolicySubmission{Name: "x", MXs: []string{"x.com", "y.org"}})
+	database.PutDomain(models.PolicySubmission{Name: "y"})
 	database.SetStatus("x", models.StateTesting)
 	database.SetStatus("y", models.StateTesting)
 	result, err := database.HostnamesForDomain("x")
@@ -477,10 +477,10 @@ func TestGetLocalStats(t *testing.T) {
 
 func TestGetMTASTSDomains(t *testing.T) {
 	database.ClearTables()
-	database.PutDomain(models.Domain{Name: "unicorns"})
-	database.PutDomain(models.Domain{Name: "mta-sts-x", MTASTS: true})
-	database.PutDomain(models.Domain{Name: "mta-sts-y", MTASTS: true})
-	database.PutDomain(models.Domain{Name: "regular"})
+	database.PutDomain(models.PolicySubmission{Name: "unicorns"})
+	database.PutDomain(models.PolicySubmission{Name: "mta-sts-x", MTASTS: true})
+	database.PutDomain(models.PolicySubmission{Name: "mta-sts-y", MTASTS: true})
+	database.PutDomain(models.PolicySubmission{Name: "regular"})
 	domains, err := database.GetMTASTSDomains()
 	if err != nil {
 		t.Fatalf("GetMTASTSDomains() failed: %v", err)

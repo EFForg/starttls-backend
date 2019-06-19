@@ -61,7 +61,7 @@ type PolicyList interface {
 type EmailSender interface {
 	// SendValidation sends a validation e-mail for a particular domain,
 	// with a particular validation token.
-	SendValidation(*models.Domain, string) error
+	SendValidation(*models.PolicySubmission, string) error
 }
 
 // APIResponse wraps all the responses from this API.
@@ -90,7 +90,7 @@ func (api *API) wrapper(handler apiHandler) func(w http.ResponseWriter, r *http.
 }
 
 func defaultCheck(api API, domain string) (checker.DomainResult, error) {
-	policyChan := models.Domain{Name: domain}.AsyncPolicyListCheck(api.Database, api.List)
+	policyChan := models.PolicySubmission{Name: domain}.AsyncPolicyListCheck(api.Database, api.List)
 	c := checker.Checker{
 		Cache: &checker.ScanCache{
 			ScanStore:  api.Database,
@@ -173,13 +173,13 @@ const MaxHostnames = 8
 
 // Extracts relevant parameters from http.Request for a POST to /api/queue
 // TODO: also validate hostnames as FQDNs.
-func getDomainParams(r *http.Request) (models.Domain, error) {
+func getDomainParams(r *http.Request) (models.PolicySubmission, error) {
 	name, err := getASCIIDomain(r)
 	if err != nil {
-		return models.Domain{}, err
+		return models.PolicySubmission{}, err
 	}
 	mtasts := r.FormValue("mta-sts")
-	domain := models.Domain{
+	domain := models.PolicySubmission{
 		Name:   name,
 		MTASTS: mtasts == "on",
 		State:  models.StateUnconfirmed,
@@ -221,7 +221,7 @@ func getDomainParams(r *http.Request) (models.Domain, error) {
 //        domain: Mail domain to queue a TLS policy for.
 //				mta_sts: "on" if domain supports MTA-STS, else "".
 //        hostnames: List of MX hostnames to put into this domain's TLS policy. Up to 8.
-//        Sets models.Domain object as response.
+//        Sets models.PolicySubmission object as response.
 //        weeks (optional, default 4): How many weeks is this domain queued for.
 //        email (optional): Contact email associated with domain.
 //   GET  /api/queue?domain=<domain>

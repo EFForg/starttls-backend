@@ -129,7 +129,7 @@ func TestBasicQueueWorkflow(t *testing.T) {
 
 	// 2-T. Check to see domain status was initialized to 'unvalidated'
 	domainBody, _ := ioutil.ReadAll(resp.Body)
-	domain := models.Domain{}
+	domain := models.PolicySubmission{}
 	err := json.Unmarshal(domainBody, &APIResponse{Response: &domain})
 	if err != nil {
 		t.Fatalf("Returned invalid JSON object:%v\n", string(domainBody))

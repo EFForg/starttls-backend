@@ -9,12 +9,12 @@ import (
 )
 
 type mockDomainStore struct {
-	domain  Domain
-	domains []Domain
+	domain  PolicySubmission
+	domains []PolicySubmission
 	err     error
 }
 
-func (m *mockDomainStore) PutDomain(d Domain) error {
+func (m *mockDomainStore) PutDomain(d PolicySubmission) error {
 	m.domain = d
 	return m.err
 }
@@ -24,7 +24,7 @@ func (m *mockDomainStore) SetStatus(d string, status DomainState) error {
 	return m.err
 }
 
-func (m *mockDomainStore) GetDomain(d string, state DomainState) (Domain, error) {
+func (m *mockDomainStore) GetDomain(d string, state DomainState) (PolicySubmission, error) {
 	domain := m.domain
 	if state != domain.State {
 		return m.domain, errors.New("")
@@ -32,11 +32,11 @@ func (m *mockDomainStore) GetDomain(d string, state DomainState) (Domain, error)
 	return m.domain, nil
 }
 
-func (m *mockDomainStore) GetDomains(_ DomainState) ([]Domain, error) {
+func (m *mockDomainStore) GetDomains(_ DomainState) ([]PolicySubmission, error) {
 	return m.domains, m.err
 }
 
-func (m *mockDomainStore) RemoveDomain(d string, state DomainState) (Domain, error) {
+func (m *mockDomainStore) RemoveDomain(d string, state DomainState) (PolicySubmission, error) {
 	domain := m.domain
 	if state != domain.State {
 		return m.domain, errors.New("")
@@ -59,7 +59,7 @@ func (m mockScanStore) GetLatestScan(string) (Scan, error) { return m.scan, m.er
 
 func TestIsQueueable(t *testing.T) {
 	// With supplied hostnames
-	d := Domain{
+	d := PolicySubmission{
 		Name:  "example.com",
 		Email: "me@example.com",
 		MXs:   []string{".example.com"},
@@ -107,7 +107,7 @@ func TestIsQueueable(t *testing.T) {
 			ok: false, msg: "do not match policy"},
 	}
 	for _, tc := range testCases {
-		domainStore := mockDomainStore{domain: Domain{State: tc.state}}
+		domainStore := mockDomainStore{domain: PolicySubmission{State: tc.state}}
 		ok, msg, _ := d.IsQueueable(&domainStore, mockScanStore{tc.scan, tc.scanErr}, mockList{tc.onList})
 		if ok != tc.ok {
 			t.Error(tc.name)
@@ -117,7 +117,7 @@ func TestIsQueueable(t *testing.T) {
 		}
 	}
 	// With MTA-STS
-	d = Domain{
+	d = PolicySubmission{
 		Name:   "example.com",
 		Email:  "me@example.com",
 		MTASTS: true,
@@ -143,7 +143,7 @@ func TestIsQueueable(t *testing.T) {
 }
 
 func TestPopulateFromScan(t *testing.T) {
-	d := Domain{
+	d := PolicySubmission{
 		Name:   "example.com",
 		Email:  "me@example.com",
 		MTASTS: true,
@@ -177,7 +177,7 @@ func TestPolicyCheck(t *testing.T) {
 		{"Domain not currently in the DB or on the list should return a failure", false, StateUnconfirmed, false, checker.Failure},
 	}
 	for _, tc := range testCases {
-		domainObj := Domain{Name: "example.com", State: tc.state}
+		domainObj := PolicySubmission{Name: "example.com", State: tc.state}
 		var dbErr error
 		if !tc.inDB {
 			dbErr = errors.New("")
@@ -191,7 +191,7 @@ func TestPolicyCheck(t *testing.T) {
 
 func TestInitializeWithToken(t *testing.T) {
 	mockToken := mockTokenStore{domain: "domain", err: nil}
-	domainObj := Domain{Name: "example.com"}
+	domainObj := PolicySubmission{Name: "example.com"}
 	// domainStore returns error
 	_, err := domainObj.InitializeWithToken(&mockDomainStore{domain: domainObj, err: errors.New("")}, &mockToken)
 	if err == nil {

@@ -88,7 +88,7 @@ func makeEmailConfigFromEnv(database db.Database) (emailConfig, error) {
 	return c, nil
 }
 
-func validationAddress(domain *models.Domain) string {
+func validationAddress(domain *models.PolicySubmission) string {
 	return fmt.Sprintf("postmaster@%s", domain.Name)
 }
 
@@ -99,7 +99,7 @@ func validationEmailText(domain string, contactEmail string, hostnames []string,
 
 // SendValidation sends a validation e-mail for the domain outlined by domainInfo.
 // The validation link is generated using a token.
-func (c emailConfig) SendValidation(domain *models.Domain, token string) error {
+func (c emailConfig) SendValidation(domain *models.PolicySubmission, token string) error {
 	emailContent := validationEmailText(domain.Name, domain.Email, domain.MXs, token,
 		c.website)
 	return c.sendEmail(validationEmailSubject, emailContent, validationAddress(domain))

@@ -8,14 +8,8 @@ import (
 	"github.com/EFForg/starttls-backend/checker"
 )
 
-/* Domain represents an email domain's TLS policy.
- *
- * If there's a Domain object for a particular email domain in "Enforce" mode,
- * that email domain's policy is fixed and cannot be changed.
- */
-
-// Domain stores the preload state of a single domain.
-type Domain struct {
+// PolicySubmission represents an email domain's TLS policy submission.
+type PolicySubmission struct {
 	Name         string      `json:"domain"` // Domain that is preloaded
 	Email        string      `json:"-"`      // Contact e-mail for Domain
 	MXs          []string    `json:"mxs"`    // MXs that are valid for this domain
@@ -28,11 +22,11 @@ type Domain struct {
 
 // domainStore is a simple interface for fetching and adding domain objects.
 type domainStore interface {
-	PutDomain(Domain) error
-	GetDomain(string, DomainState) (Domain, error)
-	GetDomains(DomainState) ([]Domain, error)
+	PutDomain(PolicySubmission) error
+	GetDomain(string, DomainState) (PolicySubmission, error)
+	GetDomains(DomainState) ([]PolicySubmission, error)
 	SetStatus(string, DomainState) error
-	RemoveDomain(string, DomainState) (Domain, error)
+	RemoveDomain(string, DomainState) (PolicySubmission, error)
 }
 
 // DomainState represents the state of a single domain.
@@ -56,7 +50,7 @@ type policyList interface {
 // A successful scan should already have been submitted for this domain,
 // and it should not already be on the policy list.
 // Returns (queuability, error message, and most recent scan)
-func (d *Domain) IsQueueable(domains domainStore, scans scanStore, list policyList) (bool, string, Scan) {
+func (d *PolicySubmission) IsQueueable(domains domainStore, scans scanStore, list policyList) (bool, string, Scan) {
 	scan, err := scans.GetLatestScan(d.Name)
 	if err != nil {
 		return false, "We haven't scanned this domain yet. " +
@@ -86,7 +80,7 @@ func (d *Domain) IsQueueable(domains domainStore, scans scanStore, list policyLi
 }
 
 // PopulateFromScan updates a Domain's fields based on a scan of that domain.
-func (d *Domain) PopulateFromScan(scan Scan) {
+func (d *PolicySubmission) PopulateFromScan(scan Scan) {
 	// We should only trust MTA-STS info from a successful MTA-STS check.
 	if d.MTASTS && scan.SupportsMTASTS() {
 		// If the domain's MXs are missing, we can take them from the scan's
@@ -100,7 +94,7 @@ func (d *Domain) PopulateFromScan(scan Scan) {
 
 // InitializeWithToken adds this domain to the given DomainStore and initializes a validation token
 // for the addition. The newly generated Token is returned.
-func (d *Domain) InitializeWithToken(store domainStore, tokens tokenStore) (string, error) {
+func (d *PolicySubmission) InitializeWithToken(store domainStore, tokens tokenStore) (string, error) {
 	if err := store.PutDomain(*d); err != nil {
 		return "", err
 	}
@@ -112,7 +106,7 @@ func (d *Domain) InitializeWithToken(store domainStore, tokens tokenStore) (stri
 }
 
 // PolicyListCheck checks the policy list status of this particular domain.
-func (d *Domain) PolicyListCheck(store domainStore, list policyList) *checker.Result {
+func (d *PolicySubmission) PolicyListCheck(store domainStore, list policyList) *checker.Result {
 	result := checker.Result{Name: checker.PolicyList}
 	if list.HasDomain(d.Name) {
 		return result.Success()
@@ -136,7 +130,7 @@ func (d *Domain) PolicyListCheck(store domainStore, list policyList) *checker.Re
 
 // AsyncPolicyListCheck performs PolicyListCheck asynchronously.
 // domainStore and policyList should be safe for concurrent use.
-func (d Domain) AsyncPolicyListCheck(store domainStore, list policyList) <-chan checker.Result {
+func (d PolicySubmission) AsyncPolicyListCheck(store domainStore, list policyList) <-chan checker.Result {
 	result := make(chan checker.Result)
 	go func() { result <- *d.PolicyListCheck(store, list) }()
 	return result
@@ -146,7 +140,7 @@ func (d Domain) AsyncPolicyListCheck(store domainStore, list policyList) <-chan 
 // At any given time, there can only be one domain that's either StateEnforce
 // or StateTesting. If that domain exists in the store, return that one.
 // Otherwise, look for a Domain policy in the unconfirmed state.
-func GetDomain(store domainStore, name string) (Domain, error) {
+func GetDomain(store domainStore, name string) (PolicySubmission, error) {
 	domain, err := store.GetDomain(name, StateEnforce)
 	if err == nil {
 		return domain, nil

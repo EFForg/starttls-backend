@@ -21,7 +21,7 @@ func (m *mockTokenStore) UseToken(token string) (string, error) {
 }
 
 func TestRedeemToken(t *testing.T) {
-	domains := mockDomainStore{domain: Domain{Name: "anything", State: StateUnconfirmed}, err: nil}
+	domains := mockDomainStore{domain: PolicySubmission{Name: "anything", State: StateUnconfirmed}, err: nil}
 	token := Token{Token: "token"}
 	domain, userErr, dbErr := token.Redeem(&domains, &mockTokenStore{domain: "anything", err: nil})
 	if domain != "anything" || userErr != nil || dbErr != nil {

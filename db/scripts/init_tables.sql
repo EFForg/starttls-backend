@@ -48,6 +48,25 @@ CREATE TABLE IF NOT EXISTS blacklisted_emails
     timestamp   TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS pending_policies
+(
+    domain        TEXT NOT NULL PRIMARY KEY,
+    email         TEXT NOT NULL,
+    mta_sts       BOOLEAN DEFAULT FALSE,
+    mxs           TEXT NOT NULL,
+    mode          VARCHAR(255) NOT NULL,
+);
+
+
+CREATE TABLE IF NOT EXISTS policies
+(
+    domain        TEXT NOT NULL PRIMARY KEY,
+    email         TEXT NOT NULL,
+    mta_sts       BOOLEAN DEFAULT FALSE,
+    mxs           TEXT NOT NULL,
+    mode          VARCHAR(255) NOT NULL,
+);
+
 -- Schema change: add "last_updated" timestamp column if it doesn't exist.
 
 ALTER TABLE domains ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP;

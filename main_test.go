@@ -55,7 +55,7 @@ func (l mockList) HasDomain(domain string) bool {
 // Mock emailer
 type mockEmailer struct{}
 
-func (e mockEmailer) SendValidation(domain *models.Domain, token string) error { return nil }
+func (e mockEmailer) SendValidation(domain *models.PolicySubmission, token string) error { return nil }
 
 // Load env. vars, initialize DB hook, and tests API
 func TestMain(m *testing.M) {

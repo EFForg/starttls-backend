@@ -8,9 +8,9 @@ import (
 	"github.com/EFForg/starttls-backend/models"
 )
 
-func (db SQLDatabase) queryDomain(sqlQuery string, args ...interface{}) (models.Domain, error) {
+func (db SQLDatabase) queryDomain(sqlQuery string, args ...interface{}) (models.PolicySubmission, error) {
 	query := fmt.Sprintf(sqlQuery, "domain, email, data, status, last_updated, queue_weeks")
-	data := models.Domain{}
+	data := models.PolicySubmission{}
 	var rawMXs string
 	err := db.conn.QueryRow(query, args...).Scan(
 		&data.Name, &data.Email, &rawMXs, &data.State, &data.LastUpdated, &data.QueueWeeks)
@@ -21,16 +21,16 @@ func (db SQLDatabase) queryDomain(sqlQuery string, args ...interface{}) (models.
 	return data, err
 }
 
-func (db SQLDatabase) queryDomainsWhere(condition string, args ...interface{}) ([]models.Domain, error) {
+func (db SQLDatabase) queryDomainsWhere(condition string, args ...interface{}) ([]models.PolicySubmission, error) {
 	query := fmt.Sprintf("SELECT domain, email, data, status, last_updated, queue_weeks FROM domains WHERE %s", condition)
 	rows, err := db.conn.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	domains := []models.Domain{}
+	domains := []models.PolicySubmission{}
 	for rows.Next() {
-		var domain models.Domain
+		var domain models.PolicySubmission
 		var rawMXs string
 		if err := rows.Scan(&domain.Name, &domain.Email, &rawMXs, &domain.State, &domain.LastUpdated, &domain.QueueWeeks); err != nil {
 			return nil, err
@@ -47,7 +47,7 @@ func (db SQLDatabase) queryDomainsWhere(condition string, args ...interface{}) (
 // not yet exist in the database, we initialize it with StateUnconfirmed
 // If there is already a domain in the database with StateUnconfirmed, performs
 // an update of the fields.
-func (db *SQLDatabase) PutDomain(domain models.Domain) error {
+func (db *SQLDatabase) PutDomain(domain models.PolicySubmission) error {
 	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status, queue_weeks, mta_sts) "+
 		"VALUES($1, $2, $3, $4, $5, $6) "+
 		"ON CONFLICT ON CONSTRAINT domains_pkey DO UPDATE SET email=$2, data=$3, queue_weeks=$5",
@@ -58,18 +58,18 @@ func (db *SQLDatabase) PutDomain(domain models.Domain) error {
 
 // GetDomain retrieves the status and information associated with a particular
 // mailserver domain.
-func (db SQLDatabase) GetDomain(domain string, state models.DomainState) (models.Domain, error) {
+func (db SQLDatabase) GetDomain(domain string, state models.DomainState) (models.PolicySubmission, error) {
 	return db.queryDomain("SELECT %s FROM domains WHERE domain=$1 AND status=$2", domain, state)
 }
 
 // GetDomains retrieves all the domains which match a particular state,
 // that are not in MTA_STS mode
-func (db SQLDatabase) GetDomains(state models.DomainState) ([]models.Domain, error) {
+func (db SQLDatabase) GetDomains(state models.DomainState) ([]models.PolicySubmission, error) {
 	return db.queryDomainsWhere("status=$1", state)
 }
 
 // GetMTASTSDomains retrieves domains which wish their policy to be queued with their MTASTS.
-func (db SQLDatabase) GetMTASTSDomains() ([]models.Domain, error) {
+func (db SQLDatabase) GetMTASTSDomains() ([]models.PolicySubmission, error) {
 	return db.queryDomainsWhere("mta_sts=TRUE")
 }
 
@@ -85,7 +85,7 @@ func (db SQLDatabase) SetStatus(domain string, state models.DomainState) error {
 }
 
 // RemoveDomain removes a particular domain and returns it.
-func (db SQLDatabase) RemoveDomain(domain string, state models.DomainState) (models.Domain, error) {
+func (db SQLDatabase) RemoveDomain(domain string, state models.DomainState) (models.PolicySubmission, error) {
 	return db.queryDomain("DELETE FROM domains WHERE domain=$1 AND status=$2 RETURNING %s")
 }
 
