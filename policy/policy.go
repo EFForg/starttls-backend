@@ -30,6 +30,30 @@ type List struct {
 	Policies      map[string]TLSPolicy `json:"policies"`
 }
 
+func (p *TLSPolicy) Equals(other *TLSPolicy) bool {
+	if other == nil {
+		return false
+	}
+	return p.Mode == other.Mode && p.hostnamesEqual(other)
+}
+
+// Assumption: Every string is unique in the MXs list.
+func (p *TLSPolicy) hostnamesEqual(other *TLSPolicy) bool {
+	if len(p.MXs) != len(other.MXs) {
+		return false
+	}
+	set := make(map[string]bool)
+	for _, mx := range p.MXs {
+		set[mx] = true
+	}
+	for _, mx := range other.MXs {
+		if !set[mx] {
+			return false
+		}
+	}
+	return true
+}
+
 // Add adds a particular domain's policy to the list.
 func (l *List) Add(domain string, policy TLSPolicy) {
 	l.Policies[domain] = policy

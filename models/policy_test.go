@@ -2,46 +2,35 @@ package models
 
 import (
 	"errors"
-	"strings"
-	"testing"
+	// "strings"
+	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
+	"github.com/EFForg/starttls-backend/policy"
+	"testing"
 )
 
-type mockDomainStore struct {
-	domain  PolicySubmission
-	domains []PolicySubmission
-	err     error
+type mockPolicyStore struct {
+	policy   PolicySubmission
+	policies []PolicySubmission
+	err      error
 }
 
-func (m *mockDomainStore) PutDomain(d PolicySubmission) error {
-	m.domain = d
+func (m *mockPolicyStore) PutOrUpdatePolicy(p *PolicySubmission) error {
+	m.policy = *p
 	return m.err
 }
 
-func (m *mockDomainStore) SetStatus(d string, status DomainState) error {
-	m.domain.State = status
-	return m.err
+func (m *mockPolicyStore) GetPolicy(domain string) (PolicySubmission, error) {
+	return m.policy, m.err
 }
 
-func (m *mockDomainStore) GetDomain(d string, state DomainState) (PolicySubmission, error) {
-	domain := m.domain
-	if state != domain.State {
-		return m.domain, errors.New("")
-	}
-	return m.domain, nil
+func (m *mockPolicyStore) GetPolicies(_ bool) ([]PolicySubmission, error) {
+	return m.policies, m.err
 }
 
-func (m *mockDomainStore) GetDomains(_ DomainState) ([]PolicySubmission, error) {
-	return m.domains, m.err
-}
-
-func (m *mockDomainStore) RemoveDomain(d string, state DomainState) (PolicySubmission, error) {
-	domain := m.domain
-	if state != domain.State {
-		return m.domain, errors.New("")
-	}
-	return m.domain, nil
+func (m *mockPolicyStore) RemovePolicy(_ string) (PolicySubmission, error) {
+	return m.policy, m.err
 }
 
 type mockList struct {
@@ -57,134 +46,159 @@ type mockScanStore struct {
 
 func (m mockScanStore) GetLatestScan(string) (Scan, error) { return m.scan, m.err }
 
-func TestIsQueueable(t *testing.T) {
-	// With supplied hostnames
-	d := PolicySubmission{
+// Some helper functions to make constructing dummy objects easier
+
+func (p PolicySubmission) withMode(mode string) PolicySubmission {
+	p.Policy.Mode = mode
+	return p
+}
+
+func (p PolicySubmission) withMXs(mxs []string) PolicySubmission {
+	p.Policy.MXs = mxs
+	return p
+}
+
+func (p PolicySubmission) withMTASTS() PolicySubmission {
+	p.MTASTS = true
+	return p
+}
+
+func (p PolicySubmission) withEmail(email string) PolicySubmission {
+	p.Email = email
+	return p
+}
+
+func TestCanUpdate(t *testing.T) {
+	var newP = func() PolicySubmission {
+		return PolicySubmission{Policy: &policy.TLSPolicy{}}
+	}
+	var testCases = []struct {
+		desc      string
+		oldPolicy PolicySubmission // Return from GetPolicy
+		policy    PolicySubmission // Policy to try to insert
+		err       error            // Does GetPolicy return an error?
+		expected  bool
+	}{
+		{"policy not found", newP(), newP(), errors.New("policy not found in DB"), true},
+		{"no update if policies same 1", newP().withMode("testing"), newP().withMode("testing"), nil, false},
+		{"no update if policies same 2", newP().withMode("enforce"), newP().withMode("enforce"), nil, false},
+		{"no update if policies same 3",
+			newP().withMode("enforce").withMTASTS().withMXs([]string{"a", "b", "c"}),
+			newP().withMode("enforce").withMTASTS().withMXs([]string{"a", "c", "b"}),
+			nil, false},
+		{"can upgrade to manual enforce", newP().withMode("testing"), newP().withMode("enforce"), nil, true},
+		{"can't downgrade to enforce", newP().withMode("enforce"), newP().withMode("testing"), nil, false},
+		{"prevent upgrade to enforce with MTA-STS",
+			newP().withMTASTS().withMode("testing"),
+			newP().withMode("enforce"),
+			nil, false},
+		{"no mx changes with MTA-STS, even in testing",
+			newP().withMTASTS().withMode("testing").withMXs([]string{"a", "b"}),
+			newP().withMTASTS().withMode("testing").withMXs([]string{"a", "b", "c"}),
+			nil, false},
+		{"mx can change in testing",
+			newP().withMode("testing").withMXs([]string{"a", "b"}),
+			newP().withMode("testing").withMXs([]string{"a", "b", "c"}),
+			nil, true},
+		{"update email", newP().withEmail("abc").withMode("enforce"), newP().withEmail("a").withMode("enforce"),
+			nil, true},
+	}
+	for _, tc := range testCases {
+		store := mockPolicyStore{policy: tc.oldPolicy, err: tc.err}
+		got := (&tc.policy).CanUpdate(&store)
+		if got != tc.expected {
+			t.Errorf("%s: expected %t but got %t",
+				tc.desc, tc.expected, got)
+		}
+	}
+}
+
+func TestValidScan(t *testing.T) {
+	var newP = PolicySubmission{
 		Name:  "example.com",
 		Email: "me@example.com",
-		MXs:   []string{".example.com"},
-	}
+		Policy: &policy.TLSPolicy{
+			Mode: "testing",
+			MXs:  []string{".example.com"}}}
+
 	goodScan := Scan{
 		Data: checker.DomainResult{
 			PreferredHostnames: []string{"mx1.example.com", "mx2.example.com"},
 			MTASTSResult:       checker.MakeMTASTSResult(),
 		},
+		Timestamp: time.Now()}
+	var withBadMTASTS = func(scan Scan) Scan {
+		scan.Data.MTASTSResult = checker.MakeMTASTSResult()
+		scan.Data.MTASTSResult.Status = checker.Failure
+		return scan
+	}
+	var withTimestamp = func(scan Scan, time time.Time) Scan {
+		scan.Timestamp = time
+		return scan
 	}
 	failedScan := Scan{
 		Data: checker.DomainResult{Status: checker.DomainFailure},
 	}
-	wrongMXsScan := Scan{
-		Data: checker.DomainResult{
-			PreferredHostnames: []string{"mx1.nomatch.example.com"},
-		},
-	}
 	var testCases = []struct {
-		name    string
-		scan    Scan
-		scanErr error
-		state   DomainState
-		onList  bool
-		ok      bool
-		msg     string
+		desc     string
+		mxs      []string
+		mtasts   bool
+		scan     Scan
+		err      error
+		expected bool
 	}{
-		{name: "Unadded domain with passing scan should be queueable",
-			scan: goodScan, scanErr: nil, onList: false,
-			ok: true, msg: ""},
-		{name: "Domain on policy list should not be queueable",
-			scan: goodScan, scanErr: nil, onList: true,
-			ok: false, msg: "already on the policy list"},
-		{name: "Enforced domain should not be queueable",
-			scan: goodScan, scanErr: nil, onList: false, state: StateEnforce,
-			ok: false, msg: "already on the policy list"},
-		{name: "Domain with failing scan should not be queueable",
-			scan: failedScan, scanErr: nil, onList: false,
-			ok: false, msg: "hasn't passed"},
-		{name: "Domain without scan should not be queueable",
-			scan: goodScan, scanErr: errors.New(""), onList: false,
-			ok: false, msg: "haven't scanned"},
-		{name: "Domain with mismatched hostnames should not be queueable",
-			scan: wrongMXsScan, scanErr: nil, onList: false,
-			ok: false, msg: "do not match policy"},
+		{desc: "Unadded domain with recent passing scan should be queueable",
+			mxs: []string{".example.com"}, scan: goodScan, err: nil, expected: true},
+		{desc: "Unadded domain with old passing scan shouldn't be queueable",
+			mxs: []string{".example.com"}, scan: withTimestamp(goodScan, time.Now().Add(time.Duration(-1)*time.Hour)),
+			err: nil, expected: false},
+		{desc: "Domain with passing scan but mismatched hostnames shouldn't be queueable",
+			mxs: []string{"mx1.example.com"}, scan: goodScan, err: nil, expected: false},
+		{desc: "Domain with failing scan shouldn't be queueable", scan: failedScan, err: nil, expected: false},
+		{desc: "Domain without scan shouldn't be queueable", err: errors.New(""), expected: false},
+		{desc: "Domain with MTA-STS should be queueable",
+			mxs: []string{".example.com"}, scan: goodScan, mtasts: true, expected: true},
+		{desc: "Domain with MTA-STS but MTA-STS scan failed shouldn't be queueable",
+			mxs: []string{".example.com"}, scan: withBadMTASTS(goodScan), mtasts: true, expected: false},
 	}
 	for _, tc := range testCases {
-		domainStore := mockDomainStore{domain: PolicySubmission{State: tc.state}}
-		ok, msg, _ := d.IsQueueable(&domainStore, mockScanStore{tc.scan, tc.scanErr}, mockList{tc.onList})
-		if ok != tc.ok {
-			t.Error(tc.name)
-		}
-		if !strings.Contains(msg, tc.msg) {
-			t.Errorf("IsQueueable message should contain %s, got %s", tc.msg, msg)
-		}
-	}
-	// With MTA-STS
-	d = PolicySubmission{
-		Name:   "example.com",
-		Email:  "me@example.com",
-		MTASTS: true,
-	}
-	domainStore := mockDomainStore{err: errors.New("")}
-	ok, msg, _ := d.IsQueueable(&domainStore, mockScanStore{goodScan, nil}, mockList{false})
-	if !ok {
-		t.Error("Unadded domain with passing scan should be queueable, got " + msg)
-	}
-	noMTASTSScan := Scan{
-		Data: checker.DomainResult{
-			MTASTSResult: &checker.MTASTSResult{
-				Result: &checker.Result{
-					Status: checker.Failure,
-				},
-			},
-		},
-	}
-	ok, msg, _ = d.IsQueueable(&domainStore, mockScanStore{noMTASTSScan, nil}, mockList{false})
-	if ok || !strings.Contains(msg, "MTA-STS") {
-		t.Error("Domain without MTA-STS or hostnames should not be queueable, got " + msg)
-	}
-}
-
-func TestPopulateFromScan(t *testing.T) {
-	d := PolicySubmission{
-		Name:   "example.com",
-		Email:  "me@example.com",
-		MTASTS: true,
-	}
-	s := Scan{
-		Data: checker.DomainResult{
-			MTASTSResult: checker.MakeMTASTSResult(),
-		},
-	}
-	s.Data.MTASTSResult.MXs = []string{"mx1.example.com", "mx2.example.com"}
-	d.PopulateFromScan(s)
-	for i, mx := range s.Data.MTASTSResult.MXs {
-		if mx != d.MXs[i] {
-			t.Errorf("Expected MXs to match scan, got %s", d.MXs)
+		store := mockScanStore{tc.scan, tc.err}
+		policy := newP.withMXs(tc.mxs)
+		policy.MTASTS = tc.mtasts
+		got, msg := (&policy).HasValidScan(store)
+		if got != tc.expected {
+			t.Errorf("%s: expected %t but got %t: %s", tc.desc, tc.expected, got, msg)
 		}
 	}
 }
 
 func TestPolicyCheck(t *testing.T) {
 	var testCases = []struct {
-		name     string
-		onList   bool
-		state    DomainState
-		inDB     bool
-		expected checker.Status
+		desc        string
+		onList      bool
+		inDB        bool
+		inPendingDB bool
+		expected    checker.Status
 	}{
-		{"Domain on the list should return success", true, StateEnforce, false, checker.Success},
-		{"Domain in DB as enforce should return success", false, StateEnforce, true, checker.Success},
-		{"Domain queued should return a warning", false, StateTesting, true, checker.Warning},
-		{"Unconfirmed domain should return a failure", false, StateUnconfirmed, true, checker.Failure},
-		{"Domain not currently in the DB or on the list should return a failure", false, StateUnconfirmed, false, checker.Failure},
+		{desc: "Domain on the list should return success", onList: true, expected: checker.Success},
+		{desc: "Domain not on list but in policies DB should return warning", inDB: true, expected: checker.Warning},
+		{desc: "Domain in pending policies DB should return failure", inPendingDB: true, expected: checker.Failure},
+		{desc: "Domain not anywhere should return failure", expected: checker.Failure},
 	}
 	for _, tc := range testCases {
-		domainObj := PolicySubmission{Name: "example.com", State: tc.state}
+		policy := &PolicySubmission{Policy: &policy.TLSPolicy{}}
 		var dbErr error
 		if !tc.inDB {
-			dbErr = errors.New("")
+			dbErr = errors.New("DB err")
 		}
-		result := domainObj.PolicyListCheck(&mockDomainStore{domain: domainObj, err: dbErr}, mockList{tc.onList})
+		var pendingDBErr error
+		if !tc.inPendingDB {
+			pendingDBErr = errors.New("pending err")
+		}
+		result := policy.PolicyListCheck(
+			&mockPolicyStore{err: pendingDBErr}, &mockPolicyStore{err: dbErr}, mockList{tc.onList})
 		if result.Status != tc.expected {
-			t.Error(tc.name)
+			t.Errorf("%s: expected status %d, got result %v", tc.desc, tc.expected, result)
 		}
 	}
 }
@@ -192,19 +206,18 @@ func TestPolicyCheck(t *testing.T) {
 func TestInitializeWithToken(t *testing.T) {
 	mockToken := mockTokenStore{domain: "domain", err: nil}
 	domainObj := PolicySubmission{Name: "example.com"}
-	// domainStore returns error
-	_, err := domainObj.InitializeWithToken(&mockDomainStore{domain: domainObj, err: errors.New("")}, &mockToken)
+	_, err := domainObj.InitializeWithToken(&mockPolicyStore{err: errors.New("")}, &mockToken)
 	if err == nil {
 		t.Error("Expected InitializeWithToken to forward error message from DB")
 	}
 	if mockToken.token != nil {
 		t.Error("Token should not have been set if domain not found")
 	}
-	_, err = domainObj.InitializeWithToken(&mockDomainStore{domain: domainObj}, &mockTokenStore{err: errors.New("")})
+	_, err = domainObj.InitializeWithToken(&mockPolicyStore{policy: domainObj}, &mockTokenStore{err: errors.New("")})
 	if err == nil {
 		t.Error("Expected InitializeWithToken to forward error message from DB")
 	}
-	domainObj.InitializeWithToken(&mockDomainStore{domain: domainObj, err: nil}, &mockToken)
+	domainObj.InitializeWithToken(&mockPolicyStore{policy: domainObj, err: nil}, &mockToken)
 	if mockToken.token == nil {
 		t.Error("Token should have been set for domain")
 	}

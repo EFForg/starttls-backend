@@ -28,18 +28,32 @@ type policyList interface {
 	HasDomain(string) bool
 }
 
+// TODO: test
+func (p *PolicySubmission) SamePolicy(other PolicySubmission) bool {
+	shallowEqual := p.Name == other.Name && p.MTASTS == other.MTASTS
+	if p.Policy == nil {
+		return shallowEqual && other.Policy == nil
+	}
+	return shallowEqual && p.Policy.Equals(other.Policy)
+}
+
+// TODO: test
+func (p *PolicySubmission) Valid() bool {
+	return p.MTASTS || (p.Policy != nil && len(p.Policy.MXs) > 0)
+}
+
 // CanUpdate returns whether we can update the policyStore with this particular
 // Policy Submission. In some cases, you should be able to update the
 // existing policy. In other cases, you shouldn't.
-// TODO: test
 func (p *PolicySubmission) CanUpdate(policies policyStore) bool {
 	oldPolicy, err := policies.GetPolicy(p.Name)
 	// If this policy doesn't exist in the policyStore, we can add it.
+	// TODO: not to conflate between real errors and "not present" errors.
 	if err != nil {
 		return true
 	}
 	// If the policies are the same, return true if emails are different.
-	if (oldPolicy.MTASTS && p.MTASTS) || oldPolicy.Policy.HostnamesEqual(p.Policy) {
+	if p.SamePolicy(oldPolicy) {
 		return oldPolicy.Email != p.Email
 	}
 	// If old policy is manual and in testing, we can update it safely.
@@ -95,17 +109,18 @@ func (d *PolicySubmission) InitializeWithToken(pending policyStore, tokens token
 }
 
 // PolicyListCheck checks the policy list status of this particular domain.
+// TODO: differentiate between errors and not-in-DB
 func (d *PolicySubmission) PolicyListCheck(pending policyStore, store policyStore, list policyList) *checker.Result {
 	result := checker.Result{Name: checker.PolicyList}
 	if list.HasDomain(d.Name) {
 		return result.Success()
 	}
 	_, err := store.GetPolicy(d.Name)
-	if err != nil {
+	if err == nil {
 		return result.Warning("Domain %s should soon be added to the policy list.", d.Name)
 	}
 	_, err = pending.GetPolicy(d.Name)
-	if err != nil {
+	if err == nil {
 		return result.Failure("The policy submission for %s is waiting on email validation.", d.Name)
 	}
 	return result.Failure("Domain %s is not on the policy list.", d.Name)
