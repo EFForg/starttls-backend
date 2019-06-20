@@ -2,100 +2,89 @@ package models
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
+	"github.com/EFForg/starttls-backend/policy"
 )
 
 // PolicySubmission represents an email domain's TLS policy submission.
 type PolicySubmission struct {
-	Name         string      `json:"domain"` // Domain that is preloaded
-	Email        string      `json:"-"`      // Contact e-mail for Domain
-	MXs          []string    `json:"mxs"`    // MXs that are valid for this domain
-	MTASTS       bool        `json:"mta_sts"`
-	State        DomainState `json:"state"`
-	LastUpdated  time.Time   `json:"last_updated"`
-	TestingStart time.Time   `json:"-"`
-	QueueWeeks   int         `json:"queue_weeks"`
+	Name   string `json:"domain"` // Domain that is preloaded
+	Email  string `json:"-"`      // Contact e-mail for Domain
+	MTASTS bool   `json:"mta_sts"`
+	Policy *policy.TLSPolicy
 }
 
-// domainStore is a simple interface for fetching and adding domain objects.
-type domainStore interface {
-	PutDomain(PolicySubmission) error
-	GetDomain(string, DomainState) (PolicySubmission, error)
-	GetDomains(DomainState) ([]PolicySubmission, error)
-	SetStatus(string, DomainState) error
-	RemoveDomain(string, DomainState) (PolicySubmission, error)
+// policyStore is a simple interface for fetching and adding domain objects.
+type policyStore interface {
+	PutOrUpdatePolicy(*PolicySubmission) error
+	GetPolicy(string) (PolicySubmission, error)
+	GetPolicies(bool) ([]PolicySubmission, error)
+	RemovePolicy(string) (PolicySubmission, error)
 }
-
-// DomainState represents the state of a single domain.
-type DomainState string
-
-// Possible values for DomainState
-const (
-	StateUnknown     = "unknown"     // Domain was never submitted, so we don't know.
-	StateUnconfirmed = "unvalidated" // Administrator has not yet confirmed their intention to add the domain.
-	StateTesting     = "queued"      // Queued for addition at next addition date pending continued validation
-	StateFailed      = "failed"      // Requested to be queued, but failed verification.
-	StateEnforce     = "added"       // On the list.
-)
 
 type policyList interface {
 	HasDomain(string) bool
 }
 
-// IsQueueable returns true if a domain can be submitted for validation and
-// queueing to the STARTTLS Everywhere Policy List.
-// A successful scan should already have been submitted for this domain,
-// and it should not already be on the policy list.
-// Returns (queuability, error message, and most recent scan)
-func (d *PolicySubmission) IsQueueable(domains domainStore, scans scanStore, list policyList) (bool, string, Scan) {
+// CanUpdate returns whether we can update the policyStore with this particular
+// Policy Submission. In some cases, you should be able to update the
+// existing policy. In other cases, you shouldn't.
+// TODO: test
+func (p *PolicySubmission) CanUpdate(policies policyStore) bool {
+	oldPolicy, err := policies.GetPolicy(p.Name)
+	// If this policy doesn't exist in the policyStore, we can add it.
+	if err != nil {
+		return true
+	}
+	// If the policies are the same, return true if emails are different.
+	if (oldPolicy.MTASTS && p.MTASTS) || oldPolicy.Policy.HostnamesEqual(p.Policy) {
+		return oldPolicy.Email != p.Email
+	}
+	// If old policy is manual and in testing, we can update it safely.
+	if !oldPolicy.MTASTS && oldPolicy.Policy.Mode == "testing" {
+		return true
+	}
+	return false
+}
+
+// HasValidScan checks whether this policy already has a recent scan as an initial
+// sanity check. This function isn't meant to be bullet-proof since state can change
+// between initial submission and final addition to the list, but we can short-circuit
+// premature failures here on initial submission.
+func (d *PolicySubmission) HasValidScan(scans scanStore) (bool, string) {
 	scan, err := scans.GetLatestScan(d.Name)
 	if err != nil {
 		return false, "We haven't scanned this domain yet. " +
 			"Please use the STARTTLS checker to scan your domain's " +
-			"STARTTLS configuration so we can validate your submission", scan
+			"STARTTLS configuration so we can validate your submission"
+	}
+	if scan.Timestamp.Add(time.Minute * 10).Before(time.Now()) {
+		return false, "We haven't scanned this domain recently. " +
+			"Please use the STARTTLS checker to scan your domain's " +
+			"STARTTLS configuration so we can validate your submission"
 	}
 	if scan.Data.Status != 0 {
-		return false, "Domain hasn't passed our STARTTLS security checks", scan
-	}
-	if list.HasDomain(d.Name) {
-		return false, "Domain is already on the policy list!", scan
-	}
-	if _, err := domains.GetDomain(d.Name, StateEnforce); err == nil {
-		return false, "Domain is already on the policy list!", scan
+		return false, "Domain hasn't passed our STARTTLS security checks"
 	}
 	// Domains without submitted MTA-STS support must match provided mx patterns.
 	if !d.MTASTS {
 		for _, hostname := range scan.Data.PreferredHostnames {
-			if !checker.PolicyMatches(hostname, d.MXs) {
-				return false, fmt.Sprintf("Hostnames %v do not match policy %v", scan.Data.PreferredHostnames, d.MXs), scan
+			if !checker.PolicyMatches(hostname, d.Policy.MXs) {
+				return false, fmt.Sprintf("Hostnames %v do not match policy %v", scan.Data.PreferredHostnames, d.Policy.MXs)
 			}
 		}
 	} else if !scan.SupportsMTASTS() {
-		return false, "Domain does not correctly implement MTA-STS.", scan
+		return false, "Domain does not correctly implement MTA-STS."
 	}
-	return true, "", scan
-}
-
-// PopulateFromScan updates a Domain's fields based on a scan of that domain.
-func (d *PolicySubmission) PopulateFromScan(scan Scan) {
-	// We should only trust MTA-STS info from a successful MTA-STS check.
-	if d.MTASTS && scan.SupportsMTASTS() {
-		// If the domain's MXs are missing, we can take them from the scan's
-		// PreferredHostnames, which must be a subset of those listed in the
-		// MTA-STS policy file.
-		if len(d.MXs) == 0 {
-			d.MXs = scan.Data.MTASTSResult.MXs
-		}
-	}
+	return true, ""
 }
 
 // InitializeWithToken adds this domain to the given DomainStore and initializes a validation token
 // for the addition. The newly generated Token is returned.
-func (d *PolicySubmission) InitializeWithToken(store domainStore, tokens tokenStore) (string, error) {
-	if err := store.PutDomain(*d); err != nil {
+func (d *PolicySubmission) InitializeWithToken(pending policyStore, tokens tokenStore) (string, error) {
+	if err := pending.PutOrUpdatePolicy(d); err != nil {
 		return "", err
 	}
 	token, err := tokens.PutToken(d.Name)
@@ -106,52 +95,26 @@ func (d *PolicySubmission) InitializeWithToken(store domainStore, tokens tokenSt
 }
 
 // PolicyListCheck checks the policy list status of this particular domain.
-func (d *PolicySubmission) PolicyListCheck(store domainStore, list policyList) *checker.Result {
+func (d *PolicySubmission) PolicyListCheck(pending policyStore, store policyStore, list policyList) *checker.Result {
 	result := checker.Result{Name: checker.PolicyList}
 	if list.HasDomain(d.Name) {
 		return result.Success()
 	}
-	domain, err := GetDomain(store, d.Name)
+	_, err := store.GetPolicy(d.Name)
 	if err != nil {
-		return result.Failure("Domain %s is not on the policy list.", d.Name)
+		return result.Warning("Domain %s should soon be added to the policy list.", d.Name)
 	}
-	if domain.State == StateEnforce {
-		log.Println("Warning: Domain was StateEnforce in DB but was not found on the policy list.")
-		return result.Success()
-	}
-	if domain.State == StateTesting {
-		return result.Warning("Domain %s is queued to be added to the policy list.", d.Name)
-	}
-	if domain.State == StateUnconfirmed {
-		return result.Failure("The policy addition request for %s is waiting on email validation", d.Name)
+	_, err = pending.GetPolicy(d.Name)
+	if err != nil {
+		return result.Failure("The policy submission for %s is waiting on email validation.", d.Name)
 	}
 	return result.Failure("Domain %s is not on the policy list.", d.Name)
 }
 
 // AsyncPolicyListCheck performs PolicyListCheck asynchronously.
 // domainStore and policyList should be safe for concurrent use.
-func (d PolicySubmission) AsyncPolicyListCheck(store domainStore, list policyList) <-chan checker.Result {
+func (d PolicySubmission) AsyncPolicyListCheck(pending policyStore, store policyStore, list policyList) <-chan checker.Result {
 	result := make(chan checker.Result)
-	go func() { result <- *d.PolicyListCheck(store, list) }()
+	go func() { result <- *d.PolicyListCheck(pending, store, list) }()
 	return result
-}
-
-// GetDomain retrieves Domain with the most "important" state.
-// At any given time, there can only be one domain that's either StateEnforce
-// or StateTesting. If that domain exists in the store, return that one.
-// Otherwise, look for a Domain policy in the unconfirmed state.
-func GetDomain(store domainStore, name string) (PolicySubmission, error) {
-	domain, err := store.GetDomain(name, StateEnforce)
-	if err == nil {
-		return domain, nil
-	}
-	domain, err = store.GetDomain(name, StateTesting)
-	if err == nil {
-		return domain, nil
-	}
-	domain, err = store.GetDomain(name, StateUnconfirmed)
-	if err == nil {
-		return domain, nil
-	}
-	return store.GetDomain(name, StateFailed)
 }
