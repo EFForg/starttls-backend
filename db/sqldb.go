@@ -22,8 +22,10 @@ const sqlTimeFormat = "2006-01-02 15:04:05"
 
 // SQLDatabase is a Database interface backed by postgresql.
 type SQLDatabase struct {
-	cfg  Config  // Configuration to define the DB connection.
-	conn *sql.DB // The database connection.
+	cfg             Config  // Configuration to define the DB connection.
+	conn            *sql.DB // The database connection.
+	PendingPolicies *PolicyDB
+	Policies        *PolicyDB
 }
 
 func getConnectionString(cfg Config) string {
@@ -45,7 +47,10 @@ func InitSQLDatabase(cfg Config) (*SQLDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SQLDatabase{cfg: cfg, conn: conn}, nil
+	return &SQLDatabase{cfg: cfg, conn: conn,
+		PendingPolicies: &PolicyDB{tableName: "pending_policies", conn: conn, locked: false},
+		Policies:        &PolicyDB{tableName: "policies", conn: conn, locked: false},
+	}, nil
 }
 
 // TOKEN DB FUNCTIONS
@@ -251,6 +256,8 @@ func (db SQLDatabase) ClearTables() error {
 		fmt.Sprintf("DELETE FROM %s", "hostname_scans"),
 		fmt.Sprintf("DELETE FROM %s", "blacklisted_emails"),
 		fmt.Sprintf("DELETE FROM %s", "aggregated_scans"),
+		fmt.Sprintf("DELETE FROM %s", "policies"),
+		fmt.Sprintf("DELETE FROM %s", "pending_policies"),
 		fmt.Sprintf("ALTER SEQUENCE %s_id_seq RESTART WITH 1", db.cfg.DbScanTable),
 	})
 }

@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS pending_policies
     email         TEXT NOT NULL,
     mta_sts       BOOLEAN DEFAULT FALSE,
     mxs           TEXT NOT NULL,
-    mode          VARCHAR(255) NOT NULL,
+    mode          VARCHAR(255) NOT NULL
 );
 
 
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS policies
     email         TEXT NOT NULL,
     mta_sts       BOOLEAN DEFAULT FALSE,
     mxs           TEXT NOT NULL,
-    mode          VARCHAR(255) NOT NULL,
+    mode          VARCHAR(255) NOT NULL
 );
 
 -- Schema change: add "last_updated" timestamp column if it doesn't exist.

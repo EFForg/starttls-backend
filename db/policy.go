@@ -1,99 +1,92 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/EFForg/starttls-backend/models"
+	"github.com/EFForg/starttls-backend/policy"
 )
 
-func (db SQLDatabase) queryDomain(sqlQuery string, args ...interface{}) (models.PolicySubmission, error) {
-	query := fmt.Sprintf(sqlQuery, "domain, email, data, status, last_updated, queue_weeks")
-	data := models.PolicySubmission{}
+type PolicyDB struct {
+	tableName string
+	conn      *sql.DB
+	locked    bool
+}
+
+func (p *PolicyDB) formQuery(query string) string {
+	return fmt.Sprintf(query, p.tableName, "domain, email, mta_sts, mxs, mode")
+}
+
+type scanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func (p *PolicyDB) scanPolicy(result scanner) (models.PolicySubmission, error) {
+	data := models.PolicySubmission{Policy: new(policy.TLSPolicy)}
 	var rawMXs string
-	err := db.conn.QueryRow(query, args...).Scan(
-		&data.Name, &data.Email, &rawMXs, &data.State, &data.LastUpdated, &data.QueueWeeks)
-	data.MXs = strings.Split(rawMXs, ",")
-	if len(rawMXs) == 0 {
-		data.MXs = []string{}
-	}
+	err := result.Scan(
+		&data.Name, &data.Email,
+		&data.MTASTS, &rawMXs, &data.Policy.Mode)
+	data.Policy.MXs = strings.Split(rawMXs, ",")
 	return data, err
 }
 
-func (db SQLDatabase) queryDomainsWhere(condition string, args ...interface{}) ([]models.PolicySubmission, error) {
-	query := fmt.Sprintf("SELECT domain, email, data, status, last_updated, queue_weeks FROM domains WHERE %s", condition)
-	rows, err := db.conn.Query(query, args...)
+func (p *PolicyDB) GetPolicies(mtasts bool) ([]models.PolicySubmission, error) {
+	rows, err := p.conn.Query(p.formQuery(
+		"SELECT %[2]s FROM %[1]s WHERE mta_sts=$1"), mtasts)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	domains := []models.PolicySubmission{}
+	policies := []models.PolicySubmission{}
 	for rows.Next() {
-		var domain models.PolicySubmission
-		var rawMXs string
-		if err := rows.Scan(&domain.Name, &domain.Email, &rawMXs, &domain.State, &domain.LastUpdated, &domain.QueueWeeks); err != nil {
+		policy, err := p.scanPolicy(rows)
+		if err != nil {
 			return nil, err
 		}
-		domain.MXs = strings.Split(rawMXs, ",")
-		domains = append(domains, domain)
+		policies = append(policies, policy)
 	}
-	return domains, nil
+	return policies, nil
 }
 
-// =============== models.DomainStore impl ===============
-
-// PutDomain inserts a particular domain into the database. If the domain does
-// not yet exist in the database, we initialize it with StateUnconfirmed
-// If there is already a domain in the database with StateUnconfirmed, performs
-// an update of the fields.
-func (db *SQLDatabase) PutDomain(domain models.PolicySubmission) error {
-	_, err := db.conn.Exec("INSERT INTO domains(domain, email, data, status, queue_weeks, mta_sts) "+
-		"VALUES($1, $2, $3, $4, $5, $6) "+
-		"ON CONFLICT ON CONSTRAINT domains_pkey DO UPDATE SET email=$2, data=$3, queue_weeks=$5",
-		domain.Name, domain.Email, strings.Join(domain.MXs[:], ","),
-		models.StateUnconfirmed, domain.QueueWeeks, domain.MTASTS)
-	return err
+func (p *PolicyDB) GetPolicy(domainName string) (models.PolicySubmission, error) {
+	row := p.conn.QueryRow(p.formQuery(
+		"SELECT %[2]s FROM %[1]s WHERE domain=$1"), domainName)
+	return p.scanPolicy(row)
 }
 
-// GetDomain retrieves the status and information associated with a particular
-// mailserver domain.
-func (db SQLDatabase) GetDomain(domain string, state models.DomainState) (models.PolicySubmission, error) {
-	return db.queryDomain("SELECT %s FROM domains WHERE domain=$1 AND status=$2", domain, state)
+func (p *PolicyDB) RemovePolicy(domainName string) (models.PolicySubmission, error) {
+	row := p.conn.QueryRow(p.formQuery(
+		"DELETE FROM %[1]s WHERE domain=$1 RETURNING %[2]s"), domainName)
+	return p.scanPolicy(row)
 }
 
-// GetDomains retrieves all the domains which match a particular state,
-// that are not in MTA_STS mode
-func (db SQLDatabase) GetDomains(state models.DomainState) ([]models.PolicySubmission, error) {
-	return db.queryDomainsWhere("status=$1", state)
-}
-
-// GetMTASTSDomains retrieves domains which wish their policy to be queued with their MTASTS.
-func (db SQLDatabase) GetMTASTSDomains() ([]models.PolicySubmission, error) {
-	return db.queryDomainsWhere("mta_sts=TRUE")
-}
-
-// SetStatus sets the status of a particular domain object to |state|.
-func (db SQLDatabase) SetStatus(domain string, state models.DomainState) error {
-	var testingStart time.Time
-	if state == models.StateTesting {
-		testingStart = time.Now()
+func (p *PolicyDB) PutOrUpdatePolicy(ps *models.PolicySubmission) error {
+	if p.locked && !ps.CanUpdate(p) {
+		return fmt.Errorf("can't update policy in restricted table")
 	}
-	_, err := db.conn.Exec("UPDATE domains SET status = $1, testing_start = $2 WHERE domain=$3",
-		state, testingStart, domain)
+	if p.locked && ps.Policy == nil {
+		return fmt.Errorf("can't degrade policy in restricted table")
+	}
+	if ps.Policy == nil {
+		ps.Policy = &policy.TLSPolicy{MXs: []string{}, Mode: ""}
+	}
+	_, err := p.conn.Exec(p.formQuery(
+		"INSERT INTO %[1]s(%[2]s) VALUES($1, $2, $3, $4, $5) "+
+			"ON CONFLICT (domain) DO UPDATE SET "+
+			"email=$2, mta_sts=$3, mxs=$4, mode=$5"),
+		ps.Name, ps.Email, ps.MTASTS,
+		strings.Join(ps.Policy.MXs[:], ","), ps.Policy.Mode)
 	return err
-}
-
-// RemoveDomain removes a particular domain and returns it.
-func (db SQLDatabase) RemoveDomain(domain string, state models.DomainState) (models.PolicySubmission, error) {
-	return db.queryDomain("DELETE FROM domains WHERE domain=$1 AND status=$2 RETURNING %s")
 }
 
 // DomainsToValidate [interface Validator] retrieves domains from the
 // DB whose policies should be validated.
 func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 	domains := []string{}
-	data, err := db.GetDomains(models.StateTesting)
+	data, err := db.PendingPolicies.GetPolicies(false)
 	if err != nil {
 		return domains, err
 	}
@@ -106,12 +99,12 @@ func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 // HostnamesForDomain [interface Validator] retrieves the hostname policy for
 // a particular domain.
 func (db SQLDatabase) HostnamesForDomain(domain string) ([]string, error) {
-	data, err := db.GetDomain(domain, models.StateEnforce)
+	data, err := db.Policies.GetPolicy(domain)
 	if err != nil {
-		data, err = db.GetDomain(domain, models.StateTesting)
+		data, err = db.PendingPolicies.GetPolicy(domain)
 	}
 	if err != nil {
 		return []string{}, err
 	}
-	return data.MXs, nil
+	return data.Policy.MXs, nil
 }
