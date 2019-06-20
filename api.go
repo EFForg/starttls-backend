@@ -41,7 +41,7 @@ type checkPerformer func(API, string) (checker.DomainResult, error)
 // Any POST request accepts either URL query parameters or data value parameters,
 // and prefers the latter if both are present.
 type API struct {
-	Database    db.Database
+	Database    *db.SQLDatabase
 	CheckDomain checkPerformer
 	List        PolicyList
 	DontScan    map[string]bool
@@ -90,7 +90,7 @@ func (api *API) wrapper(handler apiHandler) func(w http.ResponseWriter, r *http.
 }
 
 func defaultCheck(api API, domain string) (checker.DomainResult, error) {
-	policyChan := models.PolicySubmission{Name: domain}.AsyncPolicyListCheck(api.Database, api.List)
+	policyChan := models.PolicySubmission{Name: domain}.AsyncPolicyListCheck(api.Database.PendingPolicies, api.Database.Policies, api.List)
 	c := checker.Checker{
 		Cache: &checker.ScanCache{
 			ScanStore:  api.Database,
@@ -171,32 +171,26 @@ func (api API) Scan(r *http.Request) APIResponse {
 // MaxHostnames is the maximum number of hostnames that can be specified for a single domain's TLS policy.
 const MaxHostnames = 8
 
-// Extracts relevant parameters from http.Request for a POST to /api/queue
-// TODO: also validate hostnames as FQDNs.
+// Extracts relevant parameters from http.Request for a POST to /api/queue into PolicySubmission
+// If MTASTS is set, doesn't try to extract hostnames. Otherwise, expects between 1 and MaxHostnames
+// valid hostnames to be given in |r|.
 func getDomainParams(r *http.Request) (models.PolicySubmission, error) {
 	name, err := getASCIIDomain(r)
 	if err != nil {
 		return models.PolicySubmission{}, err
 	}
+	email, err := getParam("email", r)
+	if err != nil {
+		email = validationAddress(name)
+	}
 	mtasts := r.FormValue("mta-sts")
 	domain := models.PolicySubmission{
 		Name:   name,
+		Email:  email,
 		MTASTS: mtasts == "on",
-		State:  models.StateUnconfirmed,
 	}
-	email, err := getParam("email", r)
-	if err == nil {
-		domain.Email = email
-	} else {
-		domain.Email = validationAddress(&domain)
-	}
-	queueWeeks, err := getInt("weeks", r, 4, 52, 4)
-	if err != nil {
-		return domain, err
-	}
-	domain.QueueWeeks = queueWeeks
-
-	if mtasts != "on" {
+	if !domain.MTASTS {
+		p := policy.TLSPolicy{Mode: "testing", MXs: make([]string, 0)}
 		for _, hostname := range r.PostForm["hostnames"] {
 			if len(hostname) == 0 {
 				continue
@@ -204,14 +198,15 @@ func getDomainParams(r *http.Request) (models.PolicySubmission, error) {
 			if !validDomainName(strings.TrimPrefix(hostname, ".")) {
 				return domain, fmt.Errorf("Hostname %s is invalid", hostname)
 			}
-			domain.MXs = append(domain.MXs, hostname)
+			p.MXs = append(p.MXs, hostname)
 		}
-		if len(domain.MXs) == 0 {
-			return domain, fmt.Errorf("No MX hostnames supplied for domain %s", domain.Name)
+		if len(p.MXs) == 0 {
+			return domain, fmt.Errorf("No MX hostnames supplied for domain %s", name)
 		}
-		if len(domain.MXs) > MaxHostnames {
+		if len(p.MXs) > MaxHostnames {
 			return domain, fmt.Errorf("No more than 8 MX hostnames are permitted")
 		}
+		domain.Policy = &p
 	}
 	return domain, nil
 }
@@ -233,12 +228,14 @@ func (api API) Queue(r *http.Request) APIResponse {
 		if err != nil {
 			return badRequest(err.Error())
 		}
-		ok, msg, scan := domain.IsQueueable(api.Database, api.Database, api.List)
+		if !domain.CanUpdate(api.Database.Policies) {
+			return badRequest("existing submission can't be updated")
+		}
+		ok, msg := domain.HasValidScan(api.Database)
 		if !ok {
 			return badRequest(msg)
 		}
-		domain.PopulateFromScan(scan)
-		token, err := domain.InitializeWithToken(api.Database, api.Database)
+		token, err := domain.InitializeWithToken(api.Database.PendingPolicies, api.Database)
 		if err != nil {
 			return serverError(err.Error())
 		}
@@ -251,23 +248,8 @@ func (api API) Queue(r *http.Request) APIResponse {
 			Response:   fmt.Sprintf("Thank you for submitting your domain. Please check postmaster@%s to validate that you control the domain.", domain.Name),
 		}
 	}
-	// GET: Retrieve domain status from queue
-	if r.Method == http.MethodGet {
-		domainName, err := getASCIIDomain(r)
-		if err != nil {
-			return badRequest(err.Error())
-		}
-		domainObj, err := models.GetDomain(api.Database, domainName)
-		if err != nil {
-			return APIResponse{StatusCode: http.StatusNotFound, Message: err.Error()}
-		}
-		return APIResponse{
-			StatusCode: http.StatusOK,
-			Response:   domainObj,
-		}
-	}
 	return APIResponse{StatusCode: http.StatusMethodNotAllowed,
-		Message: "/api/queue only accepts POST and GET requests"}
+		Message: "/api/queue only accepts POST requests"}
 }
 
 // Validate handles requests to /api/validate
@@ -284,7 +266,7 @@ func (api API) Validate(r *http.Request) APIResponse {
 			Message: "/api/validate only accepts POST requests"}
 	}
 	tokenData := models.Token{Token: token}
-	domain, userErr, dbErr := tokenData.Redeem(api.Database, api.Database)
+	domain, userErr, dbErr := tokenData.Redeem(api.Database.PendingPolicies, api.Database.Policies, api.Database)
 	if userErr != nil {
 		return badRequest(userErr.Error())
 	}
