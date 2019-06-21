@@ -232,28 +232,24 @@ func TestDomainsToValidate(t *testing.T) {
 	}
 }
 
-// TODO: fix test
-// func TestHostnamesForDomain(t *testing.T) {
-// 	database.ClearTables()
-// 	database.PendingPolicies.PutOrUpdatePolicy(&models.PolicySubmission{Name: "x",
-// 		Policy: &policy.TLSPolicy{Mode: "testing", MXs: []string{"x.com", "y.org"}}})
-// 	database.PendingPolicies.PutOrUpdatePolicy(&models.PolicySubmission{Name: "y",
-// 		Policy: &policy.TLSPolicy{Mode: "testing", MXs: []string{}}})
-// 	result, err := database.HostnamesForDomain("x")
-// 	if err != nil {
-// 		t.Fatalf("HostnamesForDomain failed: %v\n", err)
-// 	}
-// 	if len(result) != 2 || result[0] != "x.com" || result[1] != "y.org" {
-// 		t.Errorf("Expected two hostnames, x.com and y.org\n")
-// 	}
-// 	result, err = database.HostnamesForDomain("y")
-// 	if err != nil {
-// 		t.Fatalf("HostnamesForDomain failed: %v\n", err)
-// 	}
-// 	if len(result) > 0 {
-// 		t.Errorf("Expected no hostnames to be returned, got %s\n", result[0])
-// 	}
-// }
+func TestHostnamesForDomain(t *testing.T) {
+	database.ClearTables()
+	database.PendingPolicies.PutOrUpdatePolicy(&models.PolicySubmission{Name: "x",
+		Policy: &policy.TLSPolicy{Mode: "testing", MXs: []string{"x.com", "y.org"}}})
+	database.Policies.PutOrUpdatePolicy(&models.PolicySubmission{Name: "y",
+		Policy: &policy.TLSPolicy{Mode: "testing", MXs: []string{}}})
+	result, err := database.HostnamesForDomain("x")
+	if err != nil {
+		t.Fatalf("HostnamesForDomain failed: %v\n", err)
+	}
+	if len(result) != 2 || result[0] != "x.com" || result[1] != "y.org" {
+		t.Errorf("Expected two hostnames, x.com and y.org\n")
+	}
+	result, err = database.HostnamesForDomain("y")
+	if err == nil {
+		t.Errorf("HostnamesForDomain should fail for y\n")
+	}
+}
 
 func TestPutAndIsBlacklistedEmail(t *testing.T) {
 	database.ClearTables()

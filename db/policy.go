@@ -83,7 +83,7 @@ func (p *PolicyDB) PutOrUpdatePolicy(ps *models.PolicySubmission) error {
 }
 
 // DomainsToValidate [interface Validator] retrieves domains from the
-// DB whose policies should be validated.
+// DB whose policies should be validated-- all Pending policies.
 func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 	domains := []string{}
 	data, err := db.PendingPolicies.GetPolicies(false)
@@ -97,12 +97,9 @@ func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 }
 
 // HostnamesForDomain [interface Validator] retrieves the hostname policy for
-// a particular domain.
+// a particular domain in Pending.
 func (db SQLDatabase) HostnamesForDomain(domain string) ([]string, error) {
-	data, err := db.Policies.GetPolicy(domain)
-	if err != nil {
-		data, err = db.PendingPolicies.GetPolicy(domain)
-	}
+	data, err := db.PendingPolicies.GetPolicy(domain)
 	if err != nil {
 		return []string{}, err
 	}
