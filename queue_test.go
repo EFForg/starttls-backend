@@ -98,8 +98,8 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	resp, _ = http.Get(queueDomainGetPath)
 
 	// 2-T. Check to see domain is in pending
-	domain, err := api.Database.PendingPolicies.GetPolicy("example.com")
-	if err != nil {
+	domain, ok, err := api.Database.PendingPolicies.GetPolicy("example.com")
+	if err != nil || !ok {
 		t.Errorf("Queued domain should be in pending")
 	}
 	if len(domain.Policy.MXs) != 1 {
@@ -143,12 +143,12 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Returned invalid JSON object:%v\n", string(domainBody))
 	}
-	_, err = api.Database.Policies.GetPolicy(domain.Name)
-	if err != nil {
+	_, ok, err = api.Database.Policies.GetPolicy(domain.Name)
+	if err != nil || !ok {
 		t.Errorf("Token validation should have automatically queued domain")
 	}
-	_, err = api.Database.PendingPolicies.GetPolicy(domain.Name)
-	if err == nil {
+	_, ok, err = api.Database.PendingPolicies.GetPolicy(domain.Name)
+	if ok {
 		t.Errorf("Token validation should have removed domain from pending")
 	}
 }

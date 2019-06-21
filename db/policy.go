@@ -55,10 +55,14 @@ func (p *PolicyDB) GetPolicies(mtasts bool) ([]models.PolicySubmission, error) {
 }
 
 // GetPolicy returns the policy submission for the given domain.
-func (p *PolicyDB) GetPolicy(domainName string) (models.PolicySubmission, error) {
+func (p *PolicyDB) GetPolicy(domainName string) (models.PolicySubmission, bool, error) {
 	row := p.conn.QueryRow(p.formQuery(
 		"SELECT %[2]s FROM %[1]s WHERE domain=$1"), domainName)
-	return p.scanPolicy(row)
+	result, err := p.scanPolicy(row)
+	if err == sql.ErrNoRows {
+		return result, false, nil
+	}
+	return result, true, err
 }
 
 // RemovePolicy removes the policy submission with the given domain from
@@ -107,7 +111,10 @@ func (db SQLDatabase) DomainsToValidate() ([]string, error) {
 // HostnamesForDomain [interface Validator] retrieves the hostname policy for
 // a particular domain in Pending.
 func (db SQLDatabase) HostnamesForDomain(domain string) ([]string, error) {
-	data, err := db.PendingPolicies.GetPolicy(domain)
+	data, ok, err := db.PendingPolicies.GetPolicy(domain)
+	if !ok {
+		err = fmt.Errorf("domain %s not in database", domain)
+	}
 	if err != nil {
 		return []string{}, err
 	}

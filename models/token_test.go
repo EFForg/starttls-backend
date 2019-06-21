@@ -21,7 +21,7 @@ func (m *mockTokenStore) UseToken(token string) (string, error) {
 }
 
 func TestRedeemToken(t *testing.T) {
-	pending := mockPolicyStore{policy: PolicySubmission{Name: "anything"}, err: nil}
+	pending := mockPolicyStore{policy: PolicySubmission{Name: "anything"}, err: nil, ok: true}
 	store := mockPolicyStore{}
 	token := Token{Token: "token"}
 	domain, userErr, dbErr := token.Redeem(&pending, &store, &mockTokenStore{domain: "anything", err: nil})
@@ -34,16 +34,17 @@ func TestRedeemToken(t *testing.T) {
 }
 
 func TestRedeemTokenFailures(t *testing.T) {
+	emptyStore := &mockPolicyStore{ok: true}
 	token := Token{Token: "token"}
-	_, userErr, _ := token.Redeem(&mockPolicyStore{}, &mockPolicyStore{}, &mockTokenStore{err: errors.New("")})
+	_, userErr, _ := token.Redeem(emptyStore, emptyStore, &mockTokenStore{err: errors.New("")})
 	if userErr == nil {
 		t.Error("Errors reported from the token store should be interpreted as usage error (token already used, or doesn't exist)")
 	}
-	_, _, dbErr := token.Redeem(&mockPolicyStore{}, &mockPolicyStore{err: errors.New("")}, &mockTokenStore{})
+	_, _, dbErr := token.Redeem(emptyStore, &mockPolicyStore{err: errors.New("")}, &mockTokenStore{})
 	if dbErr == nil {
 		t.Error("Errors reported from the domain store should be interpreted as a hard failure")
 	}
-	_, _, dbErr = token.Redeem(&mockPolicyStore{err: errors.New("")}, &mockPolicyStore{}, &mockTokenStore{})
+	_, _, dbErr = token.Redeem(&mockPolicyStore{err: errors.New("")}, emptyStore, &mockTokenStore{})
 	if dbErr == nil {
 		t.Error("Errors reported from the domain store should be interpreted as a hard failure")
 	}

@@ -12,6 +12,7 @@ import (
 
 type mockPolicyStore struct {
 	policy   PolicySubmission
+	ok       bool
 	policies []PolicySubmission
 	err      error
 }
@@ -21,8 +22,8 @@ func (m *mockPolicyStore) PutOrUpdatePolicy(p *PolicySubmission) error {
 	return m.err
 }
 
-func (m *mockPolicyStore) GetPolicy(domain string) (PolicySubmission, error) {
-	return m.policy, m.err
+func (m *mockPolicyStore) GetPolicy(domain string) (PolicySubmission, bool, error) {
+	return m.policy, m.ok, m.err
 }
 
 func (m *mockPolicyStore) GetPolicies(_ bool) ([]PolicySubmission, error) {
@@ -112,35 +113,36 @@ func TestCanUpdate(t *testing.T) {
 		desc      string
 		oldPolicy PolicySubmission // Return from GetPolicy
 		policy    PolicySubmission // Policy to try to insert
+		ok        bool             // Does GetPolicy return OK?
 		err       error            // Does GetPolicy return an error?
 		expected  bool
 	}{
-		{"policy not found", newP(), newP(), errors.New("policy not found in DB"), true},
-		{"no update if policies same 1", newP().withMode("testing"), newP().withMode("testing"), nil, false},
-		{"no update if policies same 2", newP().withMode("enforce"), newP().withMode("enforce"), nil, false},
+		{"policy not found", newP(), newP(), false, nil, true},
+		{"no update if policies same 1", newP().withMode("testing"), newP().withMode("testing"), true, nil, false},
+		{"no update if policies same 2", newP().withMode("enforce"), newP().withMode("enforce"), true, nil, false},
 		{"no update if policies same 3",
 			newP().withMode("enforce").withMTASTS().withMXs([]string{"a", "b", "c"}),
 			newP().withMode("enforce").withMTASTS().withMXs([]string{"a", "c", "b"}),
-			nil, false},
-		{"can upgrade to manual enforce", newP().withMode("testing"), newP().withMode("enforce"), nil, true},
-		{"can't downgrade to enforce", newP().withMode("enforce"), newP().withMode("testing"), nil, false},
+			true, nil, false},
+		{"can upgrade to manual enforce", newP().withMode("testing"), newP().withMode("enforce"), true, nil, true},
+		{"can't downgrade to enforce", newP().withMode("enforce"), newP().withMode("testing"), true, nil, false},
 		{"prevent upgrade to enforce with MTA-STS",
 			newP().withMTASTS().withMode("testing"),
 			newP().withMode("enforce"),
-			nil, false},
+			true, nil, false},
 		{"no mx changes with MTA-STS, even in testing",
 			newP().withMTASTS().withMode("testing").withMXs([]string{"a", "b"}),
 			newP().withMTASTS().withMode("testing").withMXs([]string{"a", "b", "c"}),
-			nil, false},
+			true, nil, false},
 		{"mx can change in testing",
 			newP().withMode("testing").withMXs([]string{"a", "b"}),
 			newP().withMode("testing").withMXs([]string{"a", "b", "c"}),
-			nil, true},
+			true, nil, true},
 		{"update email", newP().withEmail("abc").withMode("enforce"), newP().withEmail("a").withMode("enforce"),
-			nil, true},
+			true, nil, true},
 	}
 	for _, tc := range testCases {
-		store := mockPolicyStore{policy: tc.oldPolicy, err: tc.err}
+		store := mockPolicyStore{policy: tc.oldPolicy, err: tc.err, ok: tc.ok}
 		got := (&tc.policy).CanUpdate(&store)
 		if got != tc.expected {
 			t.Errorf("%s: expected %t but got %t",
@@ -223,16 +225,8 @@ func TestPolicyCheck(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		policy := &PolicySubmission{Policy: &policy.TLSPolicy{}}
-		var dbErr error
-		if !tc.inDB {
-			dbErr = errors.New("DB err")
-		}
-		var pendingDBErr error
-		if !tc.inPendingDB {
-			pendingDBErr = errors.New("pending err")
-		}
 		result := policy.PolicyListCheck(
-			&mockPolicyStore{err: pendingDBErr}, &mockPolicyStore{err: dbErr}, mockList{tc.onList})
+			&mockPolicyStore{ok: tc.inPendingDB}, &mockPolicyStore{ok: tc.inDB}, mockList{tc.onList})
 		if result.Status != tc.expected {
 			t.Errorf("%s: expected status %d, got result %v", tc.desc, tc.expected, result)
 		}

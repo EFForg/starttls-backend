@@ -137,6 +137,30 @@ func TestGetAllScans(t *testing.T) {
 	}
 }
 
+func TestGetNonexistentPolicy(t *testing.T) {
+	database.ClearTables()
+	_, ok, err := database.Policies.GetPolicy("fake")
+	if err != nil || ok {
+		t.Errorf("Expected nothing to return and ok to be false.")
+	}
+}
+
+func TestGetPoliciesEmpty(t *testing.T) {
+	database.ClearTables()
+	_, err := database.Policies.GetPolicies(false)
+	if err != nil {
+		t.Errorf("Get policies failed: %v", err)
+	}
+	err = database.Policies.PutOrUpdatePolicy(&models.PolicySubmission{Name: "abcde", MTASTS: true})
+	policies, err := database.Policies.GetPolicies(false)
+	if len(policies) > 0 {
+		t.Errorf("Should not have returned any policies.")
+	}
+	if err != nil {
+		t.Errorf("Get policies failed: %v", err)
+	}
+}
+
 func TestPutGetDomain(t *testing.T) {
 	database.ClearTables()
 	data := models.PolicySubmission{
@@ -147,9 +171,9 @@ func TestPutGetDomain(t *testing.T) {
 	if err != nil {
 		t.Errorf("PutDomain failed: %v\n", err)
 	}
-	retrievedData, err := database.Policies.GetPolicy(data.Name)
-	if err != nil {
-		t.Errorf("GetDomain(%s) failed: %v\n", data.Name, err)
+	retrievedData, ok, err := database.Policies.GetPolicy(data.Name)
+	if !ok || err != nil {
+		t.Fatalf("GetDomain(%s) failed: %v\n", data.Name, err)
 	}
 	if retrievedData.Name != data.Name {
 		t.Errorf("Somehow, GetDomain retrieved the wrong object?")
@@ -172,7 +196,10 @@ func TestUpsertDomain(t *testing.T) {
 	if err != nil {
 		t.Errorf("PutDomain(%s) failed: %v\n", "testing.com", err)
 	}
-	retrievedData, err := database.Policies.GetPolicy("testing.com")
+	retrievedData, ok, err := database.Policies.GetPolicy("testing.com")
+	if !ok || err != nil {
+		t.Fatalf("GetPolicy failed: %v", err)
+	}
 	if retrievedData.Policy.MXs[0] != "hello_darkness_my_old_friend" || retrievedData.Email != "actual_admin@testing.com" {
 		t.Errorf("Email and MXs should have been rewritten: %v\n", retrievedData)
 	}

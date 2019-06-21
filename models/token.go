@@ -23,8 +23,8 @@ func (t *Token) Redeem(pending policyStore, store policyStore, tokens tokenStore
 	if err != nil {
 		return domain, err, nil
 	}
-	domainData, err := pending.GetPolicy(domain)
-	if err != nil {
+	domainData, ok, err := pending.GetPolicy(domain)
+	if !ok || err != nil {
 		return domain, nil, err
 	}
 	err = store.PutOrUpdatePolicy(&domainData)

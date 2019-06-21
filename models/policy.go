@@ -19,7 +19,7 @@ type PolicySubmission struct {
 // policyStore is a simple interface for fetching and adding domain objects.
 type policyStore interface {
 	PutOrUpdatePolicy(*PolicySubmission) error
-	GetPolicy(string) (PolicySubmission, error)
+	GetPolicy(string) (PolicySubmission, bool, error)
 	GetPolicies(bool) ([]PolicySubmission, error)
 	RemovePolicy(string) (PolicySubmission, error)
 }
@@ -40,11 +40,14 @@ func (p *PolicySubmission) samePolicy(other PolicySubmission) bool {
 // Policy Submission. In some cases, you should be able to update the
 // existing policy. In other cases, you shouldn't.
 func (p *PolicySubmission) CanUpdate(policies policyStore) bool {
-	oldPolicy, err := policies.GetPolicy(p.Name)
+	oldPolicy, ok, err := policies.GetPolicy(p.Name)
 	// If this policy doesn't exist in the policyStore, we can add it.
-	// TODO: not to conflate between real errors and "not present" errors.
-	if err != nil {
+	if !ok {
 		return true
+	}
+	// If something messed up, we can't add it.
+	if err != nil {
+		return false
 	}
 	// If the policies are the same, return true if emails are different.
 	if p.samePolicy(oldPolicy) {
@@ -103,19 +106,24 @@ func (p *PolicySubmission) InitializeWithToken(pending policyStore, tokens token
 }
 
 // PolicyListCheck checks the policy list status of this particular domain.
-// TODO: differentiate between errors and not-in-DB
 func (p *PolicySubmission) PolicyListCheck(pending policyStore, store policyStore, list policyList) *checker.Result {
 	result := checker.Result{Name: checker.PolicyList}
 	if list.HasDomain(p.Name) {
 		return result.Success()
 	}
-	_, err := store.GetPolicy(p.Name)
-	if err == nil {
+	_, ok, err := store.GetPolicy(p.Name)
+	if ok {
 		return result.Warning("Domain %s should soon be added to the policy list.", p.Name)
 	}
-	_, err = pending.GetPolicy(p.Name)
-	if err == nil {
+	if err != nil {
+		return result.Error("Error retrieving domain from database.")
+	}
+	_, ok, err = pending.GetPolicy(p.Name)
+	if ok {
 		return result.Failure("The policy submission for %s is waiting on email validation.", p.Name)
+	}
+	if err != nil {
+		return result.Error("Error retrieving domain from database.")
 	}
 	return result.Failure("Domain %s is not on the policy list.", p.Name)
 }
