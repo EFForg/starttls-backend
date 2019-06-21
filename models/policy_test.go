@@ -30,7 +30,9 @@ func (m *mockPolicyStore) GetPolicies(_ bool) ([]PolicySubmission, error) {
 }
 
 func (m *mockPolicyStore) RemovePolicy(_ string) (PolicySubmission, error) {
-	return m.policy, m.err
+	policy := m.policy
+	m.policy.Name = "-removed-"
+	return policy, m.err
 }
 
 type mockList struct {
@@ -66,6 +68,40 @@ func (p PolicySubmission) withMTASTS() PolicySubmission {
 func (p PolicySubmission) withEmail(email string) PolicySubmission {
 	p.Email = email
 	return p
+}
+
+func TestSamePolicy(t *testing.T) {
+	empty := PolicySubmission{}
+	var initialized = func() PolicySubmission {
+		return PolicySubmission{Policy: &policy.TLSPolicy{}}
+	}
+	var testCases = []struct {
+		desc     string
+		policy   PolicySubmission
+		other    PolicySubmission
+		expected bool
+	}{
+		{"Empty structs equal", empty, empty, true},
+		{"Names unequal", PolicySubmission{Name: "hello"}, PolicySubmission{Name: "nope"}, false},
+		{"MTASTS structs equal", empty.withMTASTS(), empty.withMTASTS(), true},
+		{"Modes not equal", initialized().withMode("testing"), initialized().withMode("enforce"), false},
+		{"Modes equal", initialized().withMode("testing"), initialized().withMode("testing"), true},
+		{"MXs equal",
+			initialized().withMXs([]string{"a", "b", "c"}),
+			initialized().withMXs([]string{"b", "c", "a"}), true},
+		{"MXs not equal",
+			initialized().withMXs([]string{"a", "b"}),
+			initialized().withMXs([]string{"b", "c", "a"}), false},
+		{"MXs equal but mode unequal",
+			initialized().withMode("enforce").withMXs([]string{"a", "b", "c"}),
+			initialized().withMode("testing").withMXs([]string{"b", "c", "a"}), false},
+	}
+	for _, tc := range testCases {
+		got := (&tc.policy).samePolicy(tc.other)
+		if got != tc.expected {
+			t.Errorf("%s: expected %t, got %t", tc.desc, tc.expected, got)
+		}
+	}
 }
 
 func TestCanUpdate(t *testing.T) {

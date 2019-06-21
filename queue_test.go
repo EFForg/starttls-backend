@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-
-	"github.com/EFForg/starttls-backend/models"
 )
 
 func validQueueData(scan bool) url.Values {
@@ -78,34 +76,6 @@ func TestQueueDomainHidesToken(t *testing.T) {
 	}
 }
 
-func TestQueueDomainQueueWeeks(t *testing.T) {
-	defer teardown()
-
-	requestData := validQueueData(true)
-	requestData.Set("weeks", "50")
-	http.PostForm(server.URL+"/api/queue", requestData)
-	resp, _ := http.Get(server.URL + "/api/queue?domain=" + requestData.Get("domain"))
-
-	responseBody, _ := ioutil.ReadAll(resp.Body)
-	if !bytes.Contains(responseBody, []byte("50")) {
-		t.Errorf("Queueing domain should set weeks field properly")
-	}
-}
-
-func TestQueueDomainInvalidWeeks(t *testing.T) {
-	defer teardown()
-
-	requestData := validQueueData(true)
-	invalidWeeks := []string{"53", "3", "0", "-1", "abc", "5.5"}
-	for _, week := range invalidWeeks {
-		requestData.Set("weeks", week)
-		resp, _ := http.PostForm(server.URL+"/api/queue", requestData)
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Fatalf("Expected POST to api/queue to fail with weeks=%s.", week)
-		}
-	}
-}
-
 // Tests basic queuing workflow.
 // Requests domain to be queued, and validates corresponding e-mail token.
 // Domain status should then be updated to "queued".
@@ -127,20 +97,14 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	queueDomainGetPath := server.URL + "/api/queue?domain=" + queueDomainPostData.Get("domain")
 	resp, _ = http.Get(queueDomainGetPath)
 
-	// 2-T. Check to see domain status was initialized to 'unvalidated'
-	domainBody, _ := ioutil.ReadAll(resp.Body)
-	domain := models.PolicySubmission{}
-	err := json.Unmarshal(domainBody, &APIResponse{Response: &domain})
+	// 2-T. Check to see domain is in pending
+	domain, err := api.Database.PendingPolicies.GetPolicy("example.com")
 	if err != nil {
-		t.Fatalf("Returned invalid JSON object:%v\n", string(domainBody))
+		t.Errorf("Queued domain should be in pending")
 	}
-	if domain.State != "unvalidated" {
-		t.Fatalf("Initial state for domains should be 'unvalidated'")
-	}
-	if len(domain.MXs) != 1 {
+	if len(domain.Policy.MXs) != 1 {
 		t.Fatalf("Domain should have loaded one hostname into policy")
 	}
-
 	// 3. Validate domain token
 	token, err := api.Database.GetTokenByDomain(queueDomainPostData.Get("domain"))
 	if err != nil {
@@ -154,7 +118,7 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	}
 
 	// 3-T. Ensure response body contains domain name
-	domainBody, _ = ioutil.ReadAll(resp.Body)
+	domainBody, _ := ioutil.ReadAll(resp.Body)
 	var responseObj map[string]interface{}
 	err = json.Unmarshal(domainBody, &responseObj)
 	if err != nil {
@@ -179,8 +143,13 @@ func TestBasicQueueWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Returned invalid JSON object:%v\n", string(domainBody))
 	}
-	if domain.State != "queued" {
-		t.Fatalf("Token validation should have automatically queued domain")
+	_, err = api.Database.Policies.GetPolicy(domain.Name)
+	if err != nil {
+		t.Errorf("Token validation should have automatically queued domain")
+	}
+	_, err = api.Database.PendingPolicies.GetPolicy(domain.Name)
+	if err == nil {
+		t.Errorf("Token validation should have removed domain from pending")
 	}
 }
 

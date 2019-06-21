@@ -48,8 +48,8 @@ func InitSQLDatabase(cfg Config) (*SQLDatabase, error) {
 		return nil, err
 	}
 	return &SQLDatabase{cfg: cfg, conn: conn,
-		PendingPolicies: &PolicyDB{tableName: "pending_policies", conn: conn, locked: false},
-		Policies:        &PolicyDB{tableName: "policies", conn: conn, locked: false},
+		PendingPolicies: &PolicyDB{tableName: "pending_policies", conn: conn, strict: false},
+		Policies:        &PolicyDB{tableName: "policies", conn: conn, strict: false},
 	}, nil
 }
 

@@ -9,10 +9,11 @@ import (
 	"github.com/EFForg/starttls-backend/policy"
 )
 
+// PolicyDB is a database of PolicySubmissions.
 type PolicyDB struct {
 	tableName string
 	conn      *sql.DB
-	locked    bool
+	strict    bool
 }
 
 func (p *PolicyDB) formQuery(query string) string {
@@ -33,6 +34,8 @@ func (p *PolicyDB) scanPolicy(result scanner) (models.PolicySubmission, error) {
 	return data, err
 }
 
+// GetPolicies returns a list of policy submissions that match
+// the mtasts status given.
 func (p *PolicyDB) GetPolicies(mtasts bool) ([]models.PolicySubmission, error) {
 	rows, err := p.conn.Query(p.formQuery(
 		"SELECT %[2]s FROM %[1]s WHERE mta_sts=$1"), mtasts)
@@ -51,23 +54,28 @@ func (p *PolicyDB) GetPolicies(mtasts bool) ([]models.PolicySubmission, error) {
 	return policies, nil
 }
 
+// GetPolicy returns the policy submission for the given domain.
 func (p *PolicyDB) GetPolicy(domainName string) (models.PolicySubmission, error) {
 	row := p.conn.QueryRow(p.formQuery(
 		"SELECT %[2]s FROM %[1]s WHERE domain=$1"), domainName)
 	return p.scanPolicy(row)
 }
 
+// RemovePolicy removes the policy submission with the given domain from
+// the database.
 func (p *PolicyDB) RemovePolicy(domainName string) (models.PolicySubmission, error) {
 	row := p.conn.QueryRow(p.formQuery(
 		"DELETE FROM %[1]s WHERE domain=$1 RETURNING %[2]s"), domainName)
 	return p.scanPolicy(row)
 }
 
+// PutOrUpdatePolicy upserts the given policy into the data store, if
+// CanUpdate passes.
 func (p *PolicyDB) PutOrUpdatePolicy(ps *models.PolicySubmission) error {
-	if p.locked && !ps.CanUpdate(p) {
+	if p.strict && !ps.CanUpdate(p) {
 		return fmt.Errorf("can't update policy in restricted table")
 	}
-	if p.locked && ps.Policy == nil {
+	if p.strict && ps.Policy == nil {
 		return fmt.Errorf("can't degrade policy in restricted table")
 	}
 	if ps.Policy == nil {

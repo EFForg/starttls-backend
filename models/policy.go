@@ -28,18 +28,12 @@ type policyList interface {
 	HasDomain(string) bool
 }
 
-// TODO: test
-func (p *PolicySubmission) SamePolicy(other PolicySubmission) bool {
+func (p *PolicySubmission) samePolicy(other PolicySubmission) bool {
 	shallowEqual := p.Name == other.Name && p.MTASTS == other.MTASTS
 	if p.Policy == nil {
 		return shallowEqual && other.Policy == nil
 	}
 	return shallowEqual && p.Policy.Equals(other.Policy)
-}
-
-// TODO: test
-func (p *PolicySubmission) Valid() bool {
-	return p.MTASTS || (p.Policy != nil && len(p.Policy.MXs) > 0)
 }
 
 // CanUpdate returns whether we can update the policyStore with this particular
@@ -53,7 +47,7 @@ func (p *PolicySubmission) CanUpdate(policies policyStore) bool {
 		return true
 	}
 	// If the policies are the same, return true if emails are different.
-	if p.SamePolicy(oldPolicy) {
+	if p.samePolicy(oldPolicy) {
 		return oldPolicy.Email != p.Email
 	}
 	// If old policy is manual and in testing, we can update it safely.
@@ -67,8 +61,8 @@ func (p *PolicySubmission) CanUpdate(policies policyStore) bool {
 // sanity check. This function isn't meant to be bullet-proof since state can change
 // between initial submission and final addition to the list, but we can short-circuit
 // premature failures here on initial submission.
-func (d *PolicySubmission) HasValidScan(scans scanStore) (bool, string) {
-	scan, err := scans.GetLatestScan(d.Name)
+func (p *PolicySubmission) HasValidScan(scans scanStore) (bool, string) {
+	scan, err := scans.GetLatestScan(p.Name)
 	if err != nil {
 		return false, "We haven't scanned this domain yet. " +
 			"Please use the STARTTLS checker to scan your domain's " +
@@ -83,10 +77,10 @@ func (d *PolicySubmission) HasValidScan(scans scanStore) (bool, string) {
 		return false, "Domain hasn't passed our STARTTLS security checks"
 	}
 	// Domains without submitted MTA-STS support must match provided mx patterns.
-	if !d.MTASTS {
+	if !p.MTASTS {
 		for _, hostname := range scan.Data.PreferredHostnames {
-			if !checker.PolicyMatches(hostname, d.Policy.MXs) {
-				return false, fmt.Sprintf("Hostnames %v do not match policy %v", scan.Data.PreferredHostnames, d.Policy.MXs)
+			if !checker.PolicyMatches(hostname, p.Policy.MXs) {
+				return false, fmt.Sprintf("Hostnames %v do not match policy %v", scan.Data.PreferredHostnames, p.Policy.MXs)
 			}
 		}
 	} else if !scan.SupportsMTASTS() {
@@ -97,11 +91,11 @@ func (d *PolicySubmission) HasValidScan(scans scanStore) (bool, string) {
 
 // InitializeWithToken adds this domain to the given DomainStore and initializes a validation token
 // for the addition. The newly generated Token is returned.
-func (d *PolicySubmission) InitializeWithToken(pending policyStore, tokens tokenStore) (string, error) {
-	if err := pending.PutOrUpdatePolicy(d); err != nil {
+func (p *PolicySubmission) InitializeWithToken(pending policyStore, tokens tokenStore) (string, error) {
+	if err := pending.PutOrUpdatePolicy(p); err != nil {
 		return "", err
 	}
-	token, err := tokens.PutToken(d.Name)
+	token, err := tokens.PutToken(p.Name)
 	if err != nil {
 		return "", err
 	}
@@ -110,26 +104,26 @@ func (d *PolicySubmission) InitializeWithToken(pending policyStore, tokens token
 
 // PolicyListCheck checks the policy list status of this particular domain.
 // TODO: differentiate between errors and not-in-DB
-func (d *PolicySubmission) PolicyListCheck(pending policyStore, store policyStore, list policyList) *checker.Result {
+func (p *PolicySubmission) PolicyListCheck(pending policyStore, store policyStore, list policyList) *checker.Result {
 	result := checker.Result{Name: checker.PolicyList}
-	if list.HasDomain(d.Name) {
+	if list.HasDomain(p.Name) {
 		return result.Success()
 	}
-	_, err := store.GetPolicy(d.Name)
+	_, err := store.GetPolicy(p.Name)
 	if err == nil {
-		return result.Warning("Domain %s should soon be added to the policy list.", d.Name)
+		return result.Warning("Domain %s should soon be added to the policy list.", p.Name)
 	}
-	_, err = pending.GetPolicy(d.Name)
+	_, err = pending.GetPolicy(p.Name)
 	if err == nil {
-		return result.Failure("The policy submission for %s is waiting on email validation.", d.Name)
+		return result.Failure("The policy submission for %s is waiting on email validation.", p.Name)
 	}
-	return result.Failure("Domain %s is not on the policy list.", d.Name)
+	return result.Failure("Domain %s is not on the policy list.", p.Name)
 }
 
 // AsyncPolicyListCheck performs PolicyListCheck asynchronously.
 // domainStore and policyList should be safe for concurrent use.
-func (d PolicySubmission) AsyncPolicyListCheck(pending policyStore, store policyStore, list policyList) <-chan checker.Result {
+func (p PolicySubmission) AsyncPolicyListCheck(pending policyStore, store policyStore, list policyList) <-chan checker.Result {
 	result := make(chan checker.Result)
-	go func() { result <- *d.PolicyListCheck(pending, store, list) }()
+	go func() { result <- *p.PolicyListCheck(pending, store, list) }()
 	return result
 }

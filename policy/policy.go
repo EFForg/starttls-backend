@@ -30,6 +30,7 @@ type List struct {
 	Policies      map[string]TLSPolicy `json:"policies"`
 }
 
+// Equals tests equality between this policy and another.
 func (p *TLSPolicy) Equals(other *TLSPolicy) bool {
 	if other == nil {
 		return false
