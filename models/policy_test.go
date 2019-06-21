@@ -118,6 +118,7 @@ func TestCanUpdate(t *testing.T) {
 		expected  bool
 	}{
 		{"policy not found", newP(), newP(), false, nil, true},
+		{"DB throws error", newP(), newP(), false, errors.New("Oh no"), false},
 		{"no update if policies same 1", newP().withMode("testing"), newP().withMode("testing"), true, nil, false},
 		{"no update if policies same 2", newP().withMode("enforce"), newP().withMode("enforce"), true, nil, false},
 		{"no update if policies same 3",
@@ -175,8 +176,8 @@ func TestValidScan(t *testing.T) {
 		return scan
 	}
 	failedScan := Scan{
-		Data: checker.DomainResult{Status: checker.DomainFailure},
-	}
+		Data:      checker.DomainResult{Status: checker.DomainFailure},
+		Timestamp: time.Now()}
 	var testCases = []struct {
 		desc     string
 		mxs      []string
@@ -212,21 +213,25 @@ func TestValidScan(t *testing.T) {
 
 func TestPolicyCheck(t *testing.T) {
 	var testCases = []struct {
-		desc        string
-		onList      bool
-		inDB        bool
-		inPendingDB bool
-		expected    checker.Status
+		desc         string
+		onList       bool
+		inDB         bool
+		errDB        error
+		errPendingDB error
+		inPendingDB  bool
+		expected     checker.Status
 	}{
 		{desc: "Domain on the list should return success", onList: true, expected: checker.Success},
 		{desc: "Domain not on list but in policies DB should return warning", inDB: true, expected: checker.Warning},
+		{desc: "DB error should surface", errDB: errors.New(""), expected: checker.Error},
+		{desc: "Pending DB error should surface", errPendingDB: errors.New(""), expected: checker.Error},
 		{desc: "Domain in pending policies DB should return failure", inPendingDB: true, expected: checker.Failure},
 		{desc: "Domain not anywhere should return failure", expected: checker.Failure},
 	}
 	for _, tc := range testCases {
 		policy := &PolicySubmission{Policy: &policy.TLSPolicy{}}
 		result := policy.PolicyListCheck(
-			&mockPolicyStore{ok: tc.inPendingDB}, &mockPolicyStore{ok: tc.inDB}, mockList{tc.onList})
+			&mockPolicyStore{err: tc.errPendingDB, ok: tc.inPendingDB}, &mockPolicyStore{err: tc.errDB, ok: tc.inDB}, mockList{tc.onList})
 		if result.Status != tc.expected {
 			t.Errorf("%s: expected status %d, got result %v", tc.desc, tc.expected, result)
 		}

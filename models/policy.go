@@ -41,13 +41,13 @@ func (p *PolicySubmission) samePolicy(other PolicySubmission) bool {
 // existing policy. In other cases, you shouldn't.
 func (p *PolicySubmission) CanUpdate(policies policyStore) bool {
 	oldPolicy, ok, err := policies.GetPolicy(p.Name)
-	// If this policy doesn't exist in the policyStore, we can add it.
-	if !ok {
-		return true
-	}
 	// If something messed up, we can't add it.
 	if err != nil {
 		return false
+	}
+	// If this policy doesn't exist in the policyStore, we can add it.
+	if !ok {
+		return true
 	}
 	// If the policies are the same, return true if emails are different.
 	if p.samePolicy(oldPolicy) {
