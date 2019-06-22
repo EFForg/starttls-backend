@@ -98,14 +98,21 @@ func main() {
 		Emailer:  emailConfig,
 	}
 	a.ParseTemplates()
-	if os.Getenv("VALIDATE_LIST") == "1" {
-		log.Println("[Starting list validator]")
-		go validator.ValidateRegularly("Live policy list", list, 24*time.Hour)
-	}
+	// if os.Getenv("VALIDATE_LIST") == "1" {
+	// 	log.Println("[Starting list validator]")
+	// 	go validator.ValidateRegularly("Live policy list", list, 24*time.Hour)
+	// }
 	if os.Getenv("VALIDATE_QUEUED") == "1" {
-		log.Println("[Starting queued validator]")
-		go validator.ValidateRegularly("Testing domains", db, 24*time.Hour)
+		v := validator.Validator{
+			Name:     "testing and enforced domains",
+			Store:    db.Policies,
+			Interval: 24 * time.Hour,
+		}
+		go v.Run()
+		// log.Println("[Starting queued validator]")
+		// 	go validator.ValidateRegularly("MTA-STS domains", db.Policies, 24*time.Hour)
 	}
+	// go validator.ValidateRegularly("MTA-STS domains", db.Policies, 24*time.Hour)
 	go stats.UpdateRegularly(db, time.Hour)
 	ServePublicEndpoints(&a, &cfg)
 }

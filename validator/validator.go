@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
+	"github.com/EFForg/starttls-backend/models"
+	"github.com/EFForg/starttls-backend/policy"
 	"github.com/getsentry/raven-go"
 )
 
@@ -14,7 +16,7 @@ import (
 // expected hostnames).
 type DomainPolicyStore interface {
 	DomainsToValidate() ([]string, error)
-	HostnamesForDomain(string) ([]string, error)
+	GetPolicy(string) (models.PolicySubmission, bool, error)
 }
 
 // Called with failure by defaault.
@@ -28,7 +30,7 @@ func reportToSentry(name string, domain string, result checker.DomainResult) {
 		result)
 }
 
-type checkPerformer func(string, []string) checker.DomainResult
+type checkPerformer func(models.PolicySubmission) checker.DomainResult
 type resultCallback func(string, string, checker.DomainResult)
 
 // Validator runs checks regularly against domain policies. This structure
@@ -47,18 +49,37 @@ type Validator struct {
 	OnFailure resultCallback
 	// OnSuccess: optional. Called when a particular policy validation succeeds.
 	OnSuccess resultCallback
-	// checkPerformer: performs the check.
-	checkPerformer checkPerformer
+	// CheckPerformer: performs the check.
+	CheckPerformer checkPerformer
 }
 
-func (v *Validator) checkPolicy(domain string, hostnames []string) checker.DomainResult {
-	if v.checkPerformer == nil {
-		c := checker.Checker{
-			Cache: checker.MakeSimpleCache(time.Hour),
+func resultMTASTSToPolicy(r *checker.MTASTSResult) *policy.TLSPolicy {
+	return &policy.TLSPolicy{Mode: r.Mode, MXs: r.MXs}
+}
+
+func getMTASTSUpdater(update func(*models.PolicySubmission) error) checkPerformer {
+	c := checker.Checker{Cache: checker.MakeSimpleCache(time.Hour)}
+	return func(p models.PolicySubmission) checker.DomainResult {
+		if p.MTASTS {
+			result := c.CheckDomain(p.Name, []string{})
+			if !p.Policy.Equals(resultMTASTSToPolicy(result.MTASTSResult)) {
+				if err := update(&p); err != nil {
+					reportToSentry(fmt.Sprintf("couldn't update policy in DB: %v", err), p.Name, result)
+				}
+			}
 		}
-		v.checkPerformer = c.CheckDomain
+		return c.CheckDomain(p.Name, p.Policy.MXs)
 	}
-	return v.checkPerformer(domain, hostnames)
+}
+
+func (v *Validator) checkPolicy(p *models.PolicySubmission) checker.DomainResult {
+	if v.CheckPerformer == nil {
+		c := checker.Checker{Cache: checker.MakeSimpleCache(time.Hour)}
+		v.CheckPerformer = func(policy models.PolicySubmission) checker.DomainResult {
+			return c.CheckDomain(p.Name, p.Policy.MXs)
+		}
+	}
+	return v.CheckPerformer(*p)
 }
 
 func (v *Validator) interval() time.Duration {
@@ -93,12 +114,12 @@ func (v *Validator) Run() {
 			continue
 		}
 		for _, domain := range domains {
-			hostnames, err := v.Store.HostnamesForDomain(domain)
-			if err != nil {
+			policy, ok, err := v.Store.GetPolicy(domain)
+			if err != nil || !ok {
 				log.Printf("[%s validator] Could not retrieve policy for domain %s: %v", v.Name, domain, err)
 				continue
 			}
-			result := v.checkPolicy(domain, hostnames)
+			result := v.checkPolicy(&policy)
 			if result.Status != 0 {
 				log.Printf("[%s validator] %s failed; sending report", v.Name, domain)
 				v.policyFailed(v.Name, domain, result)
@@ -107,16 +128,4 @@ func (v *Validator) Run() {
 			}
 		}
 	}
-}
-
-// ValidateRegularly regularly runs checker.CheckDomain against a Domain-
-// Hostname map. Interval specifies the interval to wait between each run.
-// Failures are reported to Sentry.
-func ValidateRegularly(name string, store DomainPolicyStore, interval time.Duration) {
-	v := Validator{
-		Name:     name,
-		Store:    store,
-		Interval: interval,
-	}
-	v.Run()
 }

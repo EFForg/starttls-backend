@@ -97,9 +97,9 @@ func (p *PolicyDB) PutOrUpdatePolicy(ps *models.PolicySubmission) error {
 
 // DomainsToValidate [interface Validator] retrieves domains from the
 // DB whose policies should be validated-- all Pending policies.
-func (db SQLDatabase) DomainsToValidate() ([]string, error) {
+func (p *PolicyDB) DomainsToValidate() ([]string, error) {
 	domains := []string{}
-	data, err := db.PendingPolicies.GetPolicies(false)
+	data, err := p.GetPolicies(true)
 	if err != nil {
 		return domains, err
 	}
