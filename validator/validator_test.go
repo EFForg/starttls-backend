@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
+	"github.com/EFForg/starttls-backend/models"
+	"github.com/EFForg/starttls-backend/policy"
 )
 
 type mockDomainPolicyStore struct {
@@ -19,21 +21,21 @@ func (m mockDomainPolicyStore) DomainsToValidate() ([]string, error) {
 	return domains, nil
 }
 
-func (m mockDomainPolicyStore) HostnamesForDomain(domain string) ([]string, error) {
-	return m.hostnames[domain], nil
+func (m mockDomainPolicyStore) GetPolicy(domain string) (models.PolicySubmission, bool, error) {
+	return models.PolicySubmission{Name: domain, Policy: &policy.TLSPolicy{Mode: "testing", MXs: m.hostnames[domain]}}, true, nil
 }
 
 func noop(_ string, _ string, _ checker.DomainResult) {}
 
 func TestRegularValidationValidates(t *testing.T) {
 	called := make(chan bool)
-	fakeChecker := func(domain string, hostnames []string) checker.DomainResult {
+	fakeChecker := func(_ models.PolicySubmission) checker.DomainResult {
 		called <- true
 		return checker.DomainResult{}
 	}
 	mock := mockDomainPolicyStore{
 		hostnames: map[string][]string{"a": []string{"hostname"}}}
-	v := Validator{Store: mock, Interval: 100 * time.Millisecond, checkPerformer: fakeChecker, OnFailure: noop}
+	v := Validator{Store: mock, Interval: 100 * time.Millisecond, CheckPerformer: fakeChecker, OnFailure: noop}
 	go v.Run()
 
 	select {
@@ -46,8 +48,8 @@ func TestRegularValidationValidates(t *testing.T) {
 
 func TestRegularValidationReportsErrors(t *testing.T) {
 	reports := make(chan string)
-	fakeChecker := func(domain string, hostnames []string) checker.DomainResult {
-		if domain == "fail" || domain == "error" {
+	fakeChecker := func(p models.PolicySubmission) checker.DomainResult {
+		if p.Name == "fail" || p.Name == "error" {
 			return checker.DomainResult{Status: 5}
 		}
 		return checker.DomainResult{Status: 0}
@@ -64,7 +66,7 @@ func TestRegularValidationReportsErrors(t *testing.T) {
 			"fail":   []string{"hostname"},
 			"error":  []string{"hostname"},
 			"normal": []string{"hostname"}}}
-	v := Validator{Store: mock, Interval: 100 * time.Millisecond, checkPerformer: fakeChecker,
+	v := Validator{Store: mock, Interval: 100 * time.Millisecond, CheckPerformer: fakeChecker,
 		OnFailure: fakeReporter, OnSuccess: fakeSuccessReporter,
 	}
 	go v.Run()

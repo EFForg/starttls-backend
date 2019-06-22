@@ -235,29 +235,6 @@ func TestPutTokenTwice(t *testing.T) {
 	}
 }
 
-func TestDomainsToValidate(t *testing.T) {
-	database.ClearTables()
-	mtastsMap := map[string]bool{
-		"a": false, "b": true, "c": false, "d": true,
-	}
-	for domain, mtasts := range mtastsMap {
-		if mtasts {
-			database.Policies.PutOrUpdatePolicy(&models.PolicySubmission{Name: domain, MTASTS: true})
-		} else {
-			database.Policies.PutOrUpdatePolicy(&models.PolicySubmission{Name: domain})
-		}
-	}
-	result, err := database.DomainsToValidate()
-	if err != nil {
-		t.Fatalf("DomainsToValidate failed: %v\n", err)
-	}
-	for _, domain := range result {
-		if !mtastsMap[domain] {
-			t.Errorf("Did not expect %s to be returned", domain)
-		}
-	}
-}
-
 func TestHostnamesForDomain(t *testing.T) {
 	database.ClearTables()
 	database.PendingPolicies.PutOrUpdatePolicy(&models.PolicySubmission{Name: "x",
