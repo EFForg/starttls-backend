@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"net/http"
@@ -7,13 +7,13 @@ import (
 )
 
 // Stats returns statistics about MTA-STS adoption over a 14-day rolling window.
-func (api API) Stats(r *http.Request) APIResponse {
+func (api API) stats(r *http.Request) response {
 	if r.Method != http.MethodGet {
-		return APIResponse{StatusCode: http.StatusMethodNotAllowed}
+		return response{StatusCode: http.StatusMethodNotAllowed}
 	}
 	stats, err := stats.Get(api.Database)
 	if err != nil {
 		return serverError(err.Error())
 	}
-	return APIResponse{StatusCode: http.StatusOK, Response: stats}
+	return response{StatusCode: http.StatusOK, Response: stats}
 }

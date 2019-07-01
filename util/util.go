@@ -1,4 +1,4 @@
-package main
+package util
 
 import (
 	"fmt"
@@ -13,7 +13,8 @@ import (
 // * Neither suffix nor prefix; should not end or start with `.`
 const matchDNS = `^([a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62}){1}(\.[a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62})*$`
 
-func validDomainName(s string) bool {
+// ValidDomainName returns true if given name is a valid FQDN.
+func ValidDomainName(s string) bool {
 	if len(s) < 1 || !strings.Contains(s, ".") {
 		return false
 	}
@@ -25,7 +26,8 @@ func validDomainName(s string) bool {
 	return ok
 }
 
-func validPort(port string) (string, error) {
+// ValidPort normalizes a portstring like "80" to ":80".
+func ValidPort(port string) (string, error) {
 	if _, err := strconv.Atoi(port); err != nil {
 		return "", fmt.Errorf("Given portstring %s is invalid", port)
 	}
@@ -55,11 +57,11 @@ func (e Errors) Add(err error) Errors {
 	return e
 }
 
-// Retrieves environment variable varName. If not set as environment
+// RequireEnv retrieves environment variable varName. If not set as env
 // variable, panic and exit.
 //   varName is the OS environment variable name.
 //   errors is a composite errors object to add to if a variable is not set.
-func requireEnv(varName string, errors *Errors) string {
+func RequireEnv(varName string, errors *Errors) string {
 	envVar := os.Getenv(varName)
 	if len(envVar) == 0 {
 		*errors = errors.Add(fmt.Errorf("expected environment variable %s to be set", varName))
