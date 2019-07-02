@@ -164,8 +164,9 @@ func TestGetPoliciesEmpty(t *testing.T) {
 func TestPutGetDomain(t *testing.T) {
 	database.ClearTables()
 	data := models.PolicySubmission{
-		Name:  "testing.com",
-		Email: "admin@testing.com",
+		Name:   "testing.com",
+		Email:  "admin@testing.com",
+		Policy: &policy.TLSPolicy{MXs: []string{}, Mode: "testing"},
 	}
 	err := database.Policies.PutOrUpdatePolicy(&data)
 	if err != nil {
@@ -184,11 +185,9 @@ func TestUpsertDomain(t *testing.T) {
 	database.ClearTables()
 	var getPolicy = func(email string, mx string) *models.PolicySubmission {
 		return &models.PolicySubmission{
-			Name: "testing.com",
-			Policy: &policy.TLSPolicy{
-				MXs: []string{mx},
-			},
-			Email: email,
+			Name:   "testing.com",
+			Policy: &policy.TLSPolicy{MXs: []string{mx}, Mode: "testing"},
+			Email:  email,
 		}
 	}
 	database.Policies.PutOrUpdatePolicy(getPolicy("admin@testing.com", "hello1"))
