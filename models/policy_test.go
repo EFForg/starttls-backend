@@ -2,7 +2,6 @@ package models
 
 import (
 	"errors"
-	// "strings"
 	"time"
 
 	"github.com/EFForg/starttls-backend/checker"
@@ -125,7 +124,7 @@ func TestCanUpdate(t *testing.T) {
 			newP().withMode("enforce").withMTASTS().withMXs([]string{"a", "b", "c"}),
 			newP().withMode("enforce").withMTASTS().withMXs([]string{"a", "c", "b"}),
 			true, nil, false},
-		{"can upgrade to manual enforce", newP().withMode("testing"), newP().withMode("enforce"), true, nil, true},
+		{"can upgrade to manual enforce", newP().withMode("testing"), newP().withMode("enforce"), true, nil, false},
 		{"can't downgrade to enforce", newP().withMode("enforce"), newP().withMode("testing"), true, nil, false},
 		{"prevent upgrade to enforce with MTA-STS",
 			newP().withMTASTS().withMode("testing"),

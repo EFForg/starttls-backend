@@ -24,6 +24,7 @@ type policyStore interface {
 	RemovePolicy(string) (PolicySubmission, error)
 }
 
+// policyList wraps access to a read-only JSON file containing policies.
 type policyList interface {
 	HasDomain(string) bool
 }
@@ -37,8 +38,10 @@ func (p *PolicySubmission) samePolicy(other PolicySubmission) bool {
 }
 
 // CanUpdate returns whether we can update the policyStore with this particular
-// Policy Submission. In some cases, you should be able to update the
-// existing policy. In other cases, you shouldn't.
+// Policy Submission. Domains that have already been added to the policy store
+// can only:
+// 1. Have their their contact e-mail address updated
+// 2. Have their policy updated if they're manual and in testing.
 func (p *PolicySubmission) CanUpdate(policies policyStore) bool {
 	oldPolicy, ok, err := policies.GetPolicy(p.Name)
 	// If something messed up, we can't add it.
@@ -53,8 +56,8 @@ func (p *PolicySubmission) CanUpdate(policies policyStore) bool {
 	if p.samePolicy(oldPolicy) {
 		return oldPolicy.Email != p.Email
 	}
-	// If old policy is manual and in testing, we can update it safely.
-	if !oldPolicy.MTASTS && oldPolicy.Policy.Mode == "testing" {
+	// If old policy is manual and in testing, we can update it safely (but no upgrading to enforce)
+	if !oldPolicy.MTASTS && oldPolicy.Policy.Mode == "testing" && p.Policy.Mode == "testing" {
 		return true
 	}
 	return false
@@ -71,7 +74,7 @@ func (p *PolicySubmission) HasValidScan(scans scanStore) (bool, string) {
 			"Please use the STARTTLS checker to scan your domain's " +
 			"STARTTLS configuration so we can validate your submission"
 	}
-	if scan.Timestamp.Add(time.Minute * 10).Before(time.Now()) {
+	if scan.Timestamp.Add(time.Hour).Before(time.Now()) {
 		return false, "We haven't scanned this domain recently. " +
 			"Please use the STARTTLS checker to scan your domain's " +
 			"STARTTLS configuration so we can validate your submission"
@@ -134,4 +137,13 @@ func (p PolicySubmission) AsyncPolicyListCheck(pending policyStore, store policy
 	result := make(chan checker.Result)
 	go func() { result <- *p.PolicyListCheck(pending, store, list) }()
 	return result
+}
+
+func (p PolicySubmission) moveSubmission(from policyStore, to policyStore) error {
+	err := to.PutOrUpdatePolicy(&p)
+	if err != nil {
+		return err
+	}
+	_, err = from.RemovePolicy(p.Name)
+	return err
 }

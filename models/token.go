@@ -27,10 +27,6 @@ func (t *Token) Redeem(pending policyStore, store policyStore, tokens tokenStore
 	if !ok || err != nil {
 		return domain, nil, err
 	}
-	err = store.PutOrUpdatePolicy(&domainData)
-	if err != nil {
-		return domain, nil, err
-	}
-	_, err = pending.RemovePolicy(domain)
+	err = domainData.moveSubmission(pending, store)
 	return domain, nil, err
 }

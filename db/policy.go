@@ -55,7 +55,8 @@ func (p *PolicyDB) GetPolicies(mtasts bool) ([]models.PolicySubmission, error) {
 }
 
 // GetPolicy returns the policy submission for the given domain.
-func (p *PolicyDB) GetPolicy(domainName string) (models.PolicySubmission, bool, error) {
+// Returns the submission (if found), whether it was found, and any errors encountered.
+func (p *PolicyDB) GetPolicy(domainName string) (policy models.PolicySubmission, ok bool, err error) {
 	row := p.conn.QueryRow(p.formQuery(
 		"SELECT %[2]s FROM %[1]s WHERE domain=$1"), domainName)
 	result, err := p.scanPolicy(row)

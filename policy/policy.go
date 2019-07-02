@@ -15,9 +15,11 @@ const policyURL = "https://dl.eff.org/starttls-everywhere/policy.json"
 
 // TLSPolicy dictates the policy for a particular email domain.
 type TLSPolicy struct {
-	PolicyAlias string   `json:"policy-alias,omitempty"`
-	Mode        string   `json:"mode,omitempty"`
-	MXs         []string `json:"mxs,omitempty"`
+	PolicyAlias string `json:"policy-alias,omitempty"`
+	// Mode corresponds with MTA-STS modes: can be one of
+	// `enforce`, `testing`, or `none`.
+	Mode string   `json:"mode,omitempty"`
+	MXs  []string `json:"mxs,omitempty"`
 }
 
 // List is a raw representation of the policy list.
