@@ -1,10 +1,13 @@
-package main
+package api
 
 import (
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,8 +17,6 @@ import (
 	"github.com/EFForg/starttls-backend/policy"
 	"github.com/joho/godotenv"
 )
-
-// Setup, teardown, and shared mocks and helpers for integration tests.
 
 var api *API
 var server *httptest.Server
@@ -57,6 +58,24 @@ type mockEmailer struct{}
 
 func (e mockEmailer) SendValidation(domain *models.PolicySubmission, token string) error { return nil }
 
+func testHTMLPost(path string, data url.Values, t *testing.T) ([]byte, int) {
+	req, err := http.NewRequest("POST", server.URL+path, strings.NewReader(data.Encode()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("accept", "text/html")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := ioutil.ReadAll(resp.Body)
+	if !strings.Contains(strings.ToLower(string(body)), "</html") {
+		t.Errorf("Response should be HTML, got %s", string(body))
+	}
+	return body, resp.StatusCode
+}
+
 // Load env. vars, initialize DB hook, and tests API
 func TestMain(m *testing.M) {
 	godotenv.Overload(".env.test")
@@ -72,15 +91,15 @@ func TestMain(m *testing.M) {
 		"eff.org": true,
 	}
 	api = &API{
-		Database:    sqldb,
-		CheckDomain: mockCheckPerform("testequal"),
-		List:        mockList{domains: fakeList},
-		Emailer:     mockEmailer{},
-		DontScan:    map[string]bool{"dontscan.com": true},
+		Database:            sqldb,
+		checkDomainOverride: mockCheckPerform("testequal"),
+		List:                mockList{domains: fakeList},
+		Emailer:             mockEmailer{},
+		DontScan:            map[string]bool{"dontscan.com": true},
 	}
-	api.parseTemplates()
+	api.ParseTemplates()
 	mux := http.NewServeMux()
-	server = httptest.NewServer(registerHandlers(api, mux))
+	server = httptest.NewServer(api.RegisterHandlers(mux))
 	defer server.Close()
 	code := m.Run()
 	os.Exit(code)

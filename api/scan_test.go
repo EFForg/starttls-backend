@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"encoding/json"
@@ -36,7 +36,7 @@ func TestScanWriteHTML(t *testing.T) {
 		Timestamp: time.Now(),
 		Version:   1,
 	}
-	response := APIResponse{
+	response := response{
 		StatusCode:   http.StatusOK,
 		Response:     scan,
 		templateName: "scan",
@@ -77,7 +77,7 @@ func TestBasicScan(t *testing.T) {
 	// Checking response JSON returns successful scan
 	scanBody, _ := ioutil.ReadAll(resp.Body)
 	scan := models.Scan{}
-	err := json.Unmarshal(scanBody, &APIResponse{Response: &scan})
+	err := json.Unmarshal(scanBody, &response{Response: &scan})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n%v\n", string(scanBody), err)
 	}
@@ -97,7 +97,7 @@ func TestBasicScan(t *testing.T) {
 	// Checking response JSON returns scan associated with domain
 	scanBody, _ = ioutil.ReadAll(resp.Body)
 	scan2 := models.Scan{}
-	err = json.Unmarshal(scanBody, &APIResponse{Response: &scan2})
+	err = json.Unmarshal(scanBody, &response{Response: &scan2})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n", string(scanBody))
 	}
@@ -126,14 +126,14 @@ func TestScanCached(t *testing.T) {
 	data := url.Values{}
 	data.Set("domain", "eff.org")
 	http.PostForm(server.URL+"/api/scan", data)
-	original, _ := api.CheckDomain(*api, "eff.org")
+	original, _ := api.checkDomain("eff.org")
 	// Perform scan again, with different expected result.
-	api.CheckDomain = mockCheckPerform("somethingelse")
+	api.checkDomainOverride = mockCheckPerform("somethingelse")
 	resp, _ := http.PostForm(server.URL+"/api/scan", data)
 	scanBody, _ := ioutil.ReadAll(resp.Body)
 	scan := models.Scan{}
 	// Since scan occurred recently, we should have returned the cached OG response.
-	err := json.Unmarshal(scanBody, &APIResponse{Response: &scan})
+	err := json.Unmarshal(scanBody, &response{Response: &scan})
 	if err != nil {
 		t.Errorf("Returned invalid JSON object:%v\n%v\n", string(scanBody), err)
 	}

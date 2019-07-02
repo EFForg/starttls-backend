@@ -10,39 +10,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/EFForg/starttls-backend/api"
 	"github.com/EFForg/starttls-backend/db"
+	"github.com/EFForg/starttls-backend/email"
 	"github.com/EFForg/starttls-backend/policy"
 	"github.com/EFForg/starttls-backend/stats"
+	"github.com/EFForg/starttls-backend/util"
 	"github.com/EFForg/starttls-backend/validator"
 
 	"github.com/getsentry/raven-go"
 	_ "github.com/joho/godotenv/autoload"
 )
 
-func pingHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/json")
-}
-
-func registerHandlers(api *API, mux *http.ServeMux) http.Handler {
-	mux.HandleFunc("/sns", handleSESNotification(api.Database))
-
-	mux.HandleFunc("/api/scan", api.wrapper(api.Scan))
-	mux.Handle("/api/queue",
-		throttleHandler(time.Hour, 20, http.HandlerFunc(api.wrapper(api.Queue))))
-	mux.HandleFunc("/api/validate", api.wrapper(api.Validate))
-	mux.HandleFunc("/api/stats", api.wrapper(api.Stats))
-	mux.HandleFunc("/api/ping", pingHandler)
-
-	return middleware(mux)
-}
-
 // ServePublicEndpoints serves all public HTTP endpoints.
-func ServePublicEndpoints(api *API, cfg *db.Config) {
+func ServePublicEndpoints(a *api.API, cfg *db.Config) {
 	mux := http.NewServeMux()
-	mainHandler := registerHandlers(api, mux)
+	mainHandler := a.RegisterHandlers(mux)
 
-	portString, err := validPort(cfg.Port)
+	portString, err := util.ValidPort(cfg.Port)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -100,20 +85,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	emailConfig, err := makeEmailConfigFromEnv(db)
+	emailConfig, err := email.MakeConfigFromEnv(db)
 	if err != nil {
 		log.Printf("couldn't connect to mailserver: %v", err)
 		log.Println("======NOT SENDING EMAIL======")
 	}
 	list := policy.MakeUpdatedList()
-	api := API{
-		Database:    db,
-		CheckDomain: defaultCheck,
-		List:        list,
-		DontScan:    loadDontScan(),
-		Emailer:     emailConfig,
+	a := api.API{
+		Database: db,
+		List:     list,
+		DontScan: loadDontScan(),
+		Emailer:  emailConfig,
 	}
-	api.parseTemplates()
+	a.ParseTemplates()
 	if os.Getenv("VALIDATE_LIST") == "1" {
 		log.Println("[Starting list validator]")
 		go validator.ValidateRegularly("Live policy list", list, 24*time.Hour)
@@ -123,5 +107,5 @@ func main() {
 		go validator.ValidateRegularly("Testing domains", db, 24*time.Hour)
 	}
 	go stats.UpdateRegularly(db, time.Hour)
-	ServePublicEndpoints(&api, &cfg)
+	ServePublicEndpoints(&a, &cfg)
 }

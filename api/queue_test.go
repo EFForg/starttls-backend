@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"bytes"
@@ -139,7 +139,7 @@ func TestBasicQueueWorkflow(t *testing.T) {
 
 	// 4-T. Check to see domain status was updated to "queued" after valid token redemption
 	domainBody, _ = ioutil.ReadAll(resp.Body)
-	err = json.Unmarshal(domainBody, &APIResponse{Response: &domain})
+	err = json.Unmarshal(domainBody, &response{Response: &domain})
 	if err != nil {
 		t.Fatalf("Returned invalid JSON object:%v\n", string(domainBody))
 	}
