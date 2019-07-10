@@ -20,6 +20,8 @@ func (d DomainResult) reportError(err error) DomainResult {
 // DomainStatus indicates the overall status of a single domain.
 type DomainStatus int32
 
+// NOTE: if you change the below structures, remember to fix the documentation in `README.md`.
+
 // In order of precedence.
 const (
 	DomainSuccess            DomainStatus = 0
