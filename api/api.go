@@ -381,11 +381,11 @@ func (api *API) writeJSON(w http.ResponseWriter, apiResponse response) {
 }
 
 // ParseTemplates initializes our HTML template data
-func (api *API) ParseTemplates() {
+func (api *API) ParseTemplates(dir string) {
 	names := []string{"default", "scan"}
 	api.Templates = make(map[string]*template.Template)
 	for _, name := range names {
-		path := fmt.Sprintf("../views/%s.html.tmpl", name)
+		path := fmt.Sprintf("%s/%s.html.tmpl", dir, name)
 		tmpl, err := template.ParseFiles(path)
 		if err != nil {
 			raven.CaptureError(err, nil)

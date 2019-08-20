@@ -97,7 +97,7 @@ func TestMain(m *testing.M) {
 		Emailer:             mockEmailer{},
 		DontScan:            map[string]bool{"dontscan.com": true},
 	}
-	api.ParseTemplates()
+	api.ParseTemplates("../views")
 	mux := http.NewServeMux()
 	server = httptest.NewServer(api.RegisterHandlers(mux))
 	defer server.Close()
