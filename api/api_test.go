@@ -78,7 +78,7 @@ func testHTMLPost(path string, data url.Values, t *testing.T) ([]byte, int) {
 
 // Load env. vars, initialize DB hook, and tests API
 func TestMain(m *testing.M) {
-	godotenv.Overload(".env.test")
+	godotenv.Overload("../.env.test")
 	cfg, err := db.LoadEnvironmentVariables()
 	if err != nil {
 		log.Fatal(err)
