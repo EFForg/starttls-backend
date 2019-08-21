@@ -122,7 +122,7 @@ func (db *SQLDatabase) PutScan(scan models.Scan) error {
 func (db *SQLDatabase) GetStats(source string) (stats.Series, error) {
 	series := stats.Series{}
 	rows, err := db.conn.Query(
-		`SELECT time, with_mxs, mta_sts_testing, mta_sts_enforce
+		`SELECT time, source, with_mxs, mta_sts_testing, mta_sts_enforce
 		FROM aggregated_scans
 		WHERE source=$1
 		ORDER BY time`, source)
@@ -132,7 +132,7 @@ func (db *SQLDatabase) GetStats(source string) (stats.Series, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var a checker.AggregatedScan
-		if err := rows.Scan(&a.Time, &a.WithMXs, &a.MTASTSTesting, &a.MTASTSEnforce); err != nil {
+		if err := rows.Scan(&a.Time, &a.Source, &a.WithMXs, &a.MTASTSTesting, &a.MTASTSEnforce); err != nil {
 			return series, err
 		}
 		series = append(series, a)
