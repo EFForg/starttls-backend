@@ -1,3 +1,5 @@
+**Note:** The STARTTLS Everywhere project is not currently being maintained. The information and resources on this repository may be outdated. See [this post](https://www.eff.org/deeplinks/2020/04/winding-down-starttls-everywhere-project-and-future-secure-email) for more information. If you impacted by this news, or rely on the STARTTLS Policy List, you can [read this post](https://www.eff.org/deeplinks/2020/04/technical-deep-dive-winding-down-starttls-policy-list) for a deeper dive.
+
 # STARTTLS Everywhere Backend API
 
 [![Build Status](https://travis-ci.com/EFForg/starttls-backend.svg?branch=master)](https://travis-ci.org/EFForg/starttls-backend)

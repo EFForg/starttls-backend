@@ -108,9 +108,12 @@ func pingHandler(w http.ResponseWriter, r *http.Request) {
 func (api *API) RegisterHandlers(mux *http.ServeMux) http.Handler {
 	mux.HandleFunc("/sns", HandleSESNotification(api.Database))
 	mux.HandleFunc("/api/scan", api.wrapper(api.scan))
-	mux.Handle("/api/queue",
-		throttleHandler(time.Hour, 20, http.HandlerFunc(api.wrapper(api.queue))))
-	mux.HandleFunc("/api/validate", api.wrapper(api.validate))
+	// =====================================================================
+	// No longer exposing these endpoints due to STARTTLS Everywhere sunset.
+	// =====================================================================
+	// mux.Handle("/api/queue",
+	// 	throttleHandler(time.Hour, 20, http.HandlerFunc(api.wrapper(api.queue))))
+	// mux.HandleFunc("/api/validate", api.wrapper(api.validate))
 	mux.HandleFunc("/api/stats", api.wrapper(api.stats))
 	mux.HandleFunc("/api/ping", pingHandler)
 	return middleware(mux)
